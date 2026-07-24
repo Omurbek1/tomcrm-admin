@@ -35,6 +35,7 @@ import {
   STATUS_COLOR,
   STATUS_LABEL,
 } from "../types";
+import { can } from "../api/client";
 import { CreateTenantModal } from "./CreateTenantModal";
 import { TenantDrawer } from "./TenantDrawer";
 
@@ -393,7 +394,11 @@ export const TenantsPage = () => {
         {selected.length > 0 && (
           <Space style={{ marginBottom: 12 }}>
             <Tag color="blue">Выбрано: {selected.length}</Tag>
-            <Button size="small" onClick={() => setBulkTariffOpen(true)}>
+            <Button
+              size="small"
+              disabled={!can("tenants.tariff")}
+              onClick={() => setBulkTariffOpen(true)}
+            >
               Сменить тариф
             </Button>
             <Button size="small" onClick={() => setBulkNotifyOpen(true)}>

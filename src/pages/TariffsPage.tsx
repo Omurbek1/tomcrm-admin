@@ -15,6 +15,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 
+import { can } from "../api/client";
 import { useConfig, useEditTariff, useSetConfig, useTariffs } from "../hooks";
 import type { Tariff } from "../types";
 import { LIMIT_META, PAYMENT_PERIODS } from "../types";
@@ -130,7 +131,11 @@ export const TariffsPage = () => {
       title: "",
       width: 100,
       render: (_v: unknown, r: Tariff) => (
-        <Button size="small" onClick={() => openEdit(r)}>
+        <Button
+          size="small"
+          disabled={!can("tariffs.edit")}
+          onClick={() => openEdit(r)}
+        >
           Изменить
         </Button>
       ),
@@ -150,6 +155,7 @@ export const TariffsPage = () => {
             style={{ width: 90 }}
           />
           <Button
+            disabled={!can("tariffs.edit")}
             onClick={() =>
               setConfig.mutate(grace, {
                 onSuccess: () => message.success("Сохранено"),

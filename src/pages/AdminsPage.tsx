@@ -1,7 +1,9 @@
 import {
+  Alert,
   App,
   Button,
   Card,
+  Checkbox,
   Form,
   Input,
   Modal,
@@ -10,50 +12,70 @@ import {
   Switch,
   Table,
   Tag,
+  Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 
 import {
+  use2faDisable,
+  use2faEnable,
+  use2faSetup,
   useAdmins,
   useChangeAdminPassword,
   useCreateAdmin,
   useDeleteAdmin,
+  useMe,
+  usePermissionCatalog,
   useSetAdminActive,
+  useSetAdminPermissions,
 } from "../hooks";
 import type { AdminRow } from "../types";
+
+const { Text, Paragraph } = Typography;
+
+const permsSummary = (perms: string[]): string =>
+  perms.includes("*") ? "Полный доступ" : perms.length ? `${perms.length} прав` : "—";
 
 export const AdminsPage = () => {
   const { message } = App.useApp();
   const { data: admins, isLoading } = useAdmins();
+  const { data: catalog } = usePermissionCatalog();
+  const { data: me } = useMe();
   const createAdmin = useCreateAdmin();
   const setActive = useSetAdminActive();
   const changePassword = useChangeAdminPassword();
   const deleteAdmin = useDeleteAdmin();
+  const setPerms = useSetAdminPermissions();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [pwFor, setPwFor] = useState<AdminRow | null>(null);
+  const [permsFor, setPermsFor] = useState<AdminRow | null>(null);
   const [createForm] = Form.useForm();
   const [pwForm] = Form.useForm();
+  const [permDraft, setPermDraft] = useState<string[]>([]);
+
+  const errMsg = (e: unknown, fallback: string) =>
+    (e as { response?: { data?: { message?: string } } })?.response?.data
+      ?.message ?? fallback;
 
   const submitCreate = (v: {
     login: string;
     name?: string;
     password: string;
+    permissions?: string[];
   }) => {
-    createAdmin.mutate(v, {
-      onSuccess: () => {
-        message.success("Админ создан");
-        setCreateOpen(false);
-        createForm.resetFields();
+    createAdmin.mutate(
+      { ...v, permissions: v.permissions ?? [] },
+      {
+        onSuccess: () => {
+          message.success("Админ создан");
+          setCreateOpen(false);
+          createForm.resetFields();
+        },
+        onError: (e) => message.error(errMsg(e, "Не удалось создать")),
       },
-      onError: (e: unknown) => {
-        const msg =
-          (e as { response?: { data?: { message?: string } } })?.response?.data
-            ?.message ?? "Не удалось создать";
-        message.error(msg);
-      },
-    });
+    );
   };
 
   const submitPassword = (v: { password: string }) => {
@@ -66,35 +88,23 @@ export const AdminsPage = () => {
           setPwFor(null);
           pwForm.resetFields();
         },
-        onError: () => message.error("Не удалось сменить пароль"),
+        onError: (e) => message.error(errMsg(e, "Не удалось")),
       },
     );
   };
 
-  const toggleActive = (r: AdminRow, isActive: boolean) => {
-    setActive.mutate(
-      { id: r.id, isActive },
+  const savePerms = () => {
+    if (!permsFor) return;
+    setPerms.mutate(
+      { id: permsFor.id, permissions: permDraft },
       {
-        onError: (e: unknown) => {
-          const msg =
-            (e as { response?: { data?: { message?: string } } })?.response
-              ?.data?.message ?? "Не удалось изменить";
-          message.error(msg);
+        onSuccess: () => {
+          message.success("Права обновлены");
+          setPermsFor(null);
         },
+        onError: (e) => message.error(errMsg(e, "Не удалось")),
       },
     );
-  };
-
-  const remove = (r: AdminRow) => {
-    deleteAdmin.mutate(r.id, {
-      onSuccess: () => message.success("Админ удалён"),
-      onError: (e: unknown) => {
-        const msg =
-          (e as { response?: { data?: { message?: string } } })?.response?.data
-            ?.message ?? "Не удалось удалить";
-        message.error(msg);
-      },
-    });
   };
 
   const columns: ColumnsType<AdminRow> = [
@@ -114,29 +124,53 @@ export const AdminsPage = () => {
     },
     { title: "Имя", dataIndex: "name", render: (v) => v ?? "—" },
     {
+      title: "Права",
+      dataIndex: "permissions",
+      render: (p: string[]) =>
+        p.includes("*") ? (
+          <Tag color="gold">полный доступ</Tag>
+        ) : (
+          <Text type="secondary">{permsSummary(p)}</Text>
+        ),
+    },
+    {
+      title: "2FA",
+      dataIndex: "totpEnabled",
+      width: 70,
+      render: (v: boolean) =>
+        v ? <Tag color="green">вкл</Tag> : <Tag>выкл</Tag>,
+    },
+    {
       title: "Активен",
       dataIndex: "isActive",
-      width: 100,
+      width: 90,
       render: (v: boolean, r) => (
         <Switch
           checked={v}
-          onChange={(checked) => toggleActive(r, checked)}
+          onChange={(checked) =>
+            setActive.mutate(
+              { id: r.id, isActive: checked },
+              { onError: (e) => message.error(errMsg(e, "Не удалось")) },
+            )
+          }
           loading={setActive.isPending}
         />
       ),
     },
     {
-      title: "Последний вход",
-      dataIndex: "lastLoginAt",
-      width: 170,
-      render: (v: string | null) =>
-        v ? new Date(v).toLocaleString("ru-RU") : "—",
-    },
-    {
       title: "",
-      width: 220,
+      width: 260,
       render: (_v, r) => (
         <Space>
+          <Button
+            size="small"
+            onClick={() => {
+              setPermsFor(r);
+              setPermDraft(r.permissions);
+            }}
+          >
+            Права
+          </Button>
           <Button size="small" onClick={() => setPwFor(r)}>
             Пароль
           </Button>
@@ -144,7 +178,12 @@ export const AdminsPage = () => {
             title="Удалить админа?"
             okText="Удалить"
             cancelText="Отмена"
-            onConfirm={() => remove(r)}
+            onConfirm={() =>
+              deleteAdmin.mutate(r.id, {
+                onSuccess: () => message.success("Удалён"),
+                onError: (e) => message.error(errMsg(e, "Не удалось")),
+              })
+            }
           >
             <Button size="small" danger>
               Удалить
@@ -156,7 +195,9 @@ export const AdminsPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
+    <div style={{ padding: 24, maxWidth: 1050, margin: "0 auto" }}>
+      {me && <My2fa me={me} />}
+
       <Card
         title="Администраторы платформы"
         extra={
@@ -174,6 +215,7 @@ export const AdminsPage = () => {
         />
       </Card>
 
+      {/* Создание */}
       <Modal
         open={createOpen}
         title="Новый администратор"
@@ -201,9 +243,58 @@ export const AdminsPage = () => {
           >
             <Input.Password autoComplete="new-password" />
           </Form.Item>
+          <Form.Item name="permissions" label="Права (без галочек — только просмотр)">
+            <Checkbox.Group
+              options={(catalog ?? []).map((p) => ({
+                label: p.label,
+                value: p.key,
+              }))}
+              style={{ display: "flex", flexDirection: "column", gap: 6 }}
+            />
+          </Form.Item>
         </Form>
       </Modal>
 
+      {/* Права */}
+      <Modal
+        open={!!permsFor}
+        title={`Права: ${permsFor?.login ?? ""}`}
+        onCancel={() => setPermsFor(null)}
+        onOk={savePerms}
+        okText="Сохранить"
+        cancelText="Отмена"
+        confirmLoading={setPerms.isPending}
+      >
+        {permsFor?.permissions.includes("*") && (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message="Сейчас полный доступ (владелец). Снимите, чтобы задать точечные права."
+          />
+        )}
+        <Checkbox
+          checked={permDraft.includes("*")}
+          onChange={(e) => setPermDraft(e.target.checked ? ["*"] : [])}
+        >
+          Полный доступ (владелец)
+        </Checkbox>
+        {!permDraft.includes("*") && (
+          <div style={{ marginTop: 12 }}>
+            <Checkbox.Group
+              value={permDraft}
+              onChange={(v) => setPermDraft(v as string[])}
+              options={(catalog ?? []).map((p) => ({
+                label: p.label,
+                value: p.key,
+              }))}
+              style={{ display: "flex", flexDirection: "column", gap: 6 }}
+            />
+          </div>
+        )}
+      </Modal>
+
+      {/* Пароль */}
       <Modal
         open={!!pwFor}
         title={`Новый пароль для ${pwFor?.login ?? ""}`}
@@ -224,5 +315,106 @@ export const AdminsPage = () => {
         </Form>
       </Modal>
     </div>
+  );
+};
+
+/** Панель управления собственной 2FA. */
+const My2fa = ({ me }: { me: AdminRow }) => {
+  const { message } = App.useApp();
+  const setup = use2faSetup();
+  const enable = use2faEnable();
+  const disable = use2faDisable();
+  const [secret, setSecret] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+
+  if (me.totpEnabled) {
+    return (
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap align="center">
+          <Tag color="green">2FA включена</Tag>
+          <Text type="secondary">Ваш аккаунт защищён кодом.</Text>
+          <Input
+            placeholder="код для отключения"
+            style={{ width: 160 }}
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <Button
+            danger
+            onClick={() =>
+              disable.mutate(code, {
+                onSuccess: () => {
+                  message.success("2FA отключена");
+                  setCode("");
+                },
+                onError: () => message.error("Неверный код"),
+              })
+            }
+            loading={disable.isPending}
+          >
+            Отключить 2FA
+          </Button>
+        </Space>
+      </Card>
+    );
+  }
+
+  return (
+    <Card size="small" style={{ marginBottom: 16 }}>
+      {!secret ? (
+        <Space wrap align="center">
+          <Tag>2FA выключена</Tag>
+          <Button
+            onClick={() =>
+              setup.mutate(undefined, {
+                onSuccess: (r) => setSecret(r.secret),
+                onError: () => message.error("Не удалось"),
+              })
+            }
+            loading={setup.isPending}
+          >
+            Включить 2FA
+          </Button>
+        </Space>
+      ) : (
+        <div>
+          <Paragraph style={{ marginBottom: 8 }}>
+            Добавьте ключ в приложение (Google Authenticator, 1Password) вручную:
+          </Paragraph>
+          <Paragraph>
+            <Text strong>Ключ:</Text>{" "}
+            <Text code copyable>
+              {secret}
+            </Text>
+          </Paragraph>
+          <Space>
+            <Input
+              placeholder="код из приложения"
+              style={{ width: 180 }}
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+            <Button
+              type="primary"
+              onClick={() =>
+                enable.mutate(code, {
+                  onSuccess: () => {
+                    message.success("2FA включена");
+                    setSecret(null);
+                    setCode("");
+                  },
+                  onError: () => message.error("Неверный код"),
+                })
+              }
+              loading={enable.isPending}
+            >
+              Подтвердить
+            </Button>
+          </Space>
+        </div>
+      )}
+    </Card>
   );
 };

@@ -185,6 +185,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "admin.active": "Вкл/выкл админа",
   "admin.password": "Смена пароля админа",
   "admin.delete": "Удаление админа",
+  "admin.permissions": "Изменение прав админа",
+  "admin.2fa_enable": "Включение 2FA",
+  "admin.2fa_disable": "Отключение 2FA",
 };
 
 /** Типы уведомлений для ручной отправки. */
@@ -212,6 +215,13 @@ export interface AdminRow {
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  permissions: string[];
+  totpEnabled: boolean;
+}
+
+export interface PermissionDef {
+  key: string;
+  label: string;
 }
 
 export const STATUS_LABEL: Record<TenantStatus, string> = {

@@ -1,7 +1,7 @@
 import { Button, Layout, Menu, Typography } from "antd";
 import { useEffect, useState } from "react";
 
-import { clearToken, getToken, UNAUTH_EVENT } from "./api/client";
+import { api, clearToken, getToken, setPermissions, UNAUTH_EVENT } from "./api/client";
 import { AdminsPage } from "./pages/AdminsPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AuditPage } from "./pages/AuditPage";
@@ -31,6 +31,15 @@ export const App = () => {
     window.addEventListener(UNAUTH_EVENT, onUnauth);
     return () => window.removeEventListener(UNAUTH_EVENT, onUnauth);
   }, []);
+
+  // При входе освежаем права (могли измениться с прошлой сессии).
+  useEffect(() => {
+    if (!authed) return;
+    void api
+      .get<{ permissions: string[] }>("/api/platform/me")
+      .then((r) => setPermissions(r.data.permissions ?? []))
+      .catch(() => undefined);
+  }, [authed]);
 
   if (!authed) return <LoginPage onLoggedIn={() => setAuthed(true)} />;
 

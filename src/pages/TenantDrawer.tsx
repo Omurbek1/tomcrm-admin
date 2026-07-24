@@ -19,7 +19,7 @@ import {
 } from "antd";
 import { useState } from "react";
 
-import { CRM_URL } from "../api/client";
+import { can, CRM_URL } from "../api/client";
 import {
   useAudit,
   useCancelPayment,
@@ -291,7 +291,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <Button
               onClick={doImpersonate}
               loading={impersonate.isPending}
-              disabled={t.status === "deleted"}
+              disabled={t.status === "deleted" || !can("impersonate")}
             >
               Войти под владельцем ↗
             </Button>
@@ -372,6 +372,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <Button
               type="primary"
               size="small"
+              disabled={!can("billing.edit")}
               onClick={() => {
                 payForm.setFieldsValue({
                   periodMonths: 1,
@@ -543,6 +544,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 placeholder="Выбрать тариф"
                 style={{ width: "100%", marginTop: 4 }}
                 onChange={changeTariff}
+                disabled={!can("tenants.tariff")}
                 loading={setTariff.isPending}
                 options={(tariffs ?? [])
                   .filter((tf) => !tf.archived || tf.id === t.tariffId)

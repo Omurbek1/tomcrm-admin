@@ -402,8 +402,62 @@ export const useCreateAdmin = () => {
       login: string;
       name?: string;
       password: string;
+      permissions: string[];
     }) => (await api.post("/api/platform/admins", v)).data as AdminRow,
     onSuccess: () => void invalidate(),
+  });
+};
+
+export const useSetAdminPermissions = () => {
+  const invalidate = useInvalidateAdmins();
+  return useMutation({
+    mutationFn: async (v: { id: string; permissions: string[] }) =>
+      (
+        await api.patch(`/api/platform/admins/${v.id}/permissions`, {
+          permissions: v.permissions,
+        })
+      ).data as AdminRow,
+    onSuccess: () => void invalidate(),
+  });
+};
+
+export const usePermissionCatalog = () =>
+  useQuery<Array<{ key: string; label: string }>>({
+    queryKey: ["permissions-catalog"],
+    queryFn: async () => (await api.get("/api/platform/permissions")).data,
+    staleTime: Infinity,
+  });
+
+export const useMe = () =>
+  useQuery<AdminRow>({
+    queryKey: ["me"],
+    queryFn: async () => (await api.get("/api/platform/me")).data,
+  });
+
+export const use2faSetup = () =>
+  useMutation({
+    mutationFn: async () =>
+      (await api.post("/api/platform/2fa/setup")).data as {
+        secret: string;
+        otpauthUrl: string;
+      },
+  });
+
+export const use2faEnable = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) =>
+      (await api.post("/api/platform/2fa/enable", { code })).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["me"] }),
+  });
+};
+
+export const use2faDisable = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) =>
+      (await api.post("/api/platform/2fa/disable", { code })).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["me"] }),
   });
 };
 
