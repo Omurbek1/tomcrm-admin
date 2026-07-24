@@ -20,6 +20,8 @@ export interface TenantRow {
   nextChargeAt: string | null;
   paymentStatus: PaymentStatus;
   priceOverride: string | null;
+  isTest: boolean;
+  deletedAt: string | null;
 }
 
 export interface PaymentRow {
@@ -52,7 +54,7 @@ export interface PlatformOverview {
   mrrCurrency: string;
   newThisMonth: number;
   everPaid: number;
-  conversionRate: number;
+  conversionRate: number | null;
   churned: number;
 }
 
@@ -174,9 +176,15 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.auto_freeze": "Автозаморозка (просрочка)",
   "config.grace": "Настройка grace-периода",
   "tenant.impersonate": "Вход под владельцем",
+  "tenant.test_flag": "Пометка «тест»",
+  "tenant.trial_expired": "Триал истёк → заморозка",
   "tariff.edit": "Редактирование тарифа",
   "template.edit": "Правка шаблона",
   "notification.send": "Отправка напоминания",
+  "admin.create": "Создание админа",
+  "admin.active": "Вкл/выкл админа",
+  "admin.password": "Смена пароля админа",
+  "admin.delete": "Удаление админа",
 };
 
 /** Типы уведомлений для ручной отправки. */

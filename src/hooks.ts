@@ -101,6 +101,21 @@ export const useSetTariff = () => {
   });
 };
 
+export const useSetTest = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; isTest: boolean }) =>
+      (await api.patch(`/api/platform/tenants/${v.id}/test`, { isTest: v.isTest }))
+        .data as TenantRow,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+};
+
 export const useSetContacts = () => {
   const invalidate = useInvalidateTenant();
   return useMutation({
@@ -143,6 +158,7 @@ export const useCreateTenant = () => {
       ownerPhone: string;
       ownerEmail: string;
       trialDays?: number;
+      isTest?: boolean;
     }) =>
       (await api.post("/api/platform/tenants", input)).data as CreateTenantResult,
     onSuccess: () => {

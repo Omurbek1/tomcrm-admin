@@ -64,8 +64,12 @@ export const AnalyticsPage = () => {
           <Card>
             <Statistic
               title="Конверсия триал→оплата"
-              value={overview?.conversionRate ?? 0}
-              suffix="%"
+              value={
+                overview?.conversionRate == null
+                  ? "—"
+                  : overview.conversionRate
+              }
+              suffix={overview?.conversionRate == null ? "" : "%"}
             />
           </Card>
         </Col>

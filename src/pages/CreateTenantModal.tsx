@@ -1,4 +1,13 @@
-import { App, Form, Input, InputNumber, Modal, Select, Typography } from "antd";
+import {
+  App,
+  Checkbox,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Typography,
+} from "antd";
 import { useRef, useState } from "react";
 
 import { checkSlug, useCreateTenant, useTariffs } from "../hooks";
@@ -44,6 +53,7 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
     ownerPhone: string;
     ownerEmail: string;
     trialDays?: number;
+    isTest?: boolean;
   }) => {
     if (v.slug && slugState === "taken") {
       message.error("Slug занят — выберите другой");
@@ -177,6 +187,9 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
           </div>
           <Form.Item name="trialDays" label="Длина триала (дней)">
             <InputNumber min={0} max={3650} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="isTest" valuePropName="checked">
+            <Checkbox>Тестовая компания (не в MRR/конверсии/аналитике)</Checkbox>
           </Form.Item>
         </Form>
       )}

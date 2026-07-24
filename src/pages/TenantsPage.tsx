@@ -157,7 +157,14 @@ export const TenantsPage = () => {
       dataIndex: "name",
       render: (_v, r) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{r.name}</div>
+          <div style={{ fontWeight: 600 }}>
+            {r.name}
+            {r.isTest && (
+              <Tag color="purple" style={{ marginLeft: 6 }}>
+                тест
+              </Tag>
+            )}
+          </div>
           <div style={{ fontSize: 12, color: "#94a3b8" }}>/{r.slug}</div>
         </div>
       ),
@@ -257,9 +264,18 @@ export const TenantsPage = () => {
           <Card>
             <Statistic
               title="Конверсия триал→оплата"
-              value={overview?.conversionRate ?? 0}
-              suffix="%"
+              value={
+                overview?.conversionRate == null
+                  ? "—"
+                  : overview.conversionRate
+              }
+              suffix={overview?.conversionRate == null ? "" : "%"}
             />
+            {overview?.conversionRate == null && (
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                мало компаний (шум)
+              </div>
+            )}
           </Card>
         </Col>
         <Col span={6}>

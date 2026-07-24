@@ -2,6 +2,7 @@ import {
   App,
   Alert,
   Button,
+  Checkbox,
   Descriptions,
   Divider,
   Drawer,
@@ -32,6 +33,7 @@ import {
   useSetPriceOverride,
   useSetStatus,
   useSetTariff,
+  useSetTest,
   useTariffs,
   useTenant,
 } from "../hooks";
@@ -72,6 +74,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const recordPayment = useRecordPayment();
   const cancelPayment = useCancelPayment();
   const setPrice = useSetPriceOverride();
+  const setTest = useSetTest();
   const impersonate = useImpersonate();
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
@@ -264,7 +267,26 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 Триал: {t.trialDaysLeft} дн.
               </Text>
             )}
+            {t.isTest && <Tag color="purple">тест</Tag>}
+            {t.deletedAt && (
+              <Text type="secondary">
+                удалена {new Date(t.deletedAt).toLocaleDateString("ru-RU")}
+              </Text>
+            )}
           </Space>
+          <div style={{ marginBottom: 8 }}>
+            <Checkbox
+              checked={t.isTest}
+              onChange={(e) =>
+                setTest.mutate(
+                  { id: t.id, isTest: e.target.checked },
+                  { onError: () => message.error("Не удалось") },
+                )
+              }
+            >
+              Тестовая компания (не в MRR/конверсии/аналитике)
+            </Checkbox>
+          </div>
           <div style={{ marginBottom: 8 }}>
             <Button
               onClick={doImpersonate}
