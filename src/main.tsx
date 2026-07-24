@@ -6,6 +6,8 @@ import { createRoot } from "react-dom/client";
 
 import "./index.css";
 import { App } from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { SelfHeal, VersionWatcher } from "./components/resilience";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -16,7 +18,11 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <ConfigProvider locale={ruRU}>
         <AntApp>
-          <App />
+          <ErrorBoundary>
+            <SelfHeal />
+            <VersionWatcher />
+            <App />
+          </ErrorBoundary>
         </AntApp>
       </ConfigProvider>
     </QueryClientProvider>

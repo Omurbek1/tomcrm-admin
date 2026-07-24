@@ -122,14 +122,14 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
               Для входа в панель у каждого администратора должна быть своя 2FA.
             </Text>
             <Steps
-              direction="vertical"
+              orientation="vertical"
               size="small"
               current={1}
               style={{ marginTop: 16 }}
               items={[
                 {
                   title: "Отсканируйте QR",
-                  description: (
+                  content: (
                     <div style={{ padding: "8px 0" }}>
                       <QRCode value={setup.otpauthUrl} size={168} />
                       <Paragraph
