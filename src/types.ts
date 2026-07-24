@@ -49,6 +49,41 @@ export interface PlatformOverview {
 /** Именованные фильтры дашборда (кликабельные карточки). */
 export type TenantFilter = "" | "trial_expiring" | "trial_expired" | "overdue";
 
+export interface NotificationTemplate {
+  key: string;
+  title: string;
+  body: string;
+  enabled: boolean;
+  updatedAt: string;
+}
+
+export interface TenantNotification {
+  id: string;
+  type: string;
+  channel: string;
+  status: string;
+  detail: string | null;
+  createdAt: string;
+}
+
+export const TEMPLATE_PLACEHOLDERS = [
+  "company",
+  "daysLeft",
+  "trialEndsAt",
+  "paidUntil",
+  "nextChargeAt",
+  "login",
+  "password",
+  "crmUrl",
+];
+
+export const NOTIF_STATUS_COLOR: Record<string, string> = {
+  sent: "green",
+  failed: "red",
+  skipped: "default",
+  pending: "blue",
+};
+
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   paid: "Оплачено",
   overdue: "Просрочено",
@@ -112,7 +147,17 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.payment": "Отметка оплаты",
   "tenant.impersonate": "Вход под владельцем",
   "tariff.edit": "Редактирование тарифа",
+  "template.edit": "Правка шаблона",
+  "notification.send": "Отправка напоминания",
 };
+
+/** Типы уведомлений для ручной отправки. */
+export const REMINDER_TYPES: Array<{ value: string; label: string }> = [
+  { value: "trial_3d", label: "Триал: за 3 дня" },
+  { value: "trial_1d", label: "Триал: за 1 день" },
+  { value: "trial_0d", label: "Триал: в день истечения" },
+  { value: "payment_reminder", label: "Напоминание об оплате" },
+];
 
 /** Что происходит с данными при статусе (показываем в админке). */
 export const STATUS_DATA_POLICY: Record<TenantStatus, string> = {

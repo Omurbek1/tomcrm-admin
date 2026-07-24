@@ -8,10 +8,12 @@ import { api } from "./api/client";
 import type {
   AdminRow,
   AuditRow,
+  NotificationTemplate,
   PaymentRow,
   PlatformOverview,
   Tariff,
   TenantDetail,
+  TenantNotification,
   TenantRow,
 } from "./types";
 
@@ -145,6 +147,50 @@ export const useCreateTenant = () => {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tenants"] });
       void qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+};
+
+// ── Уведомления клиентам ────────────────────────────────────────────────────
+
+export const useTemplates = () =>
+  useQuery<NotificationTemplate[]>({
+    queryKey: ["templates"],
+    queryFn: async () => (await api.get("/api/platform/templates")).data,
+  });
+
+export const useUpdateTemplate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: {
+      key: string;
+      title?: string;
+      body?: string;
+      enabled?: boolean;
+    }) =>
+      (await api.patch(`/api/platform/templates/${v.key}`, v))
+        .data as NotificationTemplate,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["templates"] }),
+  });
+};
+
+export const useNotifications = (tenantId?: string | null) =>
+  useQuery<TenantNotification[]>({
+    queryKey: ["notifications", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () =>
+      (await api.get(`/api/platform/tenants/${tenantId}/notifications`)).data,
+  });
+
+export const useSendReminder = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; type: string }) =>
+      (await api.post(`/api/platform/tenants/${v.id}/notify`, { type: v.type }))
+        .data as { status: string; detail?: string },
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["notifications", v.id] });
+      void qc.invalidateQueries({ queryKey: ["audit", v.id] });
     },
   });
 };

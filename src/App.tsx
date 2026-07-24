@@ -5,12 +5,13 @@ import { clearToken, getToken, UNAUTH_EVENT } from "./api/client";
 import { AdminsPage } from "./pages/AdminsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { TariffsPage } from "./pages/TariffsPage";
+import { TemplatesPage } from "./pages/TemplatesPage";
 import { TenantsPage } from "./pages/TenantsPage";
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-type View = "tenants" | "tariffs" | "admins";
+type View = "tenants" | "tariffs" | "templates" | "admins";
 
 export const App = () => {
   const [authed, setAuthed] = useState<boolean>(!!getToken());
@@ -52,6 +53,7 @@ export const App = () => {
           items={[
             { key: "tenants", label: "Компании" },
             { key: "tariffs", label: "Тарифы" },
+            { key: "templates", label: "Уведомления" },
             { key: "admins", label: "Администраторы" },
           ]}
         />
@@ -62,6 +64,7 @@ export const App = () => {
       <Content style={{ background: "#f1f5f9" }}>
         {view === "tenants" && <TenantsPage />}
         {view === "tariffs" && <TariffsPage />}
+        {view === "templates" && <TemplatesPage />}
         {view === "admins" && <AdminsPage />}
       </Content>
     </Layout>

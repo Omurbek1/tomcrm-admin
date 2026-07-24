@@ -23,8 +23,10 @@ import {
   useAudit,
   useExtendTrial,
   useImpersonate,
+  useNotifications,
   usePayments,
   useRecordPayment,
+  useSendReminder,
   useSetContacts,
   useSetStatus,
   useSetTariff,
@@ -35,8 +37,10 @@ import type { TenantStatus } from "../types";
 import {
   AUDIT_ACTION_LABEL,
   LIMIT_META,
+  NOTIF_STATUS_COLOR,
   PAYMENT_COLOR,
   PAYMENT_LABEL,
+  REMINDER_TYPES,
   STATUS_COLOR,
   STATUS_DATA_POLICY,
   STATUS_LABEL,
@@ -55,6 +59,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { data: tariffs } = useTariffs();
   const { data: audit } = useAudit(tenantId ?? undefined);
   const { data: payments } = usePayments(tenantId);
+  const { data: notifications } = useNotifications(tenantId);
+  const sendReminder = useSendReminder();
   const setStatus = useSetStatus();
   const extendTrial = useExtendTrial();
   const setTariff = useSetTariff();
@@ -94,6 +100,22 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
   const fmtDate = (s: string | null) =>
     s ? new Date(s).toLocaleDateString("ru-RU") : "—";
+
+  const doSendReminder = (type: string) => {
+    if (!t) return;
+    sendReminder.mutate(
+      { id: t.id, type },
+      {
+        onSuccess: (r) => {
+          if (r.status === "sent") message.success("Отправлено");
+          else if (r.status === "skipped")
+            message.warning(`Пропущено: ${r.detail ?? "нет условий"}`);
+          else message.error(`Не отправлено: ${r.detail ?? r.status}`);
+        },
+        onError: () => message.error("Ошибка отправки"),
+      },
+    );
+  };
 
   const applyStatus = (status: string) => {
     if (!t) return;
@@ -328,6 +350,44 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     до {fmtDate(p.paidUntil)} ·{" "}
                     {new Date(p.createdAt).toLocaleDateString("ru-RU")}
+                  </Text>
+                </Space>
+              </List.Item>
+            )}
+          />
+
+          {/* Уведомления клиенту */}
+          <Divider titlePlacement="start">Уведомления клиенту</Divider>
+          <Space wrap>
+            {REMINDER_TYPES.map((rt) => (
+              <Button
+                key={rt.value}
+                size="small"
+                onClick={() => doSendReminder(rt.value)}
+                loading={sendReminder.isPending}
+              >
+                {rt.label}
+              </Button>
+            ))}
+          </Space>
+          <List
+            size="small"
+            style={{ marginTop: 8 }}
+            locale={{ emptyText: "Уведомлений ещё не было" }}
+            dataSource={(notifications ?? []).slice(0, 10)}
+            renderItem={(n) => (
+              <List.Item>
+                <Space
+                  style={{ width: "100%", justifyContent: "space-between" }}
+                >
+                  <span>
+                    <Tag color={NOTIF_STATUS_COLOR[n.status] ?? "default"}>
+                      {n.status}
+                    </Tag>
+                    {n.type}
+                  </span>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {new Date(n.createdAt).toLocaleString("ru-RU")}
                   </Text>
                 </Space>
               </List.Item>
