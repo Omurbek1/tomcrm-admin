@@ -19,6 +19,7 @@ export interface TenantRow {
   paidUntil: string | null;
   nextChargeAt: string | null;
   paymentStatus: PaymentStatus;
+  priceOverride: string | null;
 }
 
 export interface PaymentRow {
@@ -127,6 +128,18 @@ export interface Tariff {
   modules: Record<string, boolean>;
   limits: Record<string, number | null>;
   discounts: Record<string, number>;
+  archived: boolean;
+}
+
+export interface Analytics {
+  mrrByTariff: Array<{
+    code: string;
+    name: string;
+    count: number;
+    mrr: number;
+  }>;
+  monthlyNew: Array<{ month: string; count: number }>;
+  monthlyRevenue: Array<{ month: string; revenue: number }>;
 }
 
 export interface AuditRow {
@@ -156,6 +169,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.contacts": "Изменение контактов",
   "tenant.payment": "Отметка оплаты",
   "tenant.payment_cancel": "Отмена платежа",
+  "tenant.price_override": "Индивидуальная цена",
+  "tenant.bulk_tariff": "Массовая смена тарифа",
   "tenant.auto_freeze": "Автозаморозка (просрочка)",
   "config.grace": "Настройка grace-периода",
   "tenant.impersonate": "Вход под владельцем",

@@ -138,10 +138,12 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
             <Select
               allowClear
               placeholder="Триальный по умолчанию"
-              options={(tariffs ?? []).map((tf) => ({
-                value: tf.id,
-                label: `${tf.name} (${tf.code})`,
-              }))}
+              options={(tariffs ?? [])
+                .filter((tf) => !tf.archived)
+                .map((tf) => ({
+                  value: tf.id,
+                  label: `${tf.name} (${tf.code})`,
+                }))}
             />
           </Form.Item>
 

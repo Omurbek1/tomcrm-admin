@@ -7,6 +7,7 @@ import {
 import { api } from "./api/client";
 import type {
   AdminRow,
+  Analytics,
   AuditRow,
   NotificationTemplate,
   PaymentsResponse,
@@ -195,6 +196,52 @@ export const useSendReminder = () => {
   });
 };
 
+// ── Аналитика / индив.цена / массовые действия (P5) ─────────────────────────
+
+export const useAnalytics = () =>
+  useQuery<Analytics>({
+    queryKey: ["analytics"],
+    queryFn: async () => (await api.get("/api/platform/analytics")).data,
+  });
+
+export const useSetPriceOverride = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; price: number | null }) =>
+      (await api.patch(`/api/platform/tenants/${v.id}/price`, { price: v.price }))
+        .data as TenantRow,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+};
+
+export const useBulkTariff = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { ids: string[]; tariffId: string }) =>
+      (await api.post("/api/platform/tenants/bulk/tariff", v)).data as {
+        updated: number;
+      },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+};
+
+export const useBulkNotify = () =>
+  useMutation({
+    mutationFn: async (v: { ids: string[]; type: string }) =>
+      (await api.post("/api/platform/tenants/bulk/notify", v)).data as {
+        sent: number;
+        failed: number;
+        skipped: number;
+      },
+  });
+
 export const useImpersonate = () =>
   useMutation({
     mutationFn: async (id: string) =>
@@ -304,6 +351,7 @@ export interface TariffPatch {
   sortOrder?: number;
   limits?: Record<string, number | null>;
   discounts?: Record<string, number>;
+  archived?: boolean;
 }
 
 export const useEditTariff = () => {

@@ -29,6 +29,7 @@ import {
   useRecordPayment,
   useSendReminder,
   useSetContacts,
+  useSetPriceOverride,
   useSetStatus,
   useSetTariff,
   useTariffs,
@@ -70,10 +71,24 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const setContacts = useSetContacts();
   const recordPayment = useRecordPayment();
   const cancelPayment = useCancelPayment();
+  const setPrice = useSetPriceOverride();
   const impersonate = useImpersonate();
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
   const [payForm] = Form.useForm();
+  const [priceDraft, setPriceDraft] = useState<string>("");
+
+  const savePrice = (price: number | null) => {
+    if (!t) return;
+    setPrice.mutate(
+      { id: t.id, price },
+      {
+        onSuccess: () =>
+          message.success(price === null ? "Сброшено" : "Цена сохранена"),
+        onError: () => message.error("Не удалось сохранить цену"),
+      },
+    );
+  };
 
   const t = data?.tenant;
   const tariff = tariffs?.find((tf) => tf.id === t?.tariffId);
@@ -507,11 +522,38 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 style={{ width: "100%", marginTop: 4 }}
                 onChange={changeTariff}
                 loading={setTariff.isPending}
-                options={(tariffs ?? []).map((tf) => ({
-                  value: tf.id,
-                  label: `${tf.name} (${tf.code})`,
-                }))}
+                options={(tariffs ?? [])
+                  .filter((tf) => !tf.archived || tf.id === t.tariffId)
+                  .map((tf) => ({
+                    value: tf.id,
+                    label: `${tf.name} (${tf.code})${tf.archived ? " · архив" : ""}`,
+                  }))}
               />
+            </div>
+
+            <div>
+              <Text strong>Индивидуальная цена (мес.)</Text>
+              <br />
+              <Space.Compact style={{ width: "100%", marginTop: 4 }}>
+                <InputNumber
+                  min={0}
+                  style={{ width: "100%" }}
+                  placeholder="по тарифу"
+                  value={t.priceOverride ? Number(t.priceOverride) : undefined}
+                  onChange={(v) => setPriceDraft(v == null ? "" : String(v))}
+                />
+                <Button
+                  onClick={() =>
+                    savePrice(priceDraft === "" ? null : Number(priceDraft))
+                  }
+                  loading={setPrice.isPending}
+                >
+                  Сохранить
+                </Button>
+                {t.priceOverride && (
+                  <Button onClick={() => savePrice(null)}>Сброс</Button>
+                )}
+              </Space.Compact>
             </div>
           </Space>
 

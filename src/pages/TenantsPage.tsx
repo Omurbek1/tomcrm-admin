@@ -1,8 +1,27 @@
-import { Button, Card, Col, Input, Row, Select, Statistic, Table, Tag } from "antd";
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 
-import { useOverview, useTenants } from "../hooks";
+import {
+  useBulkNotify,
+  useBulkTariff,
+  useOverview,
+  useTariffs,
+  useTenants,
+} from "../hooks";
 import type {
   PaymentStatus,
   TenantFilter,
@@ -12,6 +31,7 @@ import type {
 import {
   PAYMENT_COLOR,
   PAYMENT_LABEL,
+  REMINDER_TYPES,
   STATUS_COLOR,
   STATUS_LABEL,
 } from "../types";
@@ -67,9 +87,55 @@ export const TenantsPage = () => {
   const [filter, setFilter] = useState<TenantFilter>("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkTariffOpen, setBulkTariffOpen] = useState(false);
+  const [bulkNotifyOpen, setBulkNotifyOpen] = useState(false);
+  const [bulkTariffId, setBulkTariffId] = useState<string>();
+  const [bulkType, setBulkType] = useState<string>();
 
+  const { message } = App.useApp();
   const { data: overview } = useOverview();
   const { data: tenants, isLoading } = useTenants(search, status, filter);
+  const { data: tariffs } = useTariffs();
+  const bulkTariff = useBulkTariff();
+  const bulkNotify = useBulkNotify();
+
+  const runBulkTariff = () => {
+    if (!bulkTariffId) return;
+    bulkTariff.mutate(
+      { ids: selected, tariffId: bulkTariffId },
+      {
+        onSuccess: (r) => {
+          message.success(`Тариф изменён у ${r.updated} компаний`);
+          setBulkTariffOpen(false);
+          setSelected([]);
+        },
+        onError: (e: unknown) => {
+          const msg =
+            (e as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message ?? "Не удалось";
+          message.error(msg);
+        },
+      },
+    );
+  };
+
+  const runBulkNotify = () => {
+    if (!bulkType) return;
+    bulkNotify.mutate(
+      { ids: selected, type: bulkType },
+      {
+        onSuccess: (r) => {
+          message.success(
+            `Отправлено ${r.sent}, пропущено ${r.skipped}, ошибок ${r.failed}`,
+          );
+          setBulkNotifyOpen(false);
+          setSelected([]);
+        },
+        onError: () => message.error("Не удалось отправить"),
+      },
+    );
+  };
 
   // Клик по карточке-метрике: применяет именованный фильтр (сбрасывая статус).
   const applyFilter = (f: TenantFilter) => {
@@ -124,9 +190,31 @@ export const TenantsPage = () => {
         <Tag color={PAYMENT_COLOR[s]}>{PAYMENT_LABEL[s]}</Tag>
       ),
     },
-    { title: "Сотр.", dataIndex: "employees", width: 70 },
-    { title: "Сделки", dataIndex: "deals", width: 70 },
-    { title: "Телефон", dataIndex: "contactPhone", width: 140, render: (v) => v ?? "—" },
+    {
+      title: "Оплачено до",
+      dataIndex: "paidUntil",
+      width: 120,
+      sorter: (a, b) =>
+        (a.paidUntil ? Date.parse(a.paidUntil) : 0) -
+        (b.paidUntil ? Date.parse(b.paidUntil) : 0),
+      render: (v: string | null) =>
+        v ? new Date(v).toLocaleDateString("ru-RU") : "—",
+    },
+    {
+      title: "Сотр.",
+      dataIndex: "employees",
+      width: 80,
+      sorter: (a, b) => a.employees - b.employees,
+    },
+    { title: "Сделки", dataIndex: "deals", width: 80 },
+    {
+      title: "Создана",
+      dataIndex: "createdAt",
+      width: 120,
+      defaultSortOrder: "descend",
+      sorter: (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
+      render: (v: string) => new Date(v).toLocaleDateString("ru-RU"),
+    },
   ];
 
   return (
@@ -286,11 +374,31 @@ export const TenantsPage = () => {
           </Button>
         </div>
 
+        {selected.length > 0 && (
+          <Space style={{ marginBottom: 12 }}>
+            <Tag color="blue">Выбрано: {selected.length}</Tag>
+            <Button size="small" onClick={() => setBulkTariffOpen(true)}>
+              Сменить тариф
+            </Button>
+            <Button size="small" onClick={() => setBulkNotifyOpen(true)}>
+              Отправить уведомление
+            </Button>
+            <Button size="small" type="text" onClick={() => setSelected([])}>
+              Снять выбор
+            </Button>
+          </Space>
+        )}
+
         <Table<TenantRow>
           rowKey="id"
           loading={isLoading}
           dataSource={tenants ?? []}
           columns={columns}
+          scroll={{ x: "max-content" }}
+          rowSelection={{
+            selectedRowKeys: selected,
+            onChange: (keys) => setSelected(keys as string[]),
+          }}
           pagination={{ pageSize: 20, showSizeChanger: false }}
           onRow={(r) => ({
             onClick: () => setOpenId(r.id),
@@ -298,6 +406,44 @@ export const TenantsPage = () => {
           })}
         />
       </Card>
+
+      <Modal
+        open={bulkTariffOpen}
+        title={`Сменить тариф у ${selected.length} компаний`}
+        onCancel={() => setBulkTariffOpen(false)}
+        onOk={runBulkTariff}
+        okText="Применить"
+        cancelText="Отмена"
+        confirmLoading={bulkTariff.isPending}
+      >
+        <Select
+          style={{ width: "100%" }}
+          placeholder="Выберите тариф"
+          value={bulkTariffId}
+          onChange={setBulkTariffId}
+          options={(tariffs ?? [])
+            .filter((t) => !t.archived)
+            .map((t) => ({ value: t.id, label: `${t.name} (${t.code})` }))}
+        />
+      </Modal>
+
+      <Modal
+        open={bulkNotifyOpen}
+        title={`Отправить уведомление ${selected.length} компаниям`}
+        onCancel={() => setBulkNotifyOpen(false)}
+        onOk={runBulkNotify}
+        okText="Отправить"
+        cancelText="Отмена"
+        confirmLoading={bulkNotify.isPending}
+      >
+        <Select
+          style={{ width: "100%" }}
+          placeholder="Тип уведомления"
+          value={bulkType}
+          onChange={setBulkType}
+          options={REMINDER_TYPES}
+        />
+      </Modal>
 
       <TenantDrawer tenantId={openId} onClose={() => setOpenId(null)} />
       <CreateTenantModal

@@ -46,6 +46,7 @@ export const TariffsPage = () => {
       currency: t.currency,
       period: t.period,
       isPublic: t.isPublic,
+      archived: t.archived,
       ...Object.fromEntries(
         LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
       ),
@@ -78,6 +79,7 @@ export const TariffsPage = () => {
           currency: v.currency as string,
           period: v.period as string,
           isPublic: v.isPublic as boolean,
+          archived: v.archived as boolean,
           limits,
           discounts,
         },
@@ -106,6 +108,7 @@ export const TariffsPage = () => {
           <b>{v}</b>{" "}
           <Tag>{r.code}</Tag>
           {!r.isPublic && <Tag color="default">скрыт</Tag>}
+          {r.archived && <Tag color="orange">архив</Tag>}
         </span>
       ),
     },
@@ -250,6 +253,13 @@ export const TariffsPage = () => {
           <Form.Item
             name="isPublic"
             label="Показывать на лендинге"
+            valuePropName="checked"
+          >
+            <Switch />
+          </Form.Item>
+          <Form.Item
+            name="archived"
+            label="Архивный (существующие остаются, новым нельзя)"
             valuePropName="checked"
           >
             <Switch />

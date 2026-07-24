@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { clearToken, getToken, UNAUTH_EVENT } from "./api/client";
 import { AdminsPage } from "./pages/AdminsPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AuditPage } from "./pages/AuditPage";
 import { LoginPage } from "./pages/LoginPage";
 import { TariffsPage } from "./pages/TariffsPage";
@@ -12,7 +13,13 @@ import { TenantsPage } from "./pages/TenantsPage";
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-type View = "tenants" | "tariffs" | "templates" | "audit" | "admins";
+type View =
+  | "tenants"
+  | "analytics"
+  | "tariffs"
+  | "templates"
+  | "audit"
+  | "admins";
 
 export const App = () => {
   const [authed, setAuthed] = useState<boolean>(!!getToken());
@@ -53,6 +60,7 @@ export const App = () => {
           style={{ flex: 1, background: "transparent", minWidth: 0 }}
           items={[
             { key: "tenants", label: "Компании" },
+            { key: "analytics", label: "Аналитика" },
             { key: "tariffs", label: "Тарифы" },
             { key: "templates", label: "Уведомления" },
             { key: "audit", label: "Журнал" },
@@ -65,6 +73,7 @@ export const App = () => {
       </Header>
       <Content style={{ background: "#f1f5f9" }}>
         {view === "tenants" && <TenantsPage />}
+        {view === "analytics" && <AnalyticsPage />}
         {view === "tariffs" && <TariffsPage />}
         {view === "templates" && <TemplatesPage />}
         {view === "audit" && <AuditPage />}
