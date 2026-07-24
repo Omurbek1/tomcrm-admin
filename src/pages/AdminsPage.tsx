@@ -8,6 +8,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  QRCode,
   Space,
   Switch,
   Table,
@@ -326,7 +327,7 @@ const My2fa = ({ me }: { me: AdminRow }) => {
   const disable = use2faDisable();
   const [setupData, setSetupData] = useState<{
     secret: string;
-    qrDataUrl: string;
+    otpauthUrl: string;
   } | null>(null);
   const [code, setCode] = useState("");
 
@@ -364,15 +365,23 @@ const My2fa = ({ me }: { me: AdminRow }) => {
   }
 
   return (
-    <Card size="small" style={{ marginBottom: 16 }}>
+    <Card
+      size="small"
+      title="Двухфакторная защита (2FA)"
+      style={{ marginBottom: 16 }}
+    >
       {!setupData ? (
         <Space wrap align="center">
-          <Tag>2FA выключена</Tag>
+          <Tag>Выключена</Tag>
+          <Text type="secondary">
+            Защитите свой вход кодом из приложения-аутентификатора.
+          </Text>
           <Button
+            type="primary"
             onClick={() =>
               setup.mutate(undefined, {
                 onSuccess: (r) =>
-                  setSetupData({ secret: r.secret, qrDataUrl: r.qrDataUrl }),
+                  setSetupData({ secret: r.secret, otpauthUrl: r.otpauthUrl }),
                 onError: () => message.error("Не удалось"),
               })
             }
@@ -382,30 +391,40 @@ const My2fa = ({ me }: { me: AdminRow }) => {
           </Button>
         </Space>
       ) : (
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-          <img
-            src={setupData.qrDataUrl}
-            alt="QR 2FA"
-            width={180}
-            height={180}
-            style={{ border: "1px solid #e2e8f0", borderRadius: 8 }}
-          />
-          <div style={{ flex: 1, minWidth: 240 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 24,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <QRCode value={setupData.otpauthUrl} size={172} />
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+              Сканируйте в приложении
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 260 }}>
             <Paragraph style={{ marginBottom: 8 }}>
-              Отсканируйте QR в приложении (Google Authenticator, 1Password) —
-              или добавьте ключ вручную:
+              <b>1.</b> Откройте Google Authenticator / 1Password и отсканируйте
+              QR (или добавьте ключ вручную).
             </Paragraph>
-            <Paragraph>
-              <Text strong>Ключ:</Text>{" "}
+            <Paragraph style={{ marginBottom: 12 }}>
+              <Text type="secondary">Ключ вручную:</Text>{" "}
               <Text code copyable>
                 {setupData.secret}
               </Text>
             </Paragraph>
+            <Paragraph style={{ marginBottom: 8 }}>
+              <b>2.</b> Введите 6-значный код из приложения:
+            </Paragraph>
             <Space>
               <Input
-                placeholder="код из приложения"
-                style={{ width: 180 }}
+                placeholder="123456"
+                style={{ width: 160 }}
                 maxLength={6}
+                inputMode="numeric"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
               />
@@ -424,6 +443,15 @@ const My2fa = ({ me }: { me: AdminRow }) => {
                 loading={enable.isPending}
               >
                 Подтвердить
+              </Button>
+              <Button
+                type="text"
+                onClick={() => {
+                  setSetupData(null);
+                  setCode("");
+                }}
+              >
+                Отмена
               </Button>
             </Space>
           </div>
