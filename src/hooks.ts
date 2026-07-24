@@ -8,6 +8,7 @@ import { api } from "./api/client";
 import type {
   AdminRow,
   AuditRow,
+  PaymentRow,
   PlatformOverview,
   Tariff,
   TenantDetail,
@@ -108,6 +109,42 @@ export const useSetContacts = () => {
         })
       ).data as TenantRow,
     onSuccess: (_d, v) => invalidate(v.id),
+  });
+};
+
+export const usePayments = (tenantId?: string | null) =>
+  useQuery<PaymentRow[]>({
+    queryKey: ["payments", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () =>
+      (await api.get(`/api/platform/tenants/${tenantId}/payments`)).data,
+  });
+
+export const useRecordPayment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: {
+      id: string;
+      amount: number;
+      currency: string;
+      periodMonths: number;
+      note?: string;
+    }) =>
+      (
+        await api.post(`/api/platform/tenants/${v.id}/payment`, {
+          amount: v.amount,
+          currency: v.currency,
+          periodMonths: v.periodMonths,
+          note: v.note,
+        })
+      ).data as TenantRow,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
+      void qc.invalidateQueries({ queryKey: ["payments", v.id] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["audit", v.id] });
+    },
   });
 };
 

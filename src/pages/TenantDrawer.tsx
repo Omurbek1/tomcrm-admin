@@ -7,17 +7,22 @@ import {
   Drawer,
   Form,
   Input,
+  InputNumber,
   List,
+  Modal,
   Select,
   Space,
   Spin,
   Tag,
   Typography,
 } from "antd";
+import { useState } from "react";
 
 import {
   useAudit,
   useExtendTrial,
+  usePayments,
+  useRecordPayment,
   useSetContacts,
   useSetStatus,
   useSetTariff,
@@ -25,7 +30,14 @@ import {
   useTenant,
 } from "../hooks";
 import type { TenantStatus } from "../types";
-import { AUDIT_ACTION_LABEL, LIMIT_META, STATUS_COLOR, STATUS_LABEL } from "../types";
+import {
+  AUDIT_ACTION_LABEL,
+  LIMIT_META,
+  PAYMENT_COLOR,
+  PAYMENT_LABEL,
+  STATUS_COLOR,
+  STATUS_LABEL,
+} from "../types";
 
 const { Text } = Typography;
 
@@ -39,13 +51,45 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { data, isLoading } = useTenant(tenantId);
   const { data: tariffs } = useTariffs();
   const { data: audit } = useAudit(tenantId ?? undefined);
+  const { data: payments } = usePayments(tenantId);
   const setStatus = useSetStatus();
   const extendTrial = useExtendTrial();
   const setTariff = useSetTariff();
   const setContacts = useSetContacts();
+  const recordPayment = useRecordPayment();
   const [contactForm] = Form.useForm();
+  const [payOpen, setPayOpen] = useState(false);
+  const [payForm] = Form.useForm();
 
   const t = data?.tenant;
+
+  const submitPayment = (v: {
+    amount: number;
+    currency: string;
+    periodMonths: number;
+    note?: string;
+  }) => {
+    if (!t) return;
+    recordPayment.mutate(
+      { id: t.id, ...v },
+      {
+        onSuccess: () => {
+          message.success("Платёж записан");
+          setPayOpen(false);
+          payForm.resetFields();
+        },
+        onError: (e: unknown) => {
+          const msg =
+            (e as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message ?? "Не удалось записать платёж";
+          message.error(msg);
+        },
+      },
+    );
+  };
+
+  const fmtDate = (s: string | null) =>
+    s ? new Date(s).toLocaleDateString("ru-RU") : "—";
 
   const changeStatus = (status: string) => {
     if (!t) return;
@@ -190,6 +234,54 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               : "При превышении показывается предупреждение, создание разрешено."}
           </Text>
 
+          {/* Биллинг (ручной) */}
+          <Divider titlePlacement="start">Оплата</Divider>
+          <Space wrap style={{ marginBottom: 8 }}>
+            <Tag color={PAYMENT_COLOR[t.paymentStatus]}>
+              {PAYMENT_LABEL[t.paymentStatus]}
+            </Tag>
+            <Text type="secondary">Оплачено до: {fmtDate(t.paidUntil)}</Text>
+            <Text type="secondary">След. списание: {fmtDate(t.nextChargeAt)}</Text>
+          </Space>
+          <div>
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => {
+                payForm.setFieldsValue({
+                  amount: t.tariffId ? undefined : 0,
+                  currency: "KGS",
+                  periodMonths: 1,
+                });
+                setPayOpen(true);
+              }}
+            >
+              Отметить оплату
+            </Button>
+          </div>
+          <List
+            size="small"
+            style={{ marginTop: 8 }}
+            locale={{ emptyText: "Платежей ещё не было" }}
+            dataSource={(payments ?? []).slice(0, 10)}
+            renderItem={(p) => (
+              <List.Item>
+                <Space
+                  style={{ width: "100%", justifyContent: "space-between" }}
+                >
+                  <Text>
+                    {Number(p.amount).toLocaleString("ru-RU")} {p.currency}
+                    {p.periodMonths ? ` · ${p.periodMonths} мес.` : ""}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    до {fmtDate(p.paidUntil)} ·{" "}
+                    {new Date(p.createdAt).toLocaleDateString("ru-RU")}
+                  </Text>
+                </Space>
+              </List.Item>
+            )}
+          />
+
           {/* Действия */}
           <Divider titlePlacement="start">Действия</Divider>
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
@@ -267,6 +359,46 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               </List.Item>
             )}
           />
+
+          <Modal
+            open={payOpen}
+            title="Отметить оплату"
+            onCancel={() => setPayOpen(false)}
+            onOk={() => payForm.submit()}
+            okText="Записать"
+            cancelText="Отмена"
+            confirmLoading={recordPayment.isPending}
+          >
+            <Form form={payForm} layout="vertical" onFinish={submitPayment}>
+              <div style={{ display: "flex", gap: 12 }}>
+                <Form.Item
+                  name="amount"
+                  label="Сумма"
+                  style={{ flex: 1 }}
+                  rules={[{ required: true, message: "Укажите сумму" }]}
+                >
+                  <InputNumber min={0} style={{ width: "100%" }} />
+                </Form.Item>
+                <Form.Item name="currency" label="Валюта" style={{ width: 110 }}>
+                  <Input />
+                </Form.Item>
+              </div>
+              <Form.Item
+                name="periodMonths"
+                label="Период (месяцев)"
+                rules={[{ required: true, message: "Укажите период" }]}
+              >
+                <InputNumber min={1} max={120} style={{ width: "100%" }} />
+              </Form.Item>
+              <Form.Item name="note" label="Примечание">
+                <Input.TextArea rows={2} placeholder="Напр. счёт №, способ" />
+              </Form.Item>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Компания переводится в «Активна», оплата продлевается на указанный
+                период.
+              </Text>
+            </Form>
+          </Modal>
         </>
       )}
     </Drawer>

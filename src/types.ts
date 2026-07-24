@@ -1,4 +1,5 @@
 export type TenantStatus = "trial" | "active" | "blocked" | "deleted";
+export type PaymentStatus = "paid" | "overdue" | "none";
 
 export interface TenantRow {
   id: string;
@@ -15,6 +16,20 @@ export interface TenantRow {
   createdAt: string;
   employees: number;
   deals: number;
+  paidUntil: string | null;
+  nextChargeAt: string | null;
+  paymentStatus: PaymentStatus;
+}
+
+export interface PaymentRow {
+  id: string;
+  amount: string;
+  currency: string;
+  periodMonths: number | null;
+  paidUntil: string | null;
+  note: string | null;
+  adminLogin: string;
+  createdAt: string;
 }
 
 export interface PlatformOverview {
@@ -22,7 +37,20 @@ export interface PlatformOverview {
   byStatus: Record<string, number>;
   trialsExpiringSoon: number;
   trialsExpired: number;
+  overdue: number;
 }
+
+export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
+  paid: "Оплачено",
+  overdue: "Просрочено",
+  none: "Нет оплаты",
+};
+
+export const PAYMENT_COLOR: Record<PaymentStatus, string> = {
+  paid: "green",
+  overdue: "red",
+  none: "default",
+};
 
 export interface TenantDetail {
   tenant: TenantRow;

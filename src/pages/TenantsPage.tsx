@@ -3,8 +3,13 @@ import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 
 import { useOverview, useTenants } from "../hooks";
-import type { TenantRow, TenantStatus } from "../types";
-import { STATUS_COLOR, STATUS_LABEL } from "../types";
+import type { PaymentStatus, TenantRow, TenantStatus } from "../types";
+import {
+  PAYMENT_COLOR,
+  PAYMENT_LABEL,
+  STATUS_COLOR,
+  STATUS_LABEL,
+} from "../types";
 import { TenantDrawer } from "./TenantDrawer";
 
 export const TenantsPage = () => {
@@ -45,15 +50,23 @@ export const TenantsPage = () => {
           "—"
         ),
     },
-    { title: "Тариф", dataIndex: "tariffName", width: 130, render: (v) => v ?? "—" },
-    { title: "Сотр.", dataIndex: "employees", width: 80 },
-    { title: "Сделки", dataIndex: "deals", width: 80 },
-    { title: "Телефон", dataIndex: "contactPhone", width: 150, render: (v) => v ?? "—" },
+    { title: "Тариф", dataIndex: "tariffName", width: 120, render: (v) => v ?? "—" },
+    {
+      title: "Оплата",
+      dataIndex: "paymentStatus",
+      width: 120,
+      render: (s: PaymentStatus) => (
+        <Tag color={PAYMENT_COLOR[s]}>{PAYMENT_LABEL[s]}</Tag>
+      ),
+    },
+    { title: "Сотр.", dataIndex: "employees", width: 70 },
+    { title: "Сделки", dataIndex: "deals", width: 70 },
+    { title: "Телефон", dataIndex: "contactPhone", width: 140, render: (v) => v ?? "—" },
   ];
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card>
             <Statistic title="Всего компаний" value={overview?.total ?? 0} />
@@ -81,6 +94,15 @@ export const TenantsPage = () => {
             <Statistic
               title="Триал истёк"
               value={overview?.trialsExpired ?? 0}
+              valueStyle={{ color: "#ef4444" }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Оплата просрочена"
+              value={overview?.overdue ?? 0}
               valueStyle={{ color: "#ef4444" }}
             />
           </Card>
