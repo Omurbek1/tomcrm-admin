@@ -7,16 +7,19 @@ import {
   InputNumber,
   Modal,
   Select,
+  Space,
   Switch,
   Table,
   Tag,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { useEditTariff, useTariffs } from "../hooks";
+import { useConfig, useEditTariff, useSetConfig, useTariffs } from "../hooks";
 import type { Tariff } from "../types";
-import { LIMIT_META } from "../types";
+import { LIMIT_META, PAYMENT_PERIODS } from "../types";
+
+const DISCOUNT_PERIODS = PAYMENT_PERIODS.filter((m) => m > 1); // 3/6/12
 
 const fmtLimit = (v: number | null | undefined): string =>
   v === null || v === undefined ? "∞" : String(v);
@@ -25,8 +28,15 @@ export const TariffsPage = () => {
   const { message } = App.useApp();
   const { data: tariffs, isLoading } = useTariffs();
   const editTariff = useEditTariff();
+  const { data: config } = useConfig();
+  const setConfig = useSetConfig();
+  const [grace, setGrace] = useState<number>(3);
   const [editing, setEditing] = useState<Tariff | null>(null);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (config) setGrace(config.graceDays);
+  }, [config]);
 
   const openEdit = (t: Tariff) => {
     setEditing(t);
@@ -39,6 +49,12 @@ export const TariffsPage = () => {
       ...Object.fromEntries(
         LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
       ),
+      ...Object.fromEntries(
+        DISCOUNT_PERIODS.map((m) => [
+          `discount_${m}`,
+          t.discounts?.[String(m)] ?? 0,
+        ]),
+      ),
     });
   };
 
@@ -48,6 +64,10 @@ export const TariffsPage = () => {
     for (const l of LIMIT_META) {
       const raw = v[`limit_${l.key}`];
       limits[l.key] = raw === null || raw === undefined ? null : Number(raw);
+    }
+    const discounts: Record<string, number> = {};
+    for (const m of DISCOUNT_PERIODS) {
+      discounts[String(m)] = Number(v[`discount_${m}`] ?? 0);
     }
     editTariff.mutate(
       {
@@ -59,6 +79,7 @@ export const TariffsPage = () => {
           period: v.period as string,
           isPublic: v.isPublic as boolean,
           limits,
+          discounts,
         },
       },
       {
@@ -115,6 +136,33 @@ export const TariffsPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap align="center">
+          <span style={{ fontWeight: 600 }}>Grace-период (дней после «оплачено до»)</span>
+          <InputNumber
+            min={0}
+            max={90}
+            value={grace}
+            onChange={(v) => setGrace(Number(v ?? 0))}
+            style={{ width: 90 }}
+          />
+          <Button
+            onClick={() =>
+              setConfig.mutate(grace, {
+                onSuccess: () => message.success("Сохранено"),
+                onError: () => message.error("Не удалось сохранить"),
+              })
+            }
+            loading={setConfig.isPending}
+          >
+            Сохранить
+          </Button>
+          <span style={{ color: "#64748b", fontSize: 13 }}>
+            По истечении — компания автоматически переводится в «Заморожена».
+          </span>
+        </Space>
+      </Card>
+
       <Card title="Тарифы — цены и лимиты (меняются без деплоя, лендинг тянет отсюда)">
         <Table<Tariff>
           rowKey="id"
@@ -174,6 +222,27 @@ export const TariffsPage = () => {
             {LIMIT_META.map((l) => (
               <Form.Item key={l.key} name={`limit_${l.key}`} label={l.label}>
                 <InputNumber min={0} placeholder="∞" style={{ width: "100%" }} />
+              </Form.Item>
+            ))}
+          </div>
+
+          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>
+            Скидка за период (%)
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            {DISCOUNT_PERIODS.map((m) => (
+              <Form.Item
+                key={m}
+                name={`discount_${m}`}
+                label={`${m} мес.`}
+                style={{ flex: 1 }}
+              >
+                <InputNumber
+                  min={0}
+                  max={90}
+                  addonAfter="%"
+                  style={{ width: "100%" }}
+                />
               </Form.Item>
             ))}
           </div>

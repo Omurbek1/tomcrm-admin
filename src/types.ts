@@ -28,9 +28,18 @@ export interface PaymentRow {
   periodMonths: number | null;
   paidUntil: string | null;
   note: string | null;
+  receipt: string | null;
+  cancelled: boolean;
   adminLogin: string;
   createdAt: string;
 }
+
+export interface PaymentsResponse {
+  items: PaymentRow[];
+  total: number;
+}
+
+export const PAYMENT_PERIODS = [1, 3, 6, 12];
 
 export interface PlatformOverview {
   total: number;
@@ -117,6 +126,7 @@ export interface Tariff {
   sortOrder: number;
   modules: Record<string, boolean>;
   limits: Record<string, number | null>;
+  discounts: Record<string, number>;
 }
 
 export interface AuditRow {
@@ -145,6 +155,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.tariff": "Смена тарифа",
   "tenant.contacts": "Изменение контактов",
   "tenant.payment": "Отметка оплаты",
+  "tenant.payment_cancel": "Отмена платежа",
+  "tenant.auto_freeze": "Автозаморозка (просрочка)",
+  "config.grace": "Настройка grace-периода",
   "tenant.impersonate": "Вход под владельцем",
   "tariff.edit": "Редактирование тарифа",
   "template.edit": "Правка шаблона",

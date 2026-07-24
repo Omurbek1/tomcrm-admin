@@ -21,6 +21,7 @@ import { useState } from "react";
 import { CRM_URL } from "../api/client";
 import {
   useAudit,
+  useCancelPayment,
   useExtendTrial,
   useImpersonate,
   useNotifications,
@@ -40,6 +41,7 @@ import {
   NOTIF_STATUS_COLOR,
   PAYMENT_COLOR,
   PAYMENT_LABEL,
+  PAYMENT_PERIODS,
   REMINDER_TYPES,
   STATUS_COLOR,
   STATUS_DATA_POLICY,
@@ -58,7 +60,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { data, isLoading } = useTenant(tenantId);
   const { data: tariffs } = useTariffs();
   const { data: audit } = useAudit(tenantId ?? undefined);
-  const { data: payments } = usePayments(tenantId);
+  const [payPage, setPayPage] = useState(1);
+  const { data: paymentsResp } = usePayments(tenantId, payPage, 10);
   const { data: notifications } = useNotifications(tenantId);
   const sendReminder = useSendReminder();
   const setStatus = useSetStatus();
@@ -66,18 +69,29 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const setTariff = useSetTariff();
   const setContacts = useSetContacts();
   const recordPayment = useRecordPayment();
+  const cancelPayment = useCancelPayment();
   const impersonate = useImpersonate();
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
   const [payForm] = Form.useForm();
 
   const t = data?.tenant;
+  const tariff = tariffs?.find((tf) => tf.id === t?.tariffId);
+
+  // Подсказка суммы: цена тарифа × месяцы × (1 − скидка периода).
+  const suggestAmount = (months: number): number => {
+    if (!tariff) return 0;
+    const base = Number(tariff.price) * months;
+    const pct = tariff.discounts?.[String(months)] ?? 0;
+    return Math.round(base * (1 - pct / 100));
+  };
 
   const submitPayment = (v: {
     amount: number;
     currency: string;
     periodMonths: number;
     note?: string;
+    receipt?: string;
   }) => {
     if (!t) return;
     recordPayment.mutate(
@@ -323,9 +337,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               size="small"
               onClick={() => {
                 payForm.setFieldsValue({
-                  amount: t.tariffId ? undefined : 0,
-                  currency: "KGS",
                   periodMonths: 1,
+                  amount: suggestAmount(1),
+                  currency: tariff?.currency ?? "KGS",
                 });
                 setPayOpen(true);
               }}
@@ -337,19 +351,66 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             size="small"
             style={{ marginTop: 8 }}
             locale={{ emptyText: "Платежей ещё не было" }}
-            dataSource={(payments ?? []).slice(0, 10)}
+            dataSource={paymentsResp?.items ?? []}
+            pagination={
+              (paymentsResp?.total ?? 0) > 10
+                ? {
+                    current: payPage,
+                    pageSize: 10,
+                    total: paymentsResp?.total ?? 0,
+                    onChange: setPayPage,
+                    size: "small",
+                  }
+                : false
+            }
             renderItem={(p) => (
               <List.Item>
-                <Space
-                  style={{ width: "100%", justifyContent: "space-between" }}
-                >
-                  <Text>
-                    {Number(p.amount).toLocaleString("ru-RU")} {p.currency}
-                    {p.periodMonths ? ` · ${p.periodMonths} мес.` : ""}
-                  </Text>
+                <Space direction="vertical" size={0} style={{ width: "100%" }}>
+                  <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                    <Text delete={p.cancelled}>
+                      {Number(p.amount).toLocaleString("ru-RU")} {p.currency}
+                      {p.periodMonths ? ` · ${p.periodMonths} мес.` : ""}
+                      {p.cancelled && (
+                        <Tag color="default" style={{ marginLeft: 6 }}>
+                          отменён
+                        </Tag>
+                      )}
+                    </Text>
+                    {!p.cancelled && (
+                      <Button
+                        type="link"
+                        size="small"
+                        danger
+                        loading={cancelPayment.isPending}
+                        onClick={() =>
+                          modal.confirm({
+                            title: "Отменить платёж?",
+                            content:
+                              "Оплачено-до пересчитается по оставшимся платежам.",
+                            okText: "Отменить",
+                            okButtonProps: { danger: true },
+                            cancelText: "Нет",
+                            onOk: () =>
+                              cancelPayment.mutate(
+                                { id: t.id, paymentId: p.id },
+                                {
+                                  onError: () =>
+                                    message.error("Не удалось отменить"),
+                                },
+                              ),
+                          })
+                        }
+                      >
+                        Отменить
+                      </Button>
+                    )}
+                  </Space>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     до {fmtDate(p.paidUntil)} ·{" "}
-                    {new Date(p.createdAt).toLocaleDateString("ru-RU")}
+                    {new Date(p.createdAt).toLocaleDateString("ru-RU")} ·{" "}
+                    {p.adminLogin}
+                    {p.receipt ? ` · чек ${p.receipt}` : ""}
+                    {p.note ? ` · ${p.note}` : ""}
                   </Text>
                 </Space>
               </List.Item>
@@ -485,6 +546,24 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             confirmLoading={recordPayment.isPending}
           >
             <Form form={payForm} layout="vertical" onFinish={submitPayment}>
+              <Form.Item
+                name="periodMonths"
+                label="Период оплаты"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  onChange={(m: number) =>
+                    payForm.setFieldsValue({ amount: suggestAmount(m) })
+                  }
+                  options={PAYMENT_PERIODS.map((m) => {
+                    const pct = tariff?.discounts?.[String(m)] ?? 0;
+                    return {
+                      value: m,
+                      label: `${m} мес.${pct ? ` (−${pct}%)` : ""}`,
+                    };
+                  })}
+                />
+              </Form.Item>
               <div style={{ display: "flex", gap: 12 }}>
                 <Form.Item
                   name="amount"
@@ -498,19 +577,17 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   <Input />
                 </Form.Item>
               </div>
-              <Form.Item
-                name="periodMonths"
-                label="Период (месяцев)"
-                rules={[{ required: true, message: "Укажите период" }]}
-              >
-                <InputNumber min={1} max={120} style={{ width: "100%" }} />
+              <Form.Item name="receipt" label="Номер чека / счёта">
+                <Input placeholder="напр. №1024" />
               </Form.Item>
-              <Form.Item name="note" label="Примечание">
-                <Input.TextArea rows={2} placeholder="Напр. счёт №, способ" />
+              <Form.Item name="note" label="Комментарий">
+                <Input.TextArea rows={2} placeholder="Способ оплаты, детали" />
               </Form.Item>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Компания переводится в «Активна», оплата продлевается на указанный
-                период.
+                {tariff
+                  ? `Сумма подставлена из тарифа «${tariff.name}» с учётом скидки — можно поправить вручную.`
+                  : "У компании не выбран тариф — укажите сумму вручную."}{" "}
+                Компания переводится в «Активна».
               </Text>
             </Form>
           </Modal>

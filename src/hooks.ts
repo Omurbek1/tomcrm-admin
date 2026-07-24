@@ -9,7 +9,7 @@ import type {
   AdminRow,
   AuditRow,
   NotificationTemplate,
-  PaymentRow,
+  PaymentsResponse,
   PlatformOverview,
   Tariff,
   TenantDetail,
@@ -205,13 +205,25 @@ export const useImpersonate = () =>
       },
   });
 
-export const usePayments = (tenantId?: string | null) =>
-  useQuery<PaymentRow[]>({
-    queryKey: ["payments", tenantId],
+export const usePayments = (tenantId: string | null, page = 1, pageSize = 10) =>
+  useQuery<PaymentsResponse>({
+    queryKey: ["payments", tenantId, page],
     enabled: !!tenantId,
     queryFn: async () =>
-      (await api.get(`/api/platform/tenants/${tenantId}/payments`)).data,
+      (
+        await api.get(`/api/platform/tenants/${tenantId}/payments`, {
+          params: { limit: pageSize, offset: (page - 1) * pageSize },
+        })
+      ).data,
   });
+
+const invalidatePayments = (qc: ReturnType<typeof useQueryClient>, id: string) => {
+  void qc.invalidateQueries({ queryKey: ["tenant", id] });
+  void qc.invalidateQueries({ queryKey: ["payments", id] });
+  void qc.invalidateQueries({ queryKey: ["tenants"] });
+  void qc.invalidateQueries({ queryKey: ["overview"] });
+  void qc.invalidateQueries({ queryKey: ["audit", id] });
+};
 
 export const useRecordPayment = () => {
   const qc = useQueryClient();
@@ -222,6 +234,7 @@ export const useRecordPayment = () => {
       currency: string;
       periodMonths: number;
       note?: string;
+      receipt?: string;
     }) =>
       (
         await api.post(`/api/platform/tenants/${v.id}/payment`, {
@@ -229,15 +242,40 @@ export const useRecordPayment = () => {
           currency: v.currency,
           periodMonths: v.periodMonths,
           note: v.note,
+          receipt: v.receipt,
         })
       ).data as TenantRow,
-    onSuccess: (_d, v) => {
-      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
-      void qc.invalidateQueries({ queryKey: ["payments", v.id] });
-      void qc.invalidateQueries({ queryKey: ["tenants"] });
-      void qc.invalidateQueries({ queryKey: ["overview"] });
-      void qc.invalidateQueries({ queryKey: ["audit", v.id] });
-    },
+    onSuccess: (_d, v) => invalidatePayments(qc, v.id),
+  });
+};
+
+export const useCancelPayment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; paymentId: string }) =>
+      (
+        await api.post(
+          `/api/platform/tenants/${v.id}/payments/${v.paymentId}/cancel`,
+        )
+      ).data,
+    onSuccess: (_d, v) => invalidatePayments(qc, v.id),
+  });
+};
+
+export const useConfig = () =>
+  useQuery<{ graceDays: number }>({
+    queryKey: ["config"],
+    queryFn: async () => (await api.get("/api/platform/config")).data,
+  });
+
+export const useSetConfig = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (graceDays: number) =>
+      (await api.patch("/api/platform/config", { graceDays })).data as {
+        graceDays: number;
+      },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["config"] }),
   });
 };
 
@@ -265,6 +303,7 @@ export interface TariffPatch {
   isPublic?: boolean;
   sortOrder?: number;
   limits?: Record<string, number | null>;
+  discounts?: Record<string, number>;
 }
 
 export const useEditTariff = () => {
