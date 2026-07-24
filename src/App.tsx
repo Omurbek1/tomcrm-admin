@@ -3,6 +3,7 @@ import { Button, Drawer, Grid, Layout, Menu, Typography } from "antd";
 import { useEffect, useState } from "react";
 
 import { api, clearToken, getToken, setPermissions, UNAUTH_EVENT } from "./api/client";
+import { identify, resetIdentity } from "./lib/monitoring";
 import { AdminsPage } from "./pages/AdminsPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AuditPage } from "./pages/AuditPage";
@@ -46,18 +47,25 @@ export const App = () => {
     return () => window.removeEventListener(UNAUTH_EVENT, onUnauth);
   }, []);
 
-  // При входе освежаем права (могли измениться с прошлой сессии).
+  // При входе освежаем права (могли измениться с прошлой сессии) и привязываем
+  // мониторинг к конкретному админу (distinct_id/Sentry user).
   useEffect(() => {
     if (!authed) return;
     void api
-      .get<{ permissions: string[] }>("/api/platform/me")
-      .then((r) => setPermissions(r.data.permissions ?? []))
+      .get<{ id?: string; login?: string; permissions: string[] }>(
+        "/api/platform/me",
+      )
+      .then((r) => {
+        setPermissions(r.data.permissions ?? []);
+        if (r.data.id) identify(r.data.id, { login: r.data.login });
+      })
       .catch(() => undefined);
   }, [authed]);
 
   if (!authed) return <LoginPage onLoggedIn={() => setAuthed(true)} />;
 
   const logout = () => {
+    resetIdentity();
     clearToken();
     setAuthed(false);
   };

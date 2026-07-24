@@ -8,6 +8,9 @@ import "./index.css";
 import { App } from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SelfHeal, VersionWatcher } from "./components/resilience";
+import { initMonitoring } from "./lib/monitoring";
+
+void initMonitoring();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
