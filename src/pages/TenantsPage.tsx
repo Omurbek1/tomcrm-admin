@@ -243,7 +243,7 @@ export const TenantsPage = () => {
 
       {/* Бизнес-метрики */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card>
             <Statistic
               title="MRR (мес. выручка)"
@@ -253,7 +253,7 @@ export const TenantsPage = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card>
             <Statistic
               title="Новые за месяц"
@@ -261,7 +261,7 @@ export const TenantsPage = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card>
             <Statistic
               title="Конверсия триал→оплата"
@@ -279,7 +279,7 @@ export const TenantsPage = () => {
             )}
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card>
             <Statistic
               title="Отток (блок/удал.)"
@@ -292,12 +292,12 @@ export const TenantsPage = () => {
 
       {/* Операционные (кликабельные фильтры) */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card>
             <Statistic title="Всего компаний" value={overview?.total ?? 0} />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card {...clickable("trial_expiring")}>
             <Statistic
               title="Триал истекает ≤3 дн."
@@ -306,7 +306,7 @@ export const TenantsPage = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card {...clickable("trial_expired")}>
             <Statistic
               title="Триал истёк"
@@ -315,7 +315,7 @@ export const TenantsPage = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={12} md={6}>
           <Card {...clickable("overdue")}>
             <Statistic
               title="Оплата просрочена"

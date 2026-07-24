@@ -212,6 +212,7 @@ export const AdminsPage = () => {
           loading={isLoading}
           dataSource={admins ?? []}
           columns={columns}
+          scroll={{ x: "max-content" }}
           pagination={false}
         />
       </Card>

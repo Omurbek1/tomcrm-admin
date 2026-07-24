@@ -178,6 +178,7 @@ export const TariffsPage = () => {
           loading={isLoading}
           dataSource={tariffs ?? []}
           columns={columns}
+          scroll={{ x: "max-content" }}
           pagination={false}
         />
       </Card>

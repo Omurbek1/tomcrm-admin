@@ -252,7 +252,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     <Drawer
       open={!!tenantId}
       onClose={onClose}
-      width={560}
+      width="min(560px, 100vw)"
       title={t ? t.name : "Компания"}
     >
       {isLoading || !t || !data ? (

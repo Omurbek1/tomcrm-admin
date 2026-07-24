@@ -54,12 +54,16 @@ export const App = () => {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 24,
+          gap: 12,
           background: "#0f172a",
+          paddingInline: 16,
         }}
       >
-        <Title level={4} style={{ color: "#fff", margin: 0, flexShrink: 0 }}>
-          TomStore · Платформа
+        <Title
+          level={4}
+          style={{ color: "#fff", margin: 0, flexShrink: 0, whiteSpace: "nowrap" }}
+        >
+          TomStore
         </Title>
         <Menu
           theme="dark"

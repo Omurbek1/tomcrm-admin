@@ -76,6 +76,7 @@ export const AuditPage = () => {
           loading={isLoading}
           dataSource={audit ?? []}
           columns={columns}
+          scroll={{ x: "max-content" }}
           pagination={{ pageSize: 25, showSizeChanger: false }}
           size="small"
         />

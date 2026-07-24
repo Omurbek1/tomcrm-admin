@@ -50,7 +50,7 @@ export const AnalyticsPage = () => {
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col span={8}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic
               title="MRR (мес. выручка)"
@@ -60,7 +60,7 @@ export const AnalyticsPage = () => {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic
               title="Конверсия триал→оплата"
@@ -73,7 +73,7 @@ export const AnalyticsPage = () => {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={8}>
           <Card>
             <Statistic
               title="Отток (блок/удал.)"
@@ -85,7 +85,7 @@ export const AnalyticsPage = () => {
       </Row>
 
       <Row gutter={[16, 16]}>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card title="MRR по тарифам">
             <Bars
               data={(data?.mrrByTariff ?? []).map((r) => ({
@@ -96,7 +96,7 @@ export const AnalyticsPage = () => {
             />
           </Card>
         </Col>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card title="Новые компании по месяцам">
             <Bars
               color="#0ea5e9"

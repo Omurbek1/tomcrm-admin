@@ -75,6 +75,7 @@ export const TemplatesPage = () => {
           loading={isLoading}
           dataSource={templates ?? []}
           columns={columns}
+          scroll={{ x: "max-content" }}
           pagination={false}
         />
       </Card>
