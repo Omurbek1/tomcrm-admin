@@ -1,9 +1,14 @@
-import { Card, Col, Input, Row, Select, Statistic, Table, Tag } from "antd";
+import { Button, Card, Col, Input, Row, Select, Statistic, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 
 import { useOverview, useTenants } from "../hooks";
-import type { PaymentStatus, TenantRow, TenantStatus } from "../types";
+import type {
+  PaymentStatus,
+  TenantFilter,
+  TenantRow,
+  TenantStatus,
+} from "../types";
 import {
   PAYMENT_COLOR,
   PAYMENT_LABEL,
@@ -12,13 +17,34 @@ import {
 } from "../types";
 import { TenantDrawer } from "./TenantDrawer";
 
+const FILTER_LABEL: Record<Exclude<TenantFilter, "">, string> = {
+  trial_expiring: "Триал истекает ≤3 дн.",
+  trial_expired: "Триал истёк",
+  overdue: "Оплата просрочена",
+};
+
 export const TenantsPage = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [filter, setFilter] = useState<TenantFilter>("");
   const [openId, setOpenId] = useState<string | null>(null);
 
   const { data: overview } = useOverview();
-  const { data: tenants, isLoading } = useTenants(search, status);
+  const { data: tenants, isLoading } = useTenants(search, status, filter);
+
+  // Клик по карточке-метрике: применяет именованный фильтр (сбрасывая статус).
+  const applyFilter = (f: TenantFilter) => {
+    setStatus("");
+    setFilter((cur) => (cur === f ? "" : f));
+  };
+
+  const clickable = (f: TenantFilter) => ({
+    onClick: () => applyFilter(f),
+    style: {
+      cursor: "pointer",
+      outline: filter === f ? "2px solid #4f46e5" : undefined,
+    } as const,
+  });
 
   const columns: ColumnsType<TenantRow> = [
     {
@@ -34,7 +60,7 @@ export const TenantsPage = () => {
     {
       title: "Статус",
       dataIndex: "status",
-      width: 130,
+      width: 120,
       render: (s: TenantStatus) => (
         <Tag color={STATUS_COLOR[s]}>{STATUS_LABEL[s]}</Tag>
       ),
@@ -42,7 +68,7 @@ export const TenantsPage = () => {
     {
       title: "Триал",
       dataIndex: "trialDaysLeft",
-      width: 90,
+      width: 80,
       render: (d: number, r) =>
         r.status === "trial" ? (
           <span style={{ color: d <= 0 ? "#ef4444" : undefined }}>{d} дн.</span>
@@ -66,6 +92,47 @@ export const TenantsPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+      {/* Бизнес-метрики */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="MRR (мес. выручка)"
+              value={overview?.mrr ?? 0}
+              formatter={(v) => Number(v).toLocaleString("ru-RU")}
+              suffix={overview?.mrrCurrency ?? "KGS"}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Новые за месяц"
+              value={overview?.newThisMonth ?? 0}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Конверсия триал→оплата"
+              value={overview?.conversionRate ?? 0}
+              suffix="%"
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Отток (блок/удал.)"
+              value={overview?.churned ?? 0}
+              valueStyle={{ color: "#ef4444" }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Операционные (кликабельные фильтры) */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card>
@@ -73,15 +140,7 @@ export const TenantsPage = () => {
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic
-              title="Активные"
-              value={overview?.byStatus?.active ?? 0}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
+          <Card {...clickable("trial_expiring")}>
             <Statistic
               title="Триал истекает ≤3 дн."
               value={overview?.trialsExpiringSoon ?? 0}
@@ -90,7 +149,7 @@ export const TenantsPage = () => {
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card {...clickable("trial_expired")}>
             <Statistic
               title="Триал истёк"
               value={overview?.trialsExpired ?? 0}
@@ -99,7 +158,7 @@ export const TenantsPage = () => {
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card {...clickable("overdue")}>
             <Statistic
               title="Оплата просрочена"
               value={overview?.overdue ?? 0}
@@ -110,7 +169,15 @@ export const TenantsPage = () => {
       </Row>
 
       <Card>
-        <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginBottom: 16,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
           <Input.Search
             placeholder="Поиск по названию, slug, телефону"
             allowClear
@@ -123,7 +190,10 @@ export const TenantsPage = () => {
           <Select
             value={status}
             style={{ width: 200 }}
-            onChange={setStatus}
+            onChange={(v) => {
+              setStatus(v);
+              setFilter("");
+            }}
             options={[
               { value: "", label: "Все статусы" },
               { value: "trial", label: "Триал" },
@@ -132,6 +202,28 @@ export const TenantsPage = () => {
               { value: "deleted", label: "Удалённые" },
             ]}
           />
+          {filter && (
+            <Tag
+              closable
+              color="blue"
+              onClose={() => setFilter("")}
+              style={{ padding: "4px 8px" }}
+            >
+              {FILTER_LABEL[filter]}
+            </Tag>
+          )}
+          {(filter || status) && (
+            <Button
+              type="link"
+              size="small"
+              onClick={() => {
+                setFilter("");
+                setStatus("");
+              }}
+            >
+              Сбросить
+            </Button>
+          )}
         </div>
 
         <Table<TenantRow>

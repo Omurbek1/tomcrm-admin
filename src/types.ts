@@ -38,7 +38,16 @@ export interface PlatformOverview {
   trialsExpiringSoon: number;
   trialsExpired: number;
   overdue: number;
+  mrr: number;
+  mrrCurrency: string;
+  newThisMonth: number;
+  everPaid: number;
+  conversionRate: number;
+  churned: number;
 }
+
+/** Именованные фильтры дашборда (кликабельные карточки). */
+export type TenantFilter = "" | "trial_expiring" | "trial_expired" | "overdue";
 
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   paid: "Оплачено",

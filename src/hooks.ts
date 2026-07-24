@@ -21,13 +21,17 @@ export const useOverview = () =>
     queryFn: async () => (await api.get("/api/platform/overview")).data,
   });
 
-export const useTenants = (search: string, status: string) =>
+export const useTenants = (search: string, status: string, filter = "") =>
   useQuery<TenantRow[]>({
-    queryKey: ["tenants", search, status],
+    queryKey: ["tenants", search, status, filter],
     queryFn: async () =>
       (
         await api.get("/api/platform/tenants", {
-          params: { search: search || undefined, status: status || undefined },
+          params: {
+            search: search || undefined,
+            status: status || undefined,
+            filter: filter || undefined,
+          },
         })
       ).data,
   });
