@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { clearToken, getToken, UNAUTH_EVENT } from "./api/client";
 import { AdminsPage } from "./pages/AdminsPage";
+import { AuditPage } from "./pages/AuditPage";
 import { LoginPage } from "./pages/LoginPage";
 import { TariffsPage } from "./pages/TariffsPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
@@ -11,7 +12,7 @@ import { TenantsPage } from "./pages/TenantsPage";
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-type View = "tenants" | "tariffs" | "templates" | "admins";
+type View = "tenants" | "tariffs" | "templates" | "audit" | "admins";
 
 export const App = () => {
   const [authed, setAuthed] = useState<boolean>(!!getToken());
@@ -54,6 +55,7 @@ export const App = () => {
             { key: "tenants", label: "Компании" },
             { key: "tariffs", label: "Тарифы" },
             { key: "templates", label: "Уведомления" },
+            { key: "audit", label: "Журнал" },
             { key: "admins", label: "Администраторы" },
           ]}
         />
@@ -65,6 +67,7 @@ export const App = () => {
         {view === "tenants" && <TenantsPage />}
         {view === "tariffs" && <TariffsPage />}
         {view === "templates" && <TemplatesPage />}
+        {view === "audit" && <AuditPage />}
         {view === "admins" && <AdminsPage />}
       </Content>
     </Layout>
