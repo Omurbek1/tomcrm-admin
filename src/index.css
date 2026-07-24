@@ -93,3 +93,37 @@ body,
   animation: login-field-in 0.35s ease both;
   overflow: hidden;
 }
+
+/* QR в настройке 2FA — по центру и никогда не шире контейнера. */
+.login-2fa .ant-qrcode {
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto !important;
+}
+.login-2fa .ant-qrcode canvas,
+.login-2fa .ant-qrcode svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Совсем узкие экраны (≈320px): ужимаем поля карточки. */
+@media (max-width: 380px) {
+  .login-screen {
+    padding: 12px;
+  }
+  .login-card {
+    padding: 22px 16px;
+    border-radius: 16px;
+  }
+  .login-brand {
+    margin-bottom: 16px;
+  }
+  /* На узком экране вертикальные Steps сильно съедают ширину отступом слева —
+     убираем его, содержимое (QR/код) выравниваем по центру. */
+  .login-2fa .ant-steps-vertical .ant-steps-item-content {
+    min-height: auto;
+  }
+  .login-2fa .ant-steps-vertical .ant-steps-item-icon {
+    margin-inline-end: 8px;
+  }
+}
