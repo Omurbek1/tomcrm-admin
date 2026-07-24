@@ -1,4 +1,4 @@
-import { App, Button, Card, Form, Input, Typography } from "antd";
+import { App, Button, Form, Input, Typography } from "antd";
 import { useState } from "react";
 
 import { api, setPermissions, setToken } from "../api/client";
@@ -46,59 +46,87 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        background: "#0f172a",
-      }}
-    >
-      <Card style={{ width: 380 }}>
-        <Title level={3} style={{ marginBottom: 0 }}>
-          TomStore
-        </Title>
-        <Text type="secondary">Панель платформы</Text>
-        <Form layout="vertical" onFinish={submit} style={{ marginTop: 20 }}>
+    <div className="login-screen">
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="login-logo">T</div>
+          <div>
+            <Title level={4} style={{ margin: 0, lineHeight: 1.1 }}>
+              TomStore
+            </Title>
+            <Text type="secondary">Панель платформы</Text>
+          </div>
+        </div>
+
+        <Form
+          layout="vertical"
+          onFinish={submit}
+          requiredMark={false}
+          size="large"
+        >
           <Form.Item
             name="login"
             label="Логин"
             rules={[{ required: true, message: "Введите логин" }]}
           >
-            <Input autoComplete="username" size="large" />
+            <Input autoComplete="username" placeholder="admin" />
           </Form.Item>
           <Form.Item
             name="password"
             label="Пароль"
             rules={[{ required: true, message: "Введите пароль" }]}
+            style={{ marginBottom: needCode ? 12 : 24 }}
           >
-            <Input.Password autoComplete="current-password" size="large" />
+            <Input.Password
+              autoComplete="current-password"
+              placeholder="••••••••"
+            />
           </Form.Item>
+
           {needCode && (
-            <Form.Item
-              name="totpCode"
-              label="Код 2FA"
-              rules={[{ required: true, message: "Введите 6-значный код" }]}
-            >
-              <Input
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="123456"
-                size="large"
-              />
-            </Form.Item>
+            <div className="login-2fa">
+              <Form.Item
+                name="totpCode"
+                label="Код двухфакторной защиты"
+                rules={[
+                  { required: true, message: "Введите 6-значный код" },
+                  { len: 6, message: "Код из 6 цифр" },
+                ]}
+              >
+                <Input
+                  inputMode="numeric"
+                  maxLength={6}
+                  autoFocus
+                  placeholder="123 456"
+                  style={{ letterSpacing: 6, textAlign: "center" }}
+                />
+              </Form.Item>
+            </div>
           )}
-          <Button
-            type="primary"
-            htmlType="submit"
-            block
-            size="large"
-            loading={loading}
-          >
-            Войти
+
+          <Button type="primary" htmlType="submit" block loading={loading}>
+            {needCode ? "Подтвердить вход" : "Войти"}
           </Button>
+
+          {needCode && (
+            <Button
+              type="link"
+              block
+              style={{ marginTop: 8 }}
+              onClick={() => setNeedCode(false)}
+            >
+              ← Назад
+            </Button>
+          )}
         </Form>
-      </Card>
+
+        <Text
+          type="secondary"
+          style={{ display: "block", marginTop: 18, fontSize: 12, textAlign: "center" }}
+        >
+          Доступ только для операторов платформы TomStore
+        </Text>
+      </div>
     </div>
   );
 };

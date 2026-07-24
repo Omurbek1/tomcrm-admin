@@ -1,0 +1,95 @@
+/* Глобальные стили панели платформы. */
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* ── Экран входа ─────────────────────────────────────────────────────────── */
+@keyframes login-bg {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes login-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes login-field-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 120px;
+  }
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(120deg, #0b1220, #131f3a, #0f172a, #1e293b);
+  background-size: 300% 300%;
+  animation: login-bg 18s ease infinite;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 20px;
+  padding: 34px 30px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 60px -20px rgba(2, 6, 23, 0.7);
+  animation: login-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+:root[data-theme="dark"] .login-card {
+  background: #0f1a2e;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.login-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  box-shadow: 0 8px 20px -6px rgba(79, 70, 229, 0.6);
+}
+
+.login-2fa {
+  animation: login-field-in 0.35s ease both;
+  overflow: hidden;
+}

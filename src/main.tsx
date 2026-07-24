@@ -4,6 +4,7 @@ import ruRU from "antd/locale/ru_RU";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import "./index.css";
 import { App } from "./App";
 
 const queryClient = new QueryClient({
