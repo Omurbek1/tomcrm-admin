@@ -116,6 +116,39 @@ export const useSetContacts = () => {
   });
 };
 
+export interface CreateTenantResult {
+  tenant: TenantRow;
+  login: string;
+  tempPassword: string;
+  trialEndsAt: string;
+}
+
+/** Проверка slug на лету (не хук — вызывается из формы с дебаунсом). */
+export const checkSlug = async (
+  slug: string,
+): Promise<{ slug: string; available: boolean }> =>
+  (await api.get("/api/platform/slug-check", { params: { slug } })).data;
+
+export const useCreateTenant = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      companyName: string;
+      slug?: string;
+      tariffId?: string;
+      ownerName: string;
+      ownerPhone: string;
+      ownerEmail: string;
+      trialDays?: number;
+    }) =>
+      (await api.post("/api/platform/tenants", input)).data as CreateTenantResult,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+};
+
 export const useImpersonate = () =>
   useMutation({
     mutationFn: async (id: string) =>

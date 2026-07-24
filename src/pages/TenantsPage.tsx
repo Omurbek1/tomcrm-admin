@@ -15,6 +15,7 @@ import {
   STATUS_COLOR,
   STATUS_LABEL,
 } from "../types";
+import { CreateTenantModal } from "./CreateTenantModal";
 import { TenantDrawer } from "./TenantDrawer";
 
 const FILTER_LABEL: Record<Exclude<TenantFilter, "">, string> = {
@@ -65,6 +66,7 @@ export const TenantsPage = () => {
   const [status, setStatus] = useState("");
   const [filter, setFilter] = useState<TenantFilter>("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data: overview } = useOverview();
   const { data: tenants, isLoading } = useTenants(search, status, filter);
@@ -129,6 +131,20 @@ export const TenantsPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <h2 style={{ margin: 0 }}>Компании</h2>
+        <Button type="primary" onClick={() => setCreateOpen(true)}>
+          Создать компанию
+        </Button>
+      </div>
+
       {/* Бизнес-метрики */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col span={6}>
@@ -284,6 +300,10 @@ export const TenantsPage = () => {
       </Card>
 
       <TenantDrawer tenantId={openId} onClose={() => setOpenId(null)} />
+      <CreateTenantModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
     </div>
   );
 };

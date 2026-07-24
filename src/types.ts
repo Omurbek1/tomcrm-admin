@@ -104,6 +104,7 @@ export const LIMIT_META: Array<{ key: string; label: string }> = [
 ];
 
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
+  "tenant.create": "Создание компании",
   "tenant.status": "Смена статуса",
   "tenant.trial_extend": "Продление триала",
   "tenant.tariff": "Смена тарифа",
