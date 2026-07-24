@@ -1,4 +1,5 @@
-import { Button, Layout, Menu, Typography } from "antd";
+import { MenuOutlined } from "@ant-design/icons";
+import { Button, Drawer, Grid, Layout, Menu, Typography } from "antd";
 import { useEffect, useState } from "react";
 
 import { api, clearToken, getToken, setPermissions, UNAUTH_EVENT } from "./api/client";
@@ -12,6 +13,7 @@ import { TenantsPage } from "./pages/TenantsPage";
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 type View =
   | "tenants"
@@ -21,9 +23,21 @@ type View =
   | "audit"
   | "admins";
 
+const NAV: { key: View; label: string }[] = [
+  { key: "tenants", label: "Компании" },
+  { key: "analytics", label: "Аналитика" },
+  { key: "tariffs", label: "Тарифы" },
+  { key: "templates", label: "Уведомления" },
+  { key: "audit", label: "Журнал" },
+  { key: "admins", label: "Администраторы" },
+];
+
 export const App = () => {
   const [authed, setAuthed] = useState<boolean>(!!getToken());
   const [view, setView] = useState<View>("tenants");
+  const [navOpen, setNavOpen] = useState(false);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md; // < 768px
 
   // Токен протух/невалиден (интерсептор axios) → возвращаемся на логин.
   useEffect(() => {
@@ -48,6 +62,8 @@ export const App = () => {
     setAuthed(false);
   };
 
+  const currentLabel = NAV.find((n) => n.key === view)?.label ?? "";
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Header
@@ -59,31 +75,79 @@ export const App = () => {
           paddingInline: 16,
         }}
       >
-        <Title
-          level={4}
-          style={{ color: "#fff", margin: 0, flexShrink: 0, whiteSpace: "nowrap" }}
-        >
-          TomStore
-        </Title>
-        <Menu
-          theme="dark"
-          mode="horizontal"
-          selectedKeys={[view]}
-          onClick={(e) => setView(e.key as View)}
-          style={{ flex: 1, background: "transparent", minWidth: 0 }}
-          items={[
-            { key: "tenants", label: "Компании" },
-            { key: "analytics", label: "Аналитика" },
-            { key: "tariffs", label: "Тарифы" },
-            { key: "templates", label: "Уведомления" },
-            { key: "audit", label: "Журнал" },
-            { key: "admins", label: "Администраторы" },
-          ]}
-        />
-        <Button ghost onClick={logout}>
-          Выйти
-        </Button>
+        {isMobile ? (
+          <>
+            <Button
+              type="text"
+              icon={<MenuOutlined style={{ color: "#fff", fontSize: 18 }} />}
+              onClick={() => setNavOpen(true)}
+              style={{ flexShrink: 0 }}
+              aria-label="Меню"
+            />
+            <Title
+              level={5}
+              style={{
+                color: "#fff",
+                margin: 0,
+                flex: 1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {currentLabel}
+            </Title>
+            <Button ghost size="small" onClick={logout} style={{ flexShrink: 0 }}>
+              Выйти
+            </Button>
+          </>
+        ) : (
+          <>
+            <Title
+              level={4}
+              style={{
+                color: "#fff",
+                margin: 0,
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              TomStore
+            </Title>
+            <Menu
+              theme="dark"
+              mode="horizontal"
+              selectedKeys={[view]}
+              onClick={(e) => setView(e.key as View)}
+              style={{ flex: 1, background: "transparent", minWidth: 0 }}
+              items={NAV}
+            />
+            <Button ghost onClick={logout}>
+              Выйти
+            </Button>
+          </>
+        )}
       </Header>
+
+      <Drawer
+        title="TomStore · Платформа"
+        placement="left"
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        styles={{ body: { padding: 0 } }}
+        width={260}
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={[view]}
+          onClick={(e) => {
+            setView(e.key as View);
+            setNavOpen(false);
+          }}
+          items={NAV}
+        />
+      </Drawer>
+
       <Content style={{ background: "#f1f5f9" }}>
         {view === "tenants" && <TenantsPage />}
         {view === "analytics" && <AnalyticsPage />}
