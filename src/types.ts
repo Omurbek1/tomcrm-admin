@@ -42,6 +42,16 @@ export interface Tariff {
   isPublic: boolean;
 }
 
+export interface AdminRow {
+  id: string;
+  login: string;
+  name: string | null;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
 export const STATUS_LABEL: Record<TenantStatus, string> = {
   trial: "Триал",
   active: "Активна",

@@ -6,6 +6,7 @@ import {
 
 import { api } from "./api/client";
 import type {
+  AdminRow,
   PlatformOverview,
   Tariff,
   TenantDetail,
@@ -88,5 +89,62 @@ export const useSetTariff = () => {
         })
       ).data as TenantRow,
     onSuccess: (_d, v) => invalidate(v.id),
+  });
+};
+
+// ── Админы платформы ────────────────────────────────────────────────────────
+
+export const useAdmins = () =>
+  useQuery<AdminRow[]>({
+    queryKey: ["admins"],
+    queryFn: async () => (await api.get("/api/platform/admins")).data,
+  });
+
+const useInvalidateAdmins = () => {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: ["admins"] });
+};
+
+export const useCreateAdmin = () => {
+  const invalidate = useInvalidateAdmins();
+  return useMutation({
+    mutationFn: async (v: {
+      login: string;
+      name?: string;
+      password: string;
+    }) => (await api.post("/api/platform/admins", v)).data as AdminRow,
+    onSuccess: () => void invalidate(),
+  });
+};
+
+export const useSetAdminActive = () => {
+  const invalidate = useInvalidateAdmins();
+  return useMutation({
+    mutationFn: async (v: { id: string; isActive: boolean }) =>
+      (
+        await api.patch(`/api/platform/admins/${v.id}/active`, {
+          isActive: v.isActive,
+        })
+      ).data as AdminRow,
+    onSuccess: () => void invalidate(),
+  });
+};
+
+export const useChangeAdminPassword = () =>
+  useMutation({
+    mutationFn: async (v: { id: string; password: string }) =>
+      (
+        await api.patch(`/api/platform/admins/${v.id}/password`, {
+          password: v.password,
+        })
+      ).data as AdminRow,
+  });
+
+export const useDeleteAdmin = () => {
+  const invalidate = useInvalidateAdmins();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await api.delete(`/api/platform/admins/${id}`)).data,
+    onSuccess: () => void invalidate(),
   });
 };
