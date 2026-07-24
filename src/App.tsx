@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { clearToken, getToken, UNAUTH_EVENT } from "./api/client";
 import { AdminsPage } from "./pages/AdminsPage";
 import { LoginPage } from "./pages/LoginPage";
+import { TariffsPage } from "./pages/TariffsPage";
 import { TenantsPage } from "./pages/TenantsPage";
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-type View = "tenants" | "admins";
+type View = "tenants" | "tariffs" | "admins";
 
 export const App = () => {
   const [authed, setAuthed] = useState<boolean>(!!getToken());
@@ -50,6 +51,7 @@ export const App = () => {
           style={{ flex: 1, background: "transparent", minWidth: 0 }}
           items={[
             { key: "tenants", label: "Компании" },
+            { key: "tariffs", label: "Тарифы" },
             { key: "admins", label: "Администраторы" },
           ]}
         />
@@ -58,7 +60,9 @@ export const App = () => {
         </Button>
       </Header>
       <Content style={{ background: "#f1f5f9" }}>
-        {view === "tenants" ? <TenantsPage /> : <AdminsPage />}
+        {view === "tenants" && <TenantsPage />}
+        {view === "tariffs" && <TariffsPage />}
+        {view === "admins" && <AdminsPage />}
       </Content>
     </Layout>
   );

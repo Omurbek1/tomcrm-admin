@@ -30,17 +30,49 @@ export interface TenantDetail {
   limits: Record<string, number | null>;
   usage: Record<string, number>;
   hasOverrides: boolean;
+  limitPolicy: "hard" | "soft";
 }
 
 export interface Tariff {
   id: string;
   code: string;
   name: string;
+  description: string | null;
   price: string;
   currency: string;
   period: string;
   isPublic: boolean;
+  sortOrder: number;
+  modules: Record<string, boolean>;
+  limits: Record<string, number | null>;
 }
+
+export interface AuditRow {
+  id: string;
+  adminLogin: string;
+  action: string;
+  tenantId: string | null;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Ключи лимитов тарифа + подписи для интерфейса (совпадают с бэкендом). */
+export const LIMIT_META: Array<{ key: string; label: string }> = [
+  { key: "users", label: "Сотрудники" },
+  { key: "whatsappNumbers", label: "Номера WhatsApp" },
+  { key: "dealsPerMonth", label: "Сделки в месяц" },
+  { key: "products", label: "Товары" },
+  { key: "branches", label: "Филиалы" },
+  { key: "storageMb", label: "Хранилище, МБ" },
+];
+
+export const AUDIT_ACTION_LABEL: Record<string, string> = {
+  "tenant.status": "Смена статуса",
+  "tenant.trial_extend": "Продление триала",
+  "tenant.tariff": "Смена тарифа",
+  "tenant.contacts": "Изменение контактов",
+  "tariff.edit": "Редактирование тарифа",
+};
 
 export interface AdminRow {
   id: string;

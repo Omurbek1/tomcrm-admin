@@ -7,6 +7,7 @@ import {
 import { api } from "./api/client";
 import type {
   AdminRow,
+  AuditRow,
   PlatformOverview,
   Tariff,
   TenantDetail,
@@ -89,6 +90,62 @@ export const useSetTariff = () => {
         })
       ).data as TenantRow,
     onSuccess: (_d, v) => invalidate(v.id),
+  });
+};
+
+export const useSetContacts = () => {
+  const invalidate = useInvalidateTenant();
+  return useMutation({
+    mutationFn: async (v: {
+      id: string;
+      contactPhone: string;
+      contactEmail: string;
+    }) =>
+      (
+        await api.patch(`/api/platform/tenants/${v.id}/contacts`, {
+          contactPhone: v.contactPhone,
+          contactEmail: v.contactEmail,
+        })
+      ).data as TenantRow,
+    onSuccess: (_d, v) => invalidate(v.id),
+  });
+};
+
+/** Аудит-лог: по компании (tenantId) или весь (без id). */
+export const useAudit = (tenantId?: string | null) =>
+  useQuery<AuditRow[]>({
+    queryKey: ["audit", tenantId ?? "all"],
+    enabled: tenantId !== undefined,
+    queryFn: async () =>
+      (
+        await api.get("/api/platform/audit", {
+          params: tenantId ? { tenantId } : undefined,
+        })
+      ).data,
+  });
+
+// ── Тарифы (редактирование) ─────────────────────────────────────────────────
+
+export interface TariffPatch {
+  name?: string;
+  description?: string | null;
+  price?: number;
+  currency?: string;
+  period?: string;
+  isPublic?: boolean;
+  sortOrder?: number;
+  limits?: Record<string, number | null>;
+}
+
+export const useEditTariff = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; patch: TariffPatch }) =>
+      (await api.patch(`/api/platform/tariffs/${v.id}`, v.patch)).data as Tariff,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tariffs"] });
+      void qc.invalidateQueries({ queryKey: ["tenant"] });
+    },
   });
 };
 
