@@ -23,6 +23,43 @@ const FILTER_LABEL: Record<Exclude<TenantFilter, "">, string> = {
   overdue: "Оплата просрочена",
 };
 
+const CSV_COLUMNS: Array<{ key: keyof TenantRow; label: string }> = [
+  { key: "name", label: "Компания" },
+  { key: "slug", label: "Slug" },
+  { key: "status", label: "Статус" },
+  { key: "tariffName", label: "Тариф" },
+  { key: "paymentStatus", label: "Оплата" },
+  { key: "paidUntil", label: "Оплачено до" },
+  { key: "trialEndsAt", label: "Триал до" },
+  { key: "employees", label: "Сотрудники" },
+  { key: "deals", label: "Сделки" },
+  { key: "contactPhone", label: "Телефон" },
+  { key: "contactEmail", label: "Email" },
+  { key: "createdAt", label: "Создана" },
+];
+
+const csvCell = (v: unknown): string => {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const exportCsv = (rows: TenantRow[]): void => {
+  const head = CSV_COLUMNS.map((c) => c.label).join(";");
+  const body = rows
+    .map((r) => CSV_COLUMNS.map((c) => csvCell(r[c.key])).join(";"))
+    .join("\n");
+  // BOM — чтобы Excel корректно открыл кириллицу в UTF-8.
+  const blob = new Blob(["﻿" + head + "\n" + body], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "tomstore-companies.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 export const TenantsPage = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -224,6 +261,13 @@ export const TenantsPage = () => {
               Сбросить
             </Button>
           )}
+          <Button
+            style={{ marginLeft: "auto" }}
+            onClick={() => exportCsv(tenants ?? [])}
+            disabled={!tenants?.length}
+          >
+            Экспорт CSV
+          </Button>
         </div>
 
         <Table<TenantRow>

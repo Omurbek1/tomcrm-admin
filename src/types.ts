@@ -108,7 +108,18 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.trial_extend": "Продление триала",
   "tenant.tariff": "Смена тарифа",
   "tenant.contacts": "Изменение контактов",
+  "tenant.payment": "Отметка оплаты",
+  "tenant.impersonate": "Вход под владельцем",
   "tariff.edit": "Редактирование тарифа",
+};
+
+/** Что происходит с данными при статусе (показываем в админке). */
+export const STATUS_DATA_POLICY: Record<TenantStatus, string> = {
+  trial: "Пробный период: полный доступ.",
+  active: "Оплачено: полный доступ.",
+  blocked: "Заморозка: доступ только на чтение, данные сохраняются.",
+  deleted:
+    "Удаление: вход закрыт, данные сохраняются (мягкое удаление) — можно восстановить сменой статуса.",
 };
 
 export interface AdminRow {

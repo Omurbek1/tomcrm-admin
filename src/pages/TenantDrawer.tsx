@@ -18,9 +18,11 @@ import {
 } from "antd";
 import { useState } from "react";
 
+import { CRM_URL } from "../api/client";
 import {
   useAudit,
   useExtendTrial,
+  useImpersonate,
   usePayments,
   useRecordPayment,
   useSetContacts,
@@ -36,6 +38,7 @@ import {
   PAYMENT_COLOR,
   PAYMENT_LABEL,
   STATUS_COLOR,
+  STATUS_DATA_POLICY,
   STATUS_LABEL,
 } from "../types";
 
@@ -47,7 +50,7 @@ interface Props {
 }
 
 export const TenantDrawer = ({ tenantId, onClose }: Props) => {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { data, isLoading } = useTenant(tenantId);
   const { data: tariffs } = useTariffs();
   const { data: audit } = useAudit(tenantId ?? undefined);
@@ -57,6 +60,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const setTariff = useSetTariff();
   const setContacts = useSetContacts();
   const recordPayment = useRecordPayment();
+  const impersonate = useImpersonate();
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
   const [payForm] = Form.useForm();
@@ -91,7 +95,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const fmtDate = (s: string | null) =>
     s ? new Date(s).toLocaleDateString("ru-RU") : "—";
 
-  const changeStatus = (status: string) => {
+  const applyStatus = (status: string) => {
     if (!t) return;
     setStatus.mutate(
       { id: t.id, status },
@@ -100,6 +104,45 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
         onError: () => message.error("Не удалось сменить статус"),
       },
     );
+  };
+
+  const changeStatus = (status: string) => {
+    if (!t) return;
+    // Заморозка/удаление — с подтверждением и пояснением о судьбе данных.
+    if (status === "deleted" || status === "blocked") {
+      modal.confirm({
+        title: status === "deleted" ? "Удалить компанию?" : "Заморозить компанию?",
+        content:
+          STATUS_DATA_POLICY[status as TenantStatus] ??
+          "Сменить статус компании?",
+        okText: status === "deleted" ? "Удалить" : "Заморозить",
+        okButtonProps: { danger: true },
+        cancelText: "Отмена",
+        onOk: () => applyStatus(status),
+      });
+      return;
+    }
+    applyStatus(status);
+  };
+
+  const doImpersonate = () => {
+    if (!t) return;
+    impersonate.mutate(t.id, {
+      onSuccess: (r) => {
+        // Открываем CRM с токеном владельца в hash — CRM подхватит и войдёт.
+        window.open(
+          `${CRM_URL}/#impersonate=${encodeURIComponent(r.token)}`,
+          "_blank",
+          "noopener",
+        );
+      },
+      onError: (e: unknown) => {
+        const msg =
+          (e as { response?: { data?: { message?: string } } })?.response?.data
+            ?.message ?? "Не удалось войти под владельцем";
+        message.error(msg);
+      },
+    });
   };
 
   const addDays = (days: number) => {
@@ -171,6 +214,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               </Text>
             )}
           </Space>
+          <div style={{ marginBottom: 8 }}>
+            <Button
+              onClick={doImpersonate}
+              loading={impersonate.isPending}
+              disabled={t.status === "deleted"}
+            >
+              Войти под владельцем ↗
+            </Button>
+          </div>
 
           {noContacts && (
             <Alert
@@ -297,6 +349,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   ["trial", "active", "blocked", "deleted"] as TenantStatus[]
                 ).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
               />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {STATUS_DATA_POLICY[t.status]}
+              </Text>
             </div>
 
             <div>

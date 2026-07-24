@@ -116,6 +116,16 @@ export const useSetContacts = () => {
   });
 };
 
+export const useImpersonate = () =>
+  useMutation({
+    mutationFn: async (id: string) =>
+      (await api.post(`/api/platform/tenants/${id}/impersonate`)).data as {
+        token: string;
+        userId: string;
+        userName: string | null;
+      },
+  });
+
 export const usePayments = (tenantId?: string | null) =>
   useQuery<PaymentRow[]>({
     queryKey: ["payments", tenantId],
