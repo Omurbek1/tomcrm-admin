@@ -324,7 +324,10 @@ const My2fa = ({ me }: { me: AdminRow }) => {
   const setup = use2faSetup();
   const enable = use2faEnable();
   const disable = use2faDisable();
-  const [secret, setSecret] = useState<string | null>(null);
+  const [setupData, setSetupData] = useState<{
+    secret: string;
+    qrDataUrl: string;
+  } | null>(null);
   const [code, setCode] = useState("");
 
   if (me.totpEnabled) {
@@ -362,13 +365,14 @@ const My2fa = ({ me }: { me: AdminRow }) => {
 
   return (
     <Card size="small" style={{ marginBottom: 16 }}>
-      {!secret ? (
+      {!setupData ? (
         <Space wrap align="center">
           <Tag>2FA выключена</Tag>
           <Button
             onClick={() =>
               setup.mutate(undefined, {
-                onSuccess: (r) => setSecret(r.secret),
+                onSuccess: (r) =>
+                  setSetupData({ secret: r.secret, qrDataUrl: r.qrDataUrl }),
                 onError: () => message.error("Не удалось"),
               })
             }
@@ -378,41 +382,51 @@ const My2fa = ({ me }: { me: AdminRow }) => {
           </Button>
         </Space>
       ) : (
-        <div>
-          <Paragraph style={{ marginBottom: 8 }}>
-            Добавьте ключ в приложение (Google Authenticator, 1Password) вручную:
-          </Paragraph>
-          <Paragraph>
-            <Text strong>Ключ:</Text>{" "}
-            <Text code copyable>
-              {secret}
-            </Text>
-          </Paragraph>
-          <Space>
-            <Input
-              placeholder="код из приложения"
-              style={{ width: 180 }}
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-            <Button
-              type="primary"
-              onClick={() =>
-                enable.mutate(code, {
-                  onSuccess: () => {
-                    message.success("2FA включена");
-                    setSecret(null);
-                    setCode("");
-                  },
-                  onError: () => message.error("Неверный код"),
-                })
-              }
-              loading={enable.isPending}
-            >
-              Подтвердить
-            </Button>
-          </Space>
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <img
+            src={setupData.qrDataUrl}
+            alt="QR 2FA"
+            width={180}
+            height={180}
+            style={{ border: "1px solid #e2e8f0", borderRadius: 8 }}
+          />
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <Paragraph style={{ marginBottom: 8 }}>
+              Отсканируйте QR в приложении (Google Authenticator, 1Password) —
+              или добавьте ключ вручную:
+            </Paragraph>
+            <Paragraph>
+              <Text strong>Ключ:</Text>{" "}
+              <Text code copyable>
+                {setupData.secret}
+              </Text>
+            </Paragraph>
+            <Space>
+              <Input
+                placeholder="код из приложения"
+                style={{ width: 180 }}
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+              <Button
+                type="primary"
+                onClick={() =>
+                  enable.mutate(code, {
+                    onSuccess: () => {
+                      message.success("2FA включена");
+                      setSetupData(null);
+                      setCode("");
+                    },
+                    onError: () => message.error("Неверный код"),
+                  })
+                }
+                loading={enable.isPending}
+              >
+                Подтвердить
+              </Button>
+            </Space>
+          </div>
         </div>
       )}
     </Card>

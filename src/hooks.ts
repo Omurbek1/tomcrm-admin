@@ -440,6 +440,7 @@ export const use2faSetup = () =>
       (await api.post("/api/platform/2fa/setup")).data as {
         secret: string;
         otpauthUrl: string;
+        qrDataUrl: string;
       },
   });
 
