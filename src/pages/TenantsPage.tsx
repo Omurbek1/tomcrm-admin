@@ -232,6 +232,8 @@ export const TenantsPage = () => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
           marginBottom: 16,
         }}
       >
