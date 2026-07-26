@@ -113,6 +113,8 @@ export interface TenantDetail {
   modules: Record<string, boolean>;
   limits: Record<string, number | null>;
   usage: Record<string, number>;
+  /** Купленные компанией аддоны (количества) — прибавляются к лимитам. */
+  addons: Record<string, number>;
   hasOverrides: boolean;
   limitPolicy: "hard" | "soft";
 }
@@ -199,6 +201,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.payment": "Отметка оплаты",
   "tenant.payment_cancel": "Отмена платежа",
   "tenant.price_override": "Индивидуальная цена",
+  "tenant.addons": "Аддоны компании",
   "tenant.bulk_tariff": "Массовая смена тарифа",
   "tenant.auto_freeze": "Автозаморозка (просрочка)",
   "config.grace": "Настройка grace-периода",
@@ -206,6 +209,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.test_flag": "Пометка «тест»",
   "tenant.trial_expired": "Триал истёк → заморозка",
   "tariff.edit": "Редактирование тарифа",
+  "tariff.create": "Создание тарифа",
   "template.edit": "Правка шаблона",
   "notification.send": "Отправка напоминания",
   "admin.create": "Создание админа",

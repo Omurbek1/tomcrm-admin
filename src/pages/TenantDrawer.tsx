@@ -33,12 +33,14 @@ import {
   useSetPriceOverride,
   useSetStatus,
   useSetTariff,
+  useSetTenantAddons,
   useSetTest,
   useTariffs,
   useTenant,
 } from "../hooks";
 import type { TenantStatus } from "../types";
 import {
+  ADDON_META,
   AUDIT_ACTION_LABEL,
   LIMIT_META,
   NOTIF_STATUS_COLOR,
@@ -74,8 +76,12 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const recordPayment = useRecordPayment();
   const cancelPayment = useCancelPayment();
   const setPrice = useSetPriceOverride();
+  const setAddons = useSetTenantAddons();
   const setTest = useSetTest();
   const impersonate = useImpersonate();
+  const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(
+    null,
+  );
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
   const [payForm] = Form.useForm();
@@ -578,6 +584,63 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   <Button onClick={() => savePrice(null)}>Сброс</Button>
                 )}
               </Space.Compact>
+            </div>
+
+            <div>
+              <Text strong>Аддоны (докуплено)</Text>
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+                Прибавляются к лимитам: доп. сотрудник → +сотрудники, WABA/доп.
+                WhatsApp → +номера WhatsApp.
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: "0 8px",
+                }}
+              >
+                {ADDON_META.map((a) => {
+                  const cur = addonDraft ?? data.addons ?? {};
+                  return (
+                    <div key={a.key}>
+                      <div style={{ fontSize: 12 }}>{a.label}</div>
+                      <InputNumber
+                        min={0}
+                        style={{ width: "100%" }}
+                        placeholder="0"
+                        disabled={!can("billing.edit")}
+                        value={cur[a.key] ?? 0}
+                        onChange={(v) =>
+                          setAddonDraft({
+                            ...(addonDraft ?? data.addons ?? {}),
+                            [a.key]: Number(v ?? 0),
+                          })
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <Button
+                size="small"
+                style={{ marginTop: 8 }}
+                disabled={!can("billing.edit") || !addonDraft}
+                loading={setAddons.isPending}
+                onClick={() =>
+                  setAddons.mutate(
+                    { id: t.id, addons: addonDraft ?? {} },
+                    {
+                      onSuccess: () => {
+                        message.success("Аддоны сохранены");
+                        setAddonDraft(null);
+                      },
+                      onError: () => message.error("Не удалось сохранить"),
+                    },
+                  )
+                }
+              >
+                Сохранить аддоны
+              </Button>
             </div>
           </Space>
 

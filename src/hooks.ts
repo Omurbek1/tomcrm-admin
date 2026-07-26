@@ -234,6 +234,17 @@ export const useSetPriceOverride = () => {
   });
 };
 
+export const useSetTenantAddons = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; addons: Record<string, number> }) =>
+      (await api.patch(`/api/platform/tenants/${v.id}/addons`, v.addons)).data,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
+    },
+  });
+};
+
 export const useBulkTariff = () => {
   const qc = useQueryClient();
   return useMutation({
