@@ -2,6 +2,7 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   Form,
   Input,
   InputNumber,
@@ -16,32 +17,69 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 
 import { can } from "../api/client";
-import { useConfig, useEditTariff, useSetConfig, useTariffs } from "../hooks";
+import {
+  useConfig,
+  useCreateTariff,
+  useEditTariff,
+  useSetConfig,
+  useTariffs,
+} from "../hooks";
 import type { Tariff } from "../types";
-import { LIMIT_META, PAYMENT_PERIODS } from "../types";
+import { ADDON_META, LIMIT_META, MODULE_BUNDLES, PAYMENT_PERIODS } from "../types";
 
 const DISCOUNT_PERIODS = PAYMENT_PERIODS.filter((m) => m > 1); // 3/6/12
 
 const fmtLimit = (v: number | null | undefined): string =>
   v === null || v === undefined ? "∞" : String(v);
 
+/** Пакет включён, если ни один его сигнал не выключен явно (false). */
+const bundleChecked = (
+  modules: Record<string, boolean> | undefined,
+  b: (typeof MODULE_BUNDLES)[number],
+): boolean =>
+  b.blocks.length
+    ? b.blocks.every((k) => modules?.[k] !== false)
+    : modules?.[b.key] !== false;
+
 export const TariffsPage = () => {
   const { message } = App.useApp();
   const { data: tariffs, isLoading } = useTariffs();
   const editTariff = useEditTariff();
+  const createTariff = useCreateTariff();
   const { data: config } = useConfig();
   const setConfig = useSetConfig();
   const [grace, setGrace] = useState<number>(3);
-  const [editing, setEditing] = useState<Tariff | null>(null);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Tariff | null>(null); // null = создание
   const [form] = Form.useForm();
 
   useEffect(() => {
     if (config) setGrace(config.graceDays);
   }, [config]);
 
+  const openCreate = () => {
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({
+      code: "",
+      name: "",
+      price: 0,
+      currency: "KGS",
+      period: "month",
+      isPublic: true,
+      archived: false,
+      ...Object.fromEntries(MODULE_BUNDLES.map((b) => [`mod_${b.key}`, true])),
+      ...Object.fromEntries(LIMIT_META.map((l) => [`limit_${l.key}`, null])),
+      ...Object.fromEntries(DISCOUNT_PERIODS.map((m) => [`discount_${m}`, 0])),
+      ...Object.fromEntries(ADDON_META.map((a) => [`addon_${a.key}`, 0])),
+    });
+    setOpen(true);
+  };
+
   const openEdit = (t: Tariff) => {
     setEditing(t);
     form.setFieldsValue({
+      code: t.code,
       name: t.name,
       price: Number(t.price),
       currency: t.currency,
@@ -49,19 +87,22 @@ export const TariffsPage = () => {
       isPublic: t.isPublic,
       archived: t.archived,
       ...Object.fromEntries(
+        MODULE_BUNDLES.map((b) => [`mod_${b.key}`, bundleChecked(t.modules, b)]),
+      ),
+      ...Object.fromEntries(
         LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
       ),
       ...Object.fromEntries(
-        DISCOUNT_PERIODS.map((m) => [
-          `discount_${m}`,
-          t.discounts?.[String(m)] ?? 0,
-        ]),
+        DISCOUNT_PERIODS.map((m) => [`discount_${m}`, t.discounts?.[String(m)] ?? 0]),
+      ),
+      ...Object.fromEntries(
+        ADDON_META.map((a) => [`addon_${a.key}`, t.addons?.[a.key] ?? 0]),
       ),
     });
+    setOpen(true);
   };
 
   const submit = (v: Record<string, unknown>) => {
-    if (!editing) return;
     const limits: Record<string, number | null> = {};
     for (const l of LIMIT_META) {
       const raw = v[`limit_${l.key}`];
@@ -71,33 +112,51 @@ export const TariffsPage = () => {
     for (const m of DISCOUNT_PERIODS) {
       discounts[String(m)] = Number(v[`discount_${m}`] ?? 0);
     }
-    editTariff.mutate(
-      {
-        id: editing.id,
-        patch: {
-          name: v.name as string,
-          price: v.price as number,
-          currency: v.currency as string,
-          period: v.period as string,
-          isPublic: v.isPublic as boolean,
-          archived: v.archived as boolean,
-          limits,
-          discounts,
+    // Пакеты → реальные блоки CRM (сохраняем прочие ключи существующих modules).
+    const modules: Record<string, boolean> = { ...(editing?.modules ?? {}) };
+    for (const b of MODULE_BUNDLES) {
+      const on = Boolean(v[`mod_${b.key}`]);
+      if (b.blocks.length) for (const k of b.blocks) modules[k] = on;
+      else modules[b.key] = on;
+    }
+    const addons: Record<string, number> = {};
+    for (const a of ADDON_META) addons[a.key] = Number(v[`addon_${a.key}`] ?? 0);
+
+    const base = {
+      name: v.name as string,
+      price: v.price as number,
+      currency: v.currency as string,
+      period: v.period as string,
+      isPublic: v.isPublic as boolean,
+      modules,
+      limits,
+      discounts,
+      addons,
+    };
+
+    if (editing) {
+      editTariff.mutate(
+        { id: editing.id, patch: { ...base, archived: v.archived as boolean } },
+        {
+          onSuccess: () => {
+            message.success("Тариф сохранён");
+            setOpen(false);
+          },
+          onError: (e: unknown) => message.error(errMsg(e)),
         },
-      },
-      {
-        onSuccess: () => {
-          message.success("Тариф сохранён");
-          setEditing(null);
+      );
+    } else {
+      createTariff.mutate(
+        { ...base, code: String(v.code ?? "").trim() },
+        {
+          onSuccess: () => {
+            message.success("Тариф создан");
+            setOpen(false);
+          },
+          onError: (e: unknown) => message.error(errMsg(e)),
         },
-        onError: (e: unknown) => {
-          const msg =
-            (e as { response?: { data?: { message?: string } } })?.response
-              ?.data?.message ?? "Не удалось сохранить";
-          message.error(msg);
-        },
-      },
-    );
+      );
+    }
   };
 
   const columns: ColumnsType<Tariff> = [
@@ -106,8 +165,7 @@ export const TariffsPage = () => {
       dataIndex: "name",
       render: (v: string, r) => (
         <span>
-          <b>{v}</b>{" "}
-          <Tag>{r.code}</Tag>
+          <b>{v}</b> <Tag>{r.code}</Tag>
           {!r.isPublic && <Tag color="default">скрыт</Tag>}
           {r.archived && <Tag color="orange">архив</Tag>}
         </span>
@@ -122,9 +180,9 @@ export const TariffsPage = () => {
           ? `${Number(v).toLocaleString("ru-RU")} ${r.currency}/${r.period === "year" ? "год" : "мес"}`
           : "—",
     },
-    ...LIMIT_META.slice(0, 4).map((l) => ({
+    ...LIMIT_META.slice(0, 3).map((l) => ({
       title: l.label,
-      width: 110,
+      width: 100,
       render: (_v: unknown, r: Tariff) => fmtLimit(r.limits?.[l.key]),
     })),
     {
@@ -142,11 +200,15 @@ export const TariffsPage = () => {
     },
   ];
 
+  const saving = editTariff.isPending || createTariff.isPending;
+
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap align="center">
-          <span style={{ fontWeight: 600 }}>Grace-период (дней после «оплачено до»)</span>
+          <span style={{ fontWeight: 600 }}>
+            Grace-период (дней после «оплачено до»)
+          </span>
           <InputNumber
             min={0}
             max={90}
@@ -172,7 +234,18 @@ export const TariffsPage = () => {
         </Space>
       </Card>
 
-      <Card title="Тарифы — цены и лимиты (меняются без деплоя, лендинг тянет отсюда)">
+      <Card
+        title="Тарифы — цены, модули и лимиты (меняются без деплоя, лендинг тянет отсюда)"
+        extra={
+          <Button
+            type="primary"
+            disabled={!can("tariffs.edit")}
+            onClick={openCreate}
+          >
+            Создать тариф
+          </Button>
+        }
+      >
         <Table<Tariff>
           rowKey="id"
           loading={isLoading}
@@ -184,19 +257,43 @@ export const TariffsPage = () => {
       </Card>
 
       <Modal
-        open={!!editing}
-        title={`Тариф: ${editing?.name ?? ""}`}
-        onCancel={() => setEditing(null)}
+        open={open}
+        title={editing ? `Тариф: ${editing.name}` : "Новый тариф"}
+        onCancel={() => setOpen(false)}
         onOk={() => form.submit()}
-        okText="Сохранить"
+        okText={editing ? "Сохранить" : "Создать"}
         cancelText="Отмена"
-        confirmLoading={editTariff.isPending}
-        width={560}
+        confirmLoading={saving}
+        width={600}
       >
         <Form form={form} layout="vertical" onFinish={submit}>
-          <Form.Item name="name" label="Название" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
+          <div style={{ display: "flex", gap: 12 }}>
+            {!editing && (
+              <Form.Item
+                name="code"
+                label="Код (латиница)"
+                style={{ width: 160 }}
+                rules={[
+                  { required: true, message: "Код" },
+                  {
+                    pattern: /^[a-z0-9_-]+$/,
+                    message: "a-z, 0-9, - _",
+                  },
+                ]}
+              >
+                <Input placeholder="team" />
+              </Form.Item>
+            )}
+            <Form.Item
+              name="name"
+              label="Название"
+              style={{ flex: 1 }}
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+          </div>
+
           <div style={{ display: "flex", gap: 12 }}>
             <Form.Item
               name="price"
@@ -206,10 +303,10 @@ export const TariffsPage = () => {
             >
               <InputNumber min={0} style={{ width: "100%" }} />
             </Form.Item>
-            <Form.Item name="currency" label="Валюта" style={{ width: 110 }}>
+            <Form.Item name="currency" label="Валюта" style={{ width: 100 }}>
               <Input />
             </Form.Item>
-            <Form.Item name="period" label="Период" style={{ width: 130 }}>
+            <Form.Item name="period" label="Период" style={{ width: 120 }}>
               <Select
                 options={[
                   { value: "month", label: "Месяц" },
@@ -219,8 +316,55 @@ export const TariffsPage = () => {
             </Form.Item>
           </div>
 
+          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>Модули</div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "2px 12px",
+              marginBottom: 8,
+            }}
+          >
+            {MODULE_BUNDLES.map((b) => (
+              <Form.Item
+                key={b.key}
+                name={`mod_${b.key}`}
+                valuePropName="checked"
+                noStyle
+              >
+                <Checkbox style={{ padding: "4px 0" }}>{b.label}</Checkbox>
+              </Form.Item>
+            ))}
+          </div>
+
+          <div style={{ fontWeight: 600, margin: "8px 0 8px" }}>
+            Аддоны (докупаются поверх пакета)
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: "0 12px",
+            }}
+          >
+            {ADDON_META.map((a) => (
+              <Form.Item
+                key={a.key}
+                name={`addon_${a.key}`}
+                label={<span title={a.unit}>{a.label}</span>}
+              >
+                <InputNumber
+                  min={0}
+                  placeholder="0"
+                  style={{ width: "100%" }}
+                  addonAfter="/мес"
+                />
+              </Form.Item>
+            ))}
+          </div>
+
           <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>
-            Лимиты (пусто = без ограничения ∞)
+            Лимиты (пусто = ∞)
           </div>
           <div
             style={{
@@ -247,12 +391,7 @@ export const TariffsPage = () => {
                 label={`${m} мес.`}
                 style={{ flex: 1 }}
               >
-                <InputNumber
-                  min={0}
-                  max={90}
-                  addonAfter="%"
-                  style={{ width: "100%" }}
-                />
+                <InputNumber min={0} max={90} addonAfter="%" style={{ width: "100%" }} />
               </Form.Item>
             ))}
           </div>
@@ -264,15 +403,24 @@ export const TariffsPage = () => {
           >
             <Switch />
           </Form.Item>
-          <Form.Item
-            name="archived"
-            label="Архивный (существующие остаются, новым нельзя)"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
+          {editing && (
+            <Form.Item
+              name="archived"
+              label="Архивный (существующие остаются, новым нельзя)"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>
   );
 };
+
+function errMsg(e: unknown): string {
+  return (
+    (e as { response?: { data?: { message?: string } } })?.response?.data
+      ?.message ?? "Не удалось сохранить"
+  );
+}

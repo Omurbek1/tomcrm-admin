@@ -130,8 +130,35 @@ export interface Tariff {
   modules: Record<string, boolean>;
   limits: Record<string, number | null>;
   discounts: Record<string, number>;
+  addons: Record<string, number>;
   archived: boolean;
 }
+
+/**
+ * Модули-«пакеты» для конструктора тарифа. Каждый разворачивается в реальные
+ * блоки CRM (blocks) — выключение пакета пишет false этим блокам (enforcement на
+ * @CrmAccess). loyalty/telephony пока без блока → хранятся как флаг по key.
+ * ДЕРЖАТЬ синхронно с backend entitlements.constants MODULE_BUNDLES.
+ */
+export const MODULE_BUNDLES: Array<{
+  key: string;
+  label: string;
+  blocks: string[];
+}> = [
+  { key: "crm", label: "CRM и воронка", blocks: ["1", "23", "2", "24", "16", "18"] },
+  { key: "warehouse", label: "Склад и касса", blocks: ["3", "12"] },
+  { key: "finance", label: "Финансы", blocks: ["5", "15", "10"] },
+  { key: "loyalty", label: "Лояльность", blocks: [] },
+  { key: "telephony", label: "Телефония", blocks: [] },
+  { key: "hr", label: "HR", blocks: ["19", "17"] },
+];
+
+/** Аддоны (докупаются поверх пакета) — цена за единицу/мес. */
+export const ADDON_META: Array<{ key: string; label: string; unit: string }> = [
+  { key: "wabaNumber", label: "WABA номер", unit: "за номер/мес" },
+  { key: "extraSeat", label: "Доп. сотрудник", unit: "за место/мес" },
+  { key: "extraWhatsapp", label: "Доп. WhatsApp номер", unit: "за номер/мес" },
+];
 
 export interface Analytics {
   mrrByTariff: Array<{

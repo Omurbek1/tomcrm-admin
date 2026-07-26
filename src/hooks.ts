@@ -365,10 +365,14 @@ export interface TariffPatch {
   period?: string;
   isPublic?: boolean;
   sortOrder?: number;
+  modules?: Record<string, boolean>;
   limits?: Record<string, number | null>;
   discounts?: Record<string, number>;
+  addons?: Record<string, number>;
   archived?: boolean;
 }
+
+export type TariffCreate = TariffPatch & { code: string; name: string };
 
 export const useEditTariff = () => {
   const qc = useQueryClient();
@@ -378,6 +382,17 @@ export const useEditTariff = () => {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tariffs"] });
       void qc.invalidateQueries({ queryKey: ["tenant"] });
+    },
+  });
+};
+
+export const useCreateTariff = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: TariffCreate) =>
+      (await api.post(`/api/platform/tariffs`, v)).data as Tariff,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tariffs"] });
     },
   });
 };
