@@ -354,167 +354,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </Button>
           </Form>
 
-          {/* Расход vs лимиты тарифа */}
-          <Divider titlePlacement="start">
-            Лимиты тарифа {t.tariffName ? `(${t.tariffName})` : ""}
-          </Divider>
-          <Descriptions column={1} size="small">
-            {LIMIT_META.map((l) => {
-              const used = data.usage[l.key] ?? 0;
-              const limit = data.limits[l.key];
-              const exceeded = limit !== null && limit !== undefined && used > limit;
-              return (
-                <Descriptions.Item key={l.key} label={l.label}>
-                  <Text type={exceeded ? "danger" : undefined} strong={exceeded}>
-                    {used} / {limit === null || limit === undefined ? "∞" : limit}
-                    {exceeded ? " — превышение" : ""}
-                  </Text>
-                </Descriptions.Item>
-              );
-            })}
-          </Descriptions>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {data.limitPolicy === "hard"
-              ? "При превышении создание блокируется (402)."
-              : "При превышении показывается предупреждение, создание разрешено."}
-          </Text>
-
-          {/* Биллинг (ручной) */}
-          <Divider titlePlacement="start">Оплата</Divider>
-          <Space wrap style={{ marginBottom: 8 }}>
-            <Tag color={PAYMENT_COLOR[t.paymentStatus]}>
-              {PAYMENT_LABEL[t.paymentStatus]}
-            </Tag>
-            <Text type="secondary">Оплачено до: {fmtDate(t.paidUntil)}</Text>
-            <Text type="secondary">След. списание: {fmtDate(t.nextChargeAt)}</Text>
-          </Space>
-          <div>
-            <Button
-              type="primary"
-              size="small"
-              disabled={!can("billing.edit")}
-              onClick={() => {
-                payForm.setFieldsValue({
-                  periodMonths: 1,
-                  amount: suggestAmount(1),
-                  currency: tariff?.currency ?? "KGS",
-                });
-                setPayOpen(true);
-              }}
-            >
-              Отметить оплату
-            </Button>
-          </div>
-          <List
-            size="small"
-            style={{ marginTop: 8 }}
-            locale={{ emptyText: "Платежей ещё не было" }}
-            dataSource={paymentsResp?.items ?? []}
-            pagination={
-              (paymentsResp?.total ?? 0) > 10
-                ? {
-                    current: payPage,
-                    pageSize: 10,
-                    total: paymentsResp?.total ?? 0,
-                    onChange: setPayPage,
-                    size: "small",
-                  }
-                : false
-            }
-            renderItem={(p) => (
-              <List.Item>
-                <Space direction="vertical" size={0} style={{ width: "100%" }}>
-                  <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                    <Text delete={p.cancelled}>
-                      {Number(p.amount).toLocaleString("ru-RU")} {p.currency}
-                      {p.periodMonths ? ` · ${p.periodMonths} мес.` : ""}
-                      {p.cancelled && (
-                        <Tag color="default" style={{ marginLeft: 6 }}>
-                          отменён
-                        </Tag>
-                      )}
-                    </Text>
-                    {!p.cancelled && (
-                      <Button
-                        type="link"
-                        size="small"
-                        danger
-                        loading={cancelPayment.isPending}
-                        onClick={() =>
-                          modal.confirm({
-                            title: "Отменить платёж?",
-                            content:
-                              "Оплачено-до пересчитается по оставшимся платежам.",
-                            okText: "Отменить",
-                            okButtonProps: { danger: true },
-                            cancelText: "Нет",
-                            onOk: () =>
-                              cancelPayment.mutate(
-                                { id: t.id, paymentId: p.id },
-                                {
-                                  onError: () =>
-                                    message.error("Не удалось отменить"),
-                                },
-                              ),
-                          })
-                        }
-                      >
-                        Отменить
-                      </Button>
-                    )}
-                  </Space>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    до {fmtDate(p.paidUntil)} ·{" "}
-                    {new Date(p.createdAt).toLocaleDateString("ru-RU")} ·{" "}
-                    {p.adminLogin}
-                    {p.receipt ? ` · чек ${p.receipt}` : ""}
-                    {p.note ? ` · ${p.note}` : ""}
-                  </Text>
-                </Space>
-              </List.Item>
-            )}
-          />
-
-          {/* Уведомления клиенту */}
-          <Divider titlePlacement="start">Уведомления клиенту</Divider>
-          <Space wrap>
-            {REMINDER_TYPES.map((rt) => (
-              <Button
-                key={rt.value}
-                size="small"
-                onClick={() => doSendReminder(rt.value)}
-                loading={sendReminder.isPending}
-              >
-                {rt.label}
-              </Button>
-            ))}
-          </Space>
-          <List
-            size="small"
-            style={{ marginTop: 8 }}
-            locale={{ emptyText: "Уведомлений ещё не было" }}
-            dataSource={(notifications ?? []).slice(0, 10)}
-            renderItem={(n) => (
-              <List.Item>
-                <Space
-                  style={{ width: "100%", justifyContent: "space-between" }}
-                >
-                  <span>
-                    <Tag color={NOTIF_STATUS_COLOR[n.status] ?? "default"}>
-                      {n.status}
-                    </Tag>
-                    {n.type}
-                  </span>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {new Date(n.createdAt).toLocaleString("ru-RU")}
-                  </Text>
-                </Space>
-              </List.Item>
-            )}
-          />
-
-          {/* Действия */}
-          <Divider titlePlacement="start">Действия</Divider>
+          {/* Статус компании */}
+          <Divider titlePlacement="start">Статус</Divider>
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <div>
               <Text strong>Статус</Text>
@@ -555,7 +396,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 </Space>
               )}
             </div>
+          </Space>
 
+          {/* Тариф, модули, цена и аддоны */}
+          <Divider titlePlacement="start">Тариф и модули</Divider>
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <div>
               <Text strong>Тариф</Text>
               <br />
@@ -764,6 +609,184 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 Сохранить аддоны
               </Button>
             </div>
+          </Space>
+
+          {/* Расход vs лимиты тарифа */}
+          <Divider titlePlacement="start">
+            Лимиты тарифа {t.tariffName ? `(${t.tariffName})` : ""}
+          </Divider>
+          <Descriptions column={1} size="small">
+            {LIMIT_META.map((l) => {
+              const used = data.usage[l.key] ?? 0;
+              const limit = data.limits[l.key];
+              const exceeded = limit !== null && limit !== undefined && used > limit;
+              return (
+                <Descriptions.Item key={l.key} label={l.label}>
+                  <Text type={exceeded ? "danger" : undefined} strong={exceeded}>
+                    {used} / {limit === null || limit === undefined ? "∞" : limit}
+                    {exceeded ? " — превышение" : ""}
+                  </Text>
+                </Descriptions.Item>
+              );
+            })}
+          </Descriptions>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {data.limitPolicy === "hard"
+              ? "При превышении создание блокируется (402)."
+              : "При превышении показывается предупреждение, создание разрешено."}
+          </Text>
+
+          {/* Биллинг (ручной) */}
+          <Divider titlePlacement="start">Оплата</Divider>
+          <Space wrap style={{ marginBottom: 8 }}>
+            <Tag color={PAYMENT_COLOR[t.paymentStatus]}>
+              {PAYMENT_LABEL[t.paymentStatus]}
+            </Tag>
+            <Text type="secondary">Оплачено до: {fmtDate(t.paidUntil)}</Text>
+            <Text type="secondary">След. списание: {fmtDate(t.nextChargeAt)}</Text>
+          </Space>
+          <div>
+            <Button
+              type="primary"
+              size="small"
+              disabled={!can("billing.edit")}
+              onClick={() => {
+                payForm.setFieldsValue({
+                  periodMonths: 1,
+                  amount: suggestAmount(1),
+                  currency: tariff?.currency ?? "KGS",
+                });
+                setPayOpen(true);
+              }}
+            >
+              Отметить оплату
+            </Button>
+          </div>
+          <List
+            size="small"
+            style={{ marginTop: 8 }}
+            locale={{ emptyText: "Платежей ещё не было" }}
+            dataSource={paymentsResp?.items ?? []}
+            pagination={
+              (paymentsResp?.total ?? 0) > 10
+                ? {
+                    current: payPage,
+                    pageSize: 10,
+                    total: paymentsResp?.total ?? 0,
+                    onChange: setPayPage,
+                    size: "small",
+                  }
+                : false
+            }
+            renderItem={(p) => (
+              <List.Item>
+                <Space direction="vertical" size={0} style={{ width: "100%" }}>
+                  <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                    <Text delete={p.cancelled}>
+                      {Number(p.amount).toLocaleString("ru-RU")} {p.currency}
+                      {p.periodMonths ? ` · ${p.periodMonths} мес.` : ""}
+                      {p.cancelled && (
+                        <Tag color="default" style={{ marginLeft: 6 }}>
+                          отменён
+                        </Tag>
+                      )}
+                    </Text>
+                    {!p.cancelled && (
+                      <Button
+                        type="link"
+                        size="small"
+                        danger
+                        loading={cancelPayment.isPending}
+                        onClick={() =>
+                          modal.confirm({
+                            title: "Отменить платёж?",
+                            content:
+                              "Оплачено-до пересчитается по оставшимся платежам.",
+                            okText: "Отменить",
+                            okButtonProps: { danger: true },
+                            cancelText: "Нет",
+                            onOk: () =>
+                              cancelPayment.mutate(
+                                { id: t.id, paymentId: p.id },
+                                {
+                                  onError: () =>
+                                    message.error("Не удалось отменить"),
+                                },
+                              ),
+                          })
+                        }
+                      >
+                        Отменить
+                      </Button>
+                    )}
+                  </Space>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    до {fmtDate(p.paidUntil)} ·{" "}
+                    {new Date(p.createdAt).toLocaleDateString("ru-RU")} ·{" "}
+                    {p.adminLogin}
+                    {p.receipt ? ` · чек ${p.receipt}` : ""}
+                    {p.note ? ` · ${p.note}` : ""}
+                  </Text>
+                </Space>
+              </List.Item>
+            )}
+          />
+
+          {/* Уведомления клиенту */}
+          <Divider titlePlacement="start">Уведомления клиенту</Divider>
+          <Space wrap>
+            {REMINDER_TYPES.map((rt) => (
+              <Button
+                key={rt.value}
+                size="small"
+                onClick={() => doSendReminder(rt.value)}
+                loading={sendReminder.isPending}
+              >
+                {rt.label}
+              </Button>
+            ))}
+          </Space>
+          <List
+            size="small"
+            style={{ marginTop: 8 }}
+            locale={{ emptyText: "Уведомлений ещё не было" }}
+            dataSource={(notifications ?? []).slice(0, 10)}
+            renderItem={(n) => (
+              <List.Item>
+                <Space
+                  style={{ width: "100%", justifyContent: "space-between" }}
+                >
+                  <span>
+                    <Tag color={NOTIF_STATUS_COLOR[n.status] ?? "default"}>
+                      {n.status}
+                    </Tag>
+                    {n.type}
+                  </span>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {new Date(n.createdAt).toLocaleString("ru-RU")}
+                  </Text>
+                </Space>
+              </List.Item>
+            )}
+          />
+
+          {/* Опасная зона */}
+          <Divider titlePlacement="start">Опасная зона</Divider>
+          <Space wrap>
+            <Button
+              danger
+              disabled={t.status === "blocked" || t.status === "deleted"}
+              onClick={() => changeStatus("blocked")}
+            >
+              Заморозить компанию
+            </Button>
+            <Button
+              danger
+              disabled={t.status === "deleted" || !can("tenants.delete")}
+              onClick={() => changeStatus("deleted")}
+            >
+              Удалить компанию
+            </Button>
           </Space>
 
           {/* Журнал действий админа */}
