@@ -21,6 +21,7 @@ import {
   useConfig,
   useCreateTariff,
   useEditTariff,
+  useModuleCatalog,
   useSetConfig,
   useTariffs,
 } from "../hooks";
@@ -46,6 +47,10 @@ export const TariffsPage = () => {
   const { data: tariffs, isLoading } = useTariffs();
   const editTariff = useEditTariff();
   const createTariff = useCreateTariff();
+  // Единый источник — пакеты/аддоны с бэка; хардкод из types.ts только фолбэк.
+  const { data: moduleCatalog } = useModuleCatalog();
+  const bundles = moduleCatalog?.bundles ?? MODULE_BUNDLES;
+  const addonMeta = moduleCatalog?.addons ?? ADDON_META;
   const { data: config } = useConfig();
   const setConfig = useSetConfig();
   const [grace, setGrace] = useState<number>(3);
@@ -68,10 +73,10 @@ export const TariffsPage = () => {
       period: "month",
       isPublic: true,
       archived: false,
-      ...Object.fromEntries(MODULE_BUNDLES.map((b) => [`mod_${b.key}`, true])),
+      ...Object.fromEntries(bundles.map((b) => [`mod_${b.key}`, true])),
       ...Object.fromEntries(LIMIT_META.map((l) => [`limit_${l.key}`, null])),
       ...Object.fromEntries(DISCOUNT_PERIODS.map((m) => [`discount_${m}`, 0])),
-      ...Object.fromEntries(ADDON_META.map((a) => [`addon_${a.key}`, 0])),
+      ...Object.fromEntries(addonMeta.map((a) => [`addon_${a.key}`, 0])),
     });
     setOpen(true);
   };
@@ -87,7 +92,7 @@ export const TariffsPage = () => {
       isPublic: t.isPublic,
       archived: t.archived,
       ...Object.fromEntries(
-        MODULE_BUNDLES.map((b) => [`mod_${b.key}`, bundleChecked(t.modules, b)]),
+        bundles.map((b) => [`mod_${b.key}`, bundleChecked(t.modules, b)]),
       ),
       ...Object.fromEntries(
         LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
@@ -96,7 +101,7 @@ export const TariffsPage = () => {
         DISCOUNT_PERIODS.map((m) => [`discount_${m}`, t.discounts?.[String(m)] ?? 0]),
       ),
       ...Object.fromEntries(
-        ADDON_META.map((a) => [`addon_${a.key}`, t.addons?.[a.key] ?? 0]),
+        addonMeta.map((a) => [`addon_${a.key}`, t.addons?.[a.key] ?? 0]),
       ),
     });
     setOpen(true);
@@ -114,13 +119,13 @@ export const TariffsPage = () => {
     }
     // Пакеты → реальные блоки CRM (сохраняем прочие ключи существующих modules).
     const modules: Record<string, boolean> = { ...(editing?.modules ?? {}) };
-    for (const b of MODULE_BUNDLES) {
+    for (const b of bundles) {
       const on = Boolean(v[`mod_${b.key}`]);
       if (b.blocks.length) for (const k of b.blocks) modules[k] = on;
       else modules[b.key] = on;
     }
     const addons: Record<string, number> = {};
-    for (const a of ADDON_META) addons[a.key] = Number(v[`addon_${a.key}`] ?? 0);
+    for (const a of addonMeta) addons[a.key] = Number(v[`addon_${a.key}`] ?? 0);
 
     const base = {
       name: v.name as string,
@@ -325,7 +330,7 @@ export const TariffsPage = () => {
               marginBottom: 8,
             }}
           >
-            {MODULE_BUNDLES.map((b) => (
+            {bundles.map((b) => (
               <Form.Item
                 key={b.key}
                 name={`mod_${b.key}`}
@@ -347,7 +352,7 @@ export const TariffsPage = () => {
               gap: "0 12px",
             }}
           >
-            {ADDON_META.map((a) => (
+            {addonMeta.map((a) => (
               <Form.Item
                 key={a.key}
                 name={`addon_${a.key}`}

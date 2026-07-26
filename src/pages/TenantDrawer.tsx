@@ -24,6 +24,7 @@ import { can, CRM_URL } from "../api/client";
 import {
   useAudit,
   useCancelPayment,
+  useModuleCatalog,
   useExtendTrial,
   useImpersonate,
   useNotifications,
@@ -88,6 +89,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const setAddons = useSetTenantAddons();
   const setModules = useSetTenantModules();
   const setTest = useSetTest();
+  // Единый источник — пакеты/аддоны с бэка; хардкод только фолбэк.
+  const { data: moduleCatalog } = useModuleCatalog();
+  const bundles = moduleCatalog?.bundles ?? MODULE_BUNDLES;
+  const addonMeta = moduleCatalog?.addons ?? ADDON_META;
   const impersonate = useImpersonate();
   const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(
     null,
@@ -451,7 +456,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 «Тариф» — как в тарифе; «Вкл»/«Выкл» — индивидуально для этой
                 компании (бонус или ограничение поверх тарифа).
               </div>
-              {MODULE_BUNDLES.map((b) => {
+              {bundles.map((b) => {
                 const ov = moduleDraft ?? data.overrideModules ?? {};
                 const sig = b.blocks[0] ?? b.key;
                 const val = sig in ov ? (ov[sig] ? "on" : "off") : "tariff";
@@ -536,7 +541,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   gap: "0 8px",
                 }}
               >
-                {ADDON_META.map((a) => {
+                {addonMeta.map((a) => {
                   const cur = addonDraft ?? data.addons ?? {};
                   return (
                     <div key={a.key}>

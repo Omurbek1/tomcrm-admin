@@ -52,6 +52,20 @@ export const useTariffs = () =>
     queryFn: async () => (await api.get("/api/platform/tariffs")).data,
   });
 
+export interface ModuleCatalog {
+  bundles: Array<{ key: string; label: string; blocks: string[] }>;
+  addons: Array<{ key: string; label: string; unit: string }>;
+}
+
+/** Единый справочник модулей-пакетов и аддонов с бэка (единственный источник). */
+export const useModuleCatalog = () =>
+  useQuery<ModuleCatalog>({
+    queryKey: ["module-catalog"],
+    queryFn: async () =>
+      (await api.get("/api/platform/module-catalog")).data,
+    staleTime: 60 * 60_000,
+  });
+
 /** Общая инвалидация после действия над компанией. */
 const useInvalidateTenant = () => {
   const qc = useQueryClient();
