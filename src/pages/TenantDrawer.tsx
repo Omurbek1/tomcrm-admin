@@ -11,11 +11,11 @@ import {
   InputNumber,
   List,
   Modal,
-  Segmented,
   Select,
   Space,
   Spin,
   Tag,
+  Tree,
   Typography,
 } from "antd";
 import { useState } from "react";
@@ -47,7 +47,7 @@ import {
   AUDIT_ACTION_LABEL,
   AUDIT_FILTERS,
   LIMIT_META,
-  MODULE_BUNDLES,
+  MODULE_GROUPS_FALLBACK,
   NOTIF_STATUS_COLOR,
   PAYMENT_COLOR,
   PAYMENT_LABEL,
@@ -89,18 +89,22 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const setAddons = useSetTenantAddons();
   const setModules = useSetTenantModules();
   const setTest = useSetTest();
-  // Единый источник — пакеты/аддоны с бэка; хардкод только фолбэк.
+  // Единый источник — группы/разделы/аддоны с бэка; хардкод только фолбэк.
   const { data: moduleCatalog } = useModuleCatalog();
-  const bundles = moduleCatalog?.bundles ?? MODULE_BUNDLES;
+  const groups = moduleCatalog?.groups ?? MODULE_GROUPS_FALLBACK;
   const addonMeta = moduleCatalog?.addons ?? ADDON_META;
+  const allSectionKeys = groups.flatMap((g) => g.sections.map((s) => s.key));
+  const moduleTreeData = groups.map((g) => ({
+    key: `grp:${g.key}`,
+    title: g.label,
+    children: g.sections.map((s) => ({ key: s.key, title: s.label })),
+  }));
   const impersonate = useImpersonate();
   const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(
     null,
   );
-  const [moduleDraft, setModuleDraft] = useState<Record<
-    string,
-    boolean
-  > | null>(null);
+  // Включённые разделы (листья). null = не редактировали (показываем эффективные).
+  const [moduleChecked, setModuleChecked] = useState<string[] | null>(null);
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
   const [payForm] = Form.useForm();
@@ -453,76 +457,51 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <div>
               <Text strong>Модули компании</Text>
               <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
-                «Тариф» — как в тарифе; «Вкл»/«Выкл» — индивидуально для этой
-                компании (бонус или ограничение поверх тарифа).
+                Итоговые разделы компании (тариф + индивидуальные правки).
+                Отметьте/снимите раздел — сохранится как override поверх тарифа.
               </div>
-              {bundles.map((b) => {
-                const ov = moduleDraft ?? data.overrideModules ?? {};
-                const sig = b.blocks[0] ?? b.key;
-                const val = sig in ov ? (ov[sig] ? "on" : "off") : "tariff";
-                const effKey = b.blocks[0] ?? b.key;
-                const available = data.modules[effKey] !== false;
-                return (
-                  <div
-                    key={b.key}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 8,
-                      padding: "3px 0",
-                    }}
-                  >
-                    <span style={{ fontSize: 13 }}>
-                      {b.label}{" "}
-                      <Tag
-                        color={available ? "green" : "default"}
-                        style={{ marginInlineStart: 4 }}
-                      >
-                        {available ? "доступен" : "нет"}
-                      </Tag>
-                    </span>
-                    <Segmented
-                      size="small"
-                      disabled={!can("tenants.tariff")}
-                      value={val}
-                      onChange={(v) => {
-                        const keys = b.blocks.length ? b.blocks : [b.key];
-                        const next = {
-                          ...(moduleDraft ?? data.overrideModules ?? {}),
-                        };
-                        for (const k of keys) {
-                          if (v === "tariff") delete next[k];
-                          else next[k] = v === "on";
-                        }
-                        setModuleDraft(next);
-                      }}
-                      options={[
-                        { label: "Тариф", value: "tariff" },
-                        { label: "Вкл", value: "on" },
-                        { label: "Выкл", value: "off" },
-                      ]}
-                    />
-                  </div>
-                );
-              })}
+              <Tree
+                checkable
+                selectable={false}
+                defaultExpandAll
+                disabled={!can("tenants.tariff")}
+                treeData={moduleTreeData}
+                checkedKeys={
+                  moduleChecked ??
+                  allSectionKeys.filter((k) => data.modules[k] !== false)
+                }
+                onCheck={(keys) => {
+                  const arr = (Array.isArray(keys) ? keys : keys.checked).map(
+                    String,
+                  );
+                  setModuleChecked(arr.filter((k) => !k.startsWith("grp:")));
+                }}
+              />
               <Button
                 size="small"
                 style={{ marginTop: 8 }}
-                disabled={!can("tenants.tariff") || !moduleDraft}
+                disabled={!can("tenants.tariff") || !moduleChecked}
                 loading={setModules.isPending}
-                onClick={() =>
+                onClick={() => {
+                  // Override = отличия от тарифа (иначе — по тарифу, ключа нет).
+                  const desired = moduleChecked ?? [];
+                  const override: Record<string, boolean> = {};
+                  for (const k of allSectionKeys) {
+                    const want = desired.includes(k);
+                    const byTariff = data.tariffModules?.[k] !== false;
+                    if (want !== byTariff) override[k] = want;
+                  }
                   setModules.mutate(
-                    { id: t.id, modules: moduleDraft ?? {} },
+                    { id: t.id, modules: override },
                     {
                       onSuccess: () => {
                         message.success("Модули компании сохранены");
-                        setModuleDraft(null);
+                        setModuleChecked(null);
                       },
                       onError: () => message.error("Не удалось сохранить"),
                     },
-                  )
-                }
+                  );
+                }}
               >
                 Сохранить модули
               </Button>

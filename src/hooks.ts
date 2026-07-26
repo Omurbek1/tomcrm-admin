@@ -52,8 +52,13 @@ export const useTariffs = () =>
     queryFn: async () => (await api.get("/api/platform/tariffs")).data,
   });
 
+export interface ModuleGroup {
+  key: string;
+  label: string;
+  sections: Array<{ key: string; label: string }>;
+}
 export interface ModuleCatalog {
-  bundles: Array<{ key: string; label: string; blocks: string[] }>;
+  groups: ModuleGroup[];
   addons: Array<{ key: string; label: string; unit: string }>;
 }
 

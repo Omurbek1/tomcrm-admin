@@ -2,7 +2,6 @@ import {
   App,
   Button,
   Card,
-  Checkbox,
   Form,
   Input,
   InputNumber,
@@ -12,6 +11,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tree,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
@@ -26,36 +26,40 @@ import {
   useTariffs,
 } from "../hooks";
 import type { Tariff } from "../types";
-import { ADDON_META, LIMIT_META, MODULE_BUNDLES, PAYMENT_PERIODS } from "../types";
+import {
+  ADDON_META,
+  LIMIT_META,
+  MODULE_GROUPS_FALLBACK,
+  PAYMENT_PERIODS,
+} from "../types";
 
 const DISCOUNT_PERIODS = PAYMENT_PERIODS.filter((m) => m > 1); // 3/6/12
 
 const fmtLimit = (v: number | null | undefined): string =>
   v === null || v === undefined ? "∞" : String(v);
 
-/** Пакет включён, если ни один его сигнал не выключен явно (false). */
-const bundleChecked = (
-  modules: Record<string, boolean> | undefined,
-  b: (typeof MODULE_BUNDLES)[number],
-): boolean =>
-  b.blocks.length
-    ? b.blocks.every((k) => modules?.[k] !== false)
-    : modules?.[b.key] !== false;
-
 export const TariffsPage = () => {
   const { message } = App.useApp();
   const { data: tariffs, isLoading } = useTariffs();
   const editTariff = useEditTariff();
   const createTariff = useCreateTariff();
-  // Единый источник — пакеты/аддоны с бэка; хардкод из types.ts только фолбэк.
+  // Единый источник — группы/разделы/аддоны с бэка; хардкод только фолбэк.
   const { data: moduleCatalog } = useModuleCatalog();
-  const bundles = moduleCatalog?.bundles ?? MODULE_BUNDLES;
+  const groups = moduleCatalog?.groups ?? MODULE_GROUPS_FALLBACK;
   const addonMeta = moduleCatalog?.addons ?? ADDON_META;
+  const allSectionKeys = groups.flatMap((g) => g.sections.map((s) => s.key));
+  const treeData = groups.map((g) => ({
+    key: `grp:${g.key}`,
+    title: g.label,
+    children: g.sections.map((s) => ({ key: s.key, title: s.label })),
+  }));
   const { data: config } = useConfig();
   const setConfig = useSetConfig();
   const [grace, setGrace] = useState<number>(3);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tariff | null>(null); // null = создание
+  // Включённые разделы (листья дерева). Раздел вкл, если не выключен явно.
+  const [moduleChecked, setModuleChecked] = useState<string[]>([]);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -73,11 +77,11 @@ export const TariffsPage = () => {
       period: "month",
       isPublic: true,
       archived: false,
-      ...Object.fromEntries(bundles.map((b) => [`mod_${b.key}`, true])),
       ...Object.fromEntries(LIMIT_META.map((l) => [`limit_${l.key}`, null])),
       ...Object.fromEntries(DISCOUNT_PERIODS.map((m) => [`discount_${m}`, 0])),
       ...Object.fromEntries(addonMeta.map((a) => [`addon_${a.key}`, 0])),
     });
+    setModuleChecked([...allSectionKeys]); // всё включено по умолчанию
     setOpen(true);
   };
 
@@ -92,9 +96,6 @@ export const TariffsPage = () => {
       isPublic: t.isPublic,
       archived: t.archived,
       ...Object.fromEntries(
-        bundles.map((b) => [`mod_${b.key}`, bundleChecked(t.modules, b)]),
-      ),
-      ...Object.fromEntries(
         LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
       ),
       ...Object.fromEntries(
@@ -104,6 +105,8 @@ export const TariffsPage = () => {
         addonMeta.map((a) => [`addon_${a.key}`, t.addons?.[a.key] ?? 0]),
       ),
     });
+    // Раздел включён, если не выключен явно (modules[k] !== false).
+    setModuleChecked(allSectionKeys.filter((k) => t.modules?.[k] !== false));
     setOpen(true);
   };
 
@@ -117,13 +120,9 @@ export const TariffsPage = () => {
     for (const m of DISCOUNT_PERIODS) {
       discounts[String(m)] = Number(v[`discount_${m}`] ?? 0);
     }
-    // Пакеты → реальные блоки CRM (сохраняем прочие ключи существующих modules).
+    // Разделы дерева → modules (вкл=true, выкл=false); прочие ключи сохраняем.
     const modules: Record<string, boolean> = { ...(editing?.modules ?? {}) };
-    for (const b of bundles) {
-      const on = Boolean(v[`mod_${b.key}`]);
-      if (b.blocks.length) for (const k of b.blocks) modules[k] = on;
-      else modules[b.key] = on;
-    }
+    for (const k of allSectionKeys) modules[k] = moduleChecked.includes(k);
     const addons: Record<string, number> = {};
     for (const a of addonMeta) addons[a.key] = Number(v[`addon_${a.key}`] ?? 0);
 
@@ -321,25 +320,23 @@ export const TariffsPage = () => {
             </Form.Item>
           </div>
 
-          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>Модули</div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "2px 12px",
-              marginBottom: 8,
-            }}
-          >
-            {bundles.map((b) => (
-              <Form.Item
-                key={b.key}
-                name={`mod_${b.key}`}
-                valuePropName="checked"
-                noStyle
-              >
-                <Checkbox style={{ padding: "4px 0" }}>{b.label}</Checkbox>
-              </Form.Item>
-            ))}
+          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>
+            Модули (группа + разделы, как в меню CRM)
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <Tree
+              checkable
+              selectable={false}
+              defaultExpandAll
+              treeData={treeData}
+              checkedKeys={moduleChecked}
+              onCheck={(keys) => {
+                const arr = (Array.isArray(keys) ? keys : keys.checked).map(
+                  String,
+                );
+                setModuleChecked(arr.filter((k) => !k.startsWith("grp:")));
+              }}
+            />
           </div>
 
           <div style={{ fontWeight: 600, margin: "8px 0 8px" }}>

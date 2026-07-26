@@ -189,6 +189,23 @@ export const MODULE_BUNDLES: Array<{
   { key: "system", label: "Система", blocks: ["8", "20", "9", "22"] },
 ];
 
+/** Названия разделов (фолбэк, если каталог с бэка ещё не пришёл). */
+const BLOCK_LABELS: Record<string, string> = {
+  "1": "Аналитика", "23": "Сделки", "2": "Продажи", "24": "Отчёты",
+  "18": "Товары", "16": "Клиенты", "3": "Склад", "12": "Касса",
+  "20": "Документы", "13": "Задачи", "8": "Филиалы", "5": "Финансы",
+  "15": "План продаж", "10": "Owner Report", "19": "HR", "17": "Учёт времени",
+  "14": "Маркетинг", "9": "Материалы", "11": "Ремонт", "7": "Поставщики",
+  "22": "Интеграции",
+};
+
+/** Дерево «группа → разделы» — офлайн-фолбэк (онлайн берётся с бэка). */
+export const MODULE_GROUPS_FALLBACK = MODULE_BUNDLES.map((b) => ({
+  key: b.key,
+  label: b.label,
+  sections: b.blocks.map((k) => ({ key: k, label: BLOCK_LABELS[k] ?? k })),
+}));
+
 /** Аддоны (докупаются поверх пакета) — цена за единицу/мес. */
 export const ADDON_META: Array<{ key: string; label: string; unit: string }> = [
   { key: "wabaNumber", label: "WABA номер", unit: "за номер/мес" },
