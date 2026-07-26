@@ -11,6 +11,7 @@ import {
   InputNumber,
   List,
   Modal,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -34,6 +35,7 @@ import {
   useSetStatus,
   useSetTariff,
   useSetTenantAddons,
+  useSetTenantModules,
   useSetTest,
   useTariffs,
   useTenant,
@@ -42,7 +44,9 @@ import type { TenantStatus } from "../types";
 import {
   ADDON_META,
   AUDIT_ACTION_LABEL,
+  AUDIT_FILTERS,
   LIMIT_META,
+  MODULE_BUNDLES,
   NOTIF_STATUS_COLOR,
   PAYMENT_COLOR,
   PAYMENT_LABEL,
@@ -64,7 +68,12 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { message, modal } = App.useApp();
   const { data, isLoading } = useTenant(tenantId);
   const { data: tariffs } = useTariffs();
-  const { data: audit } = useAudit(tenantId ?? undefined);
+  const [auditFilter, setAuditFilter] = useState(0);
+  const [auditLimit, setAuditLimit] = useState(20);
+  const { data: audit } = useAudit(tenantId ?? undefined, {
+    actions: AUDIT_FILTERS[auditFilter].actions,
+    limit: auditLimit,
+  });
   const [payPage, setPayPage] = useState(1);
   const { data: paymentsResp } = usePayments(tenantId, payPage, 10);
   const { data: notifications } = useNotifications(tenantId);
@@ -77,11 +86,16 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const cancelPayment = useCancelPayment();
   const setPrice = useSetPriceOverride();
   const setAddons = useSetTenantAddons();
+  const setModules = useSetTenantModules();
   const setTest = useSetTest();
   const impersonate = useImpersonate();
   const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(
     null,
   );
+  const [moduleDraft, setModuleDraft] = useState<Record<
+    string,
+    boolean
+  > | null>(null);
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
   const [payForm] = Form.useForm();
@@ -587,6 +601,84 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </div>
 
             <div>
+              <Text strong>Модули компании</Text>
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+                «Тариф» — как в тарифе; «Вкл»/«Выкл» — индивидуально для этой
+                компании (бонус или ограничение поверх тарифа).
+              </div>
+              {MODULE_BUNDLES.map((b) => {
+                const ov = moduleDraft ?? data.overrideModules ?? {};
+                const sig = b.blocks[0] ?? b.key;
+                const val = sig in ov ? (ov[sig] ? "on" : "off") : "tariff";
+                const effKey = b.blocks[0] ?? b.key;
+                const available = data.modules[effKey] !== false;
+                return (
+                  <div
+                    key={b.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      padding: "3px 0",
+                    }}
+                  >
+                    <span style={{ fontSize: 13 }}>
+                      {b.label}{" "}
+                      <Tag
+                        color={available ? "green" : "default"}
+                        style={{ marginInlineStart: 4 }}
+                      >
+                        {available ? "доступен" : "нет"}
+                      </Tag>
+                    </span>
+                    <Segmented
+                      size="small"
+                      disabled={!can("tenants.tariff")}
+                      value={val}
+                      onChange={(v) => {
+                        const keys = b.blocks.length ? b.blocks : [b.key];
+                        const next = {
+                          ...(moduleDraft ?? data.overrideModules ?? {}),
+                        };
+                        for (const k of keys) {
+                          if (v === "tariff") delete next[k];
+                          else next[k] = v === "on";
+                        }
+                        setModuleDraft(next);
+                      }}
+                      options={[
+                        { label: "Тариф", value: "tariff" },
+                        { label: "Вкл", value: "on" },
+                        { label: "Выкл", value: "off" },
+                      ]}
+                    />
+                  </div>
+                );
+              })}
+              <Button
+                size="small"
+                style={{ marginTop: 8 }}
+                disabled={!can("tenants.tariff") || !moduleDraft}
+                loading={setModules.isPending}
+                onClick={() =>
+                  setModules.mutate(
+                    { id: t.id, modules: moduleDraft ?? {} },
+                    {
+                      onSuccess: () => {
+                        message.success("Модули компании сохранены");
+                        setModuleDraft(null);
+                      },
+                      onError: () => message.error("Не удалось сохранить"),
+                    },
+                  )
+                }
+              >
+                Сохранить модули
+              </Button>
+            </div>
+
+            <div>
               <Text strong>Аддоны (докуплено)</Text>
               <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
                 Прибавляются к лимитам: доп. сотрудник → +сотрудники, WABA/доп.
@@ -621,6 +713,36 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   );
                 })}
               </div>
+              {(() => {
+                const seat = data.addons?.extraSeat ?? 0;
+                const wa =
+                  (data.addons?.wabaNumber ?? 0) +
+                  (data.addons?.extraWhatsapp ?? 0);
+                const line = (
+                  label: string,
+                  eff: number | null | undefined,
+                  bonus: number,
+                ) => {
+                  const e = eff ?? null;
+                  const txt =
+                    e === null
+                      ? "∞"
+                      : bonus > 0
+                        ? `${e - bonus} (тариф) + ${bonus} (аддон) = ${e}`
+                        : `${e}`;
+                  return `${label}: ${txt}`;
+                };
+                return (
+                  <div
+                    style={{ fontSize: 12, color: "#475569", margin: "8px 0 4px" }}
+                  >
+                    <div>{line("Лимит сотрудников", data.limits?.users, seat)}</div>
+                    <div>
+                      {line("Лимит номеров WhatsApp", data.limits?.whatsappNumbers, wa)}
+                    </div>
+                  </div>
+                );
+              })()}
               <Button
                 size="small"
                 style={{ marginTop: 8 }}
@@ -646,10 +768,32 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
           {/* Журнал действий админа */}
           <Divider titlePlacement="start">Журнал действий</Divider>
+          <Select
+            size="small"
+            value={auditFilter}
+            style={{ width: "100%", marginBottom: 8 }}
+            onChange={(v) => {
+              setAuditFilter(v);
+              setAuditLimit(20);
+            }}
+            options={AUDIT_FILTERS.map((f, i) => ({ value: i, label: f.label }))}
+          />
           <List
             size="small"
             locale={{ emptyText: "Пока нет действий" }}
-            dataSource={(audit ?? []).slice(0, 20)}
+            loadMore={
+              audit?.hasMore ? (
+                <div style={{ textAlign: "center", padding: 8 }}>
+                  <Button
+                    size="small"
+                    onClick={() => setAuditLimit((l) => l + 20)}
+                  >
+                    Показать ещё
+                  </Button>
+                </div>
+              ) : undefined
+            }
+            dataSource={audit?.rows ?? []}
             renderItem={(r) => (
               <List.Item>
                 <Space direction="vertical" size={0} style={{ width: "100%" }}>

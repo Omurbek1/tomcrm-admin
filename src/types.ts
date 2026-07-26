@@ -110,13 +110,44 @@ export const PAYMENT_COLOR: Record<PaymentStatus, string> = {
 
 export interface TenantDetail {
   tenant: TenantRow;
+  /** Эффективные модули (тариф + индивидуальный override). */
   modules: Record<string, boolean>;
+  tariffModules: Record<string, boolean>;
+  /** Переопределения модулей компании поверх тарифа (ключ есть = override). */
+  overrideModules: Record<string, boolean>;
+  /** Эффективные лимиты (с учётом аддонов). */
   limits: Record<string, number | null>;
+  tariffLimits: Record<string, number | null>;
   usage: Record<string, number>;
   /** Купленные компанией аддоны (количества) — прибавляются к лимитам. */
   addons: Record<string, number>;
   hasOverrides: boolean;
   limitPolicy: "hard" | "soft";
+}
+
+/** Группы действий журнала для фильтра (категория → набор action-ключей). */
+export const AUDIT_FILTERS: Array<{ label: string; actions: string[] }> = [
+  { label: "Все действия", actions: [] },
+  { label: "Оплата", actions: ["tenant.payment", "tenant.payment_cancel"] },
+  { label: "Вход под владельцем", actions: ["tenant.impersonate"] },
+  {
+    label: "Тариф и модули",
+    actions: [
+      "tenant.tariff",
+      "tenant.bulk_tariff",
+      "tenant.modules",
+      "tenant.addons",
+      "tenant.price_override",
+    ],
+  },
+  { label: "Статус и триал", actions: ["tenant.status", "tenant.trial_extend", "tenant.auto_freeze", "tenant.trial_expired"] },
+  { label: "Компания и контакты", actions: ["tenant.create", "tenant.contacts", "tenant.test_flag"] },
+  { label: "Админы платформы", actions: ["admin.create", "admin.active", "admin.password", "admin.delete", "admin.permissions", "admin.2fa_enable", "admin.2fa_disable"] },
+];
+
+export interface AuditPage {
+  rows: AuditRow[];
+  hasMore: boolean;
 }
 
 export interface Tariff {

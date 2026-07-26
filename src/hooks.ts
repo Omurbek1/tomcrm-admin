@@ -6,9 +6,9 @@ import {
 
 import { api } from "./api/client";
 import type {
+  AuditPage,
   AdminRow,
   Analytics,
-  AuditRow,
   NotificationTemplate,
   PaymentsResponse,
   PlatformOverview,
@@ -245,6 +245,20 @@ export const useSetTenantAddons = () => {
   });
 };
 
+export const useSetTenantModules = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: {
+      id: string;
+      modules: Record<string, boolean>;
+    }) =>
+      (await api.patch(`/api/platform/tenants/${v.id}/modules`, v.modules)).data,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
+    },
+  });
+};
+
 export const useBulkTariff = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -354,14 +368,21 @@ export const useSetConfig = () => {
 };
 
 /** Аудит-лог: по компании (tenantId) или весь (без id). */
-export const useAudit = (tenantId?: string | null) =>
-  useQuery<AuditRow[]>({
-    queryKey: ["audit", tenantId ?? "all"],
+export const useAudit = (
+  tenantId?: string | null,
+  opts?: { actions?: string[]; limit?: number },
+) =>
+  useQuery<AuditPage>({
+    queryKey: ["audit", tenantId ?? "all", opts?.actions ?? [], opts?.limit ?? 20],
     enabled: tenantId !== undefined,
     queryFn: async () =>
       (
         await api.get("/api/platform/audit", {
-          params: tenantId ? { tenantId } : undefined,
+          params: {
+            ...(tenantId ? { tenantId } : {}),
+            ...(opts?.actions?.length ? { actions: opts.actions.join(",") } : {}),
+            limit: opts?.limit ?? 20,
+          },
         })
       ).data,
   });

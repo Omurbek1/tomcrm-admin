@@ -100,7 +100,7 @@ export function VersionWatcher() {
         position: "fixed",
         left: 0,
         right: 0,
-        bottom: 16,
+        top: 8,
         display: "flex",
         justifyContent: "center",
         zIndex: 2000,
