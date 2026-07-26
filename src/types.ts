@@ -173,17 +173,20 @@ export interface Tariff {
  * @CrmAccess). loyalty/telephony пока без блока → хранятся как флаг по key.
  * ДЕРЖАТЬ синхронно с backend entitlements.constants MODULE_BUNDLES.
  */
+// Пакеты = группы сайдбара CRM (Аналитика/Продажи/Склад/Команда/Финансы/Система)
+// — карточка тарифа/компании и меню компании говорят на одном языке.
+// ДЕРЖАТЬ синхронно с backend entitlements.constants MODULE_BUNDLES.
 export const MODULE_BUNDLES: Array<{
   key: string;
   label: string;
   blocks: string[];
 }> = [
-  { key: "crm", label: "CRM и воронка", blocks: ["1", "23", "2", "24", "16", "18"] },
-  { key: "warehouse", label: "Склад и касса", blocks: ["3", "12"] },
-  { key: "finance", label: "Финансы", blocks: ["5", "15", "10"] },
-  { key: "loyalty", label: "Лояльность", blocks: [] },
-  { key: "telephony", label: "Телефония", blocks: [] },
-  { key: "hr", label: "HR", blocks: ["19", "17"] },
+  { key: "analytics", label: "Аналитика", blocks: ["1"] },
+  { key: "sales", label: "Продажи", blocks: ["23", "24", "2", "16", "13"] },
+  { key: "warehouse", label: "Склад", blocks: ["3", "18", "7", "11"] },
+  { key: "team", label: "Команда", blocks: ["19", "17"] },
+  { key: "finance", label: "Финансы", blocks: ["5", "15", "14", "10", "12"] },
+  { key: "system", label: "Система", blocks: ["8", "20", "9", "22"] },
 ];
 
 /** Аддоны (докупаются поверх пакета) — цена за единицу/мес. */
