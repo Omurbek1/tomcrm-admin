@@ -51,7 +51,13 @@ export const TariffsPage = () => {
   const treeData = groups.map((g) => ({
     key: `grp:${g.key}`,
     title: g.label,
-    children: g.sections.map((s) => ({ key: s.key, title: s.label })),
+    children: g.sections.map((s) => ({
+      key: s.key,
+      // Всегда-включённые разделы (Сотрудники/Безопасность/Настройки) показываем,
+      // но отключить нельзя — disabled + всегда отмечены.
+      title: s.alwaysOn ? `${s.label} · всегда` : s.label,
+      disabled: s.alwaysOn,
+    })),
   }));
   const { data: config } = useConfig();
   const setConfig = useSetConfig();

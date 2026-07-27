@@ -182,12 +182,15 @@ export const MODULE_BUNDLES: Array<{
   blocks: string[];
 }> = [
   { key: "analytics", label: "Аналитика", blocks: ["1"] },
-  { key: "sales", label: "Продажи", blocks: ["23", "24", "2", "16", "13"] },
+  { key: "sales", label: "Продажи", blocks: ["23", "16", "2", "24", "15", "13"] },
   { key: "warehouse", label: "Склад", blocks: ["3", "18", "7", "11"] },
-  { key: "team", label: "Команда", blocks: ["19", "17"] },
-  { key: "finance", label: "Финансы", blocks: ["5", "15", "14", "10", "12"] },
-  { key: "system", label: "Система", blocks: ["8", "20", "9", "22"] },
+  { key: "team", label: "Команда", blocks: ["4", "19", "17"] },
+  { key: "finance", label: "Финансы", blocks: ["5", "12", "10", "14"] },
+  { key: "system", label: "Система", blocks: ["8", "20", "9", "22", "21", "6"] },
 ];
+
+/** Всегда включённые разделы (нельзя отключить тарифом). */
+export const ALWAYS_ON_BLOCKS = new Set(["4", "6", "21"]);
 
 /** Названия разделов (фолбэк, если каталог с бэка ещё не пришёл). */
 const BLOCK_LABELS: Record<string, string> = {
@@ -196,14 +199,18 @@ const BLOCK_LABELS: Record<string, string> = {
   "20": "Документы", "13": "Задачи", "8": "Филиалы", "5": "Финансы",
   "15": "План продаж", "10": "Owner Report", "19": "HR", "17": "Учёт времени",
   "14": "Маркетинг", "9": "Материалы", "11": "Ремонт", "7": "Поставщики",
-  "22": "Интеграции",
+  "22": "Интеграции", "4": "Сотрудники", "6": "Настройки", "21": "Безопасность",
 };
 
 /** Дерево «группа → разделы» — офлайн-фолбэк (онлайн берётся с бэка). */
 export const MODULE_GROUPS_FALLBACK = MODULE_BUNDLES.map((b) => ({
   key: b.key,
   label: b.label,
-  sections: b.blocks.map((k) => ({ key: k, label: BLOCK_LABELS[k] ?? k })),
+  sections: b.blocks.map((k) => ({
+    key: k,
+    label: BLOCK_LABELS[k] ?? k,
+    alwaysOn: ALWAYS_ON_BLOCKS.has(k),
+  })),
 }));
 
 /** Аддоны (докупаются поверх пакета) — цена за единицу/мес. */

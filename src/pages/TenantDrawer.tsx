@@ -97,7 +97,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const moduleTreeData = groups.map((g) => ({
     key: `grp:${g.key}`,
     title: g.label,
-    children: g.sections.map((s) => ({ key: s.key, title: s.label })),
+    children: g.sections.map((s) => ({
+      key: s.key,
+      title: s.alwaysOn ? `${s.label} · всегда` : s.label,
+      disabled: s.alwaysOn,
+    })),
   }));
   const impersonate = useImpersonate();
   const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(

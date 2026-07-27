@@ -55,7 +55,7 @@ export const useTariffs = () =>
 export interface ModuleGroup {
   key: string;
   label: string;
-  sections: Array<{ key: string; label: string }>;
+  sections: Array<{ key: string; label: string; alwaysOn?: boolean }>;
 }
 export interface ModuleCatalog {
   groups: ModuleGroup[];
