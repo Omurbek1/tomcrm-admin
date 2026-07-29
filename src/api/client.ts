@@ -1,13 +1,29 @@
 import axios from "axios";
 
-const API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  "http://localhost:3000";
+/**
+ * Абсолютный адрес из env. Частая ошибка в Vercel — задать голый хост без
+ * `https://` (`tomstore-crm-backend-...up.railway.app`): тогда axios/`window.open`
+ * трактуют его как ОТНОСИТЕЛЬНЫЙ путь и клеят к домену Vercel → 404 на
+ * `/api/platform/login`. Нормализуем: нет протокола → подставляем `https://`,
+ * снимаем хвостовые слэши.
+ */
+const absoluteUrl = (raw: string | undefined, fallback: string): string => {
+  const v = (raw ?? "").trim();
+  if (!v) return fallback;
+  if (/^https?:\/\//i.test(v)) return v.replace(/\/+$/, "");
+  return `https://${v.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+};
+
+const API_URL = absoluteUrl(
+  import.meta.env.VITE_API_URL as string | undefined,
+  "http://localhost:3000",
+);
 
 /** Адрес CRM — для impersonate-перехода (вход в компанию под владельцем). */
-export const CRM_URL =
-  (import.meta.env.VITE_CRM_URL as string | undefined) ??
-  "http://localhost:5173";
+export const CRM_URL = absoluteUrl(
+  import.meta.env.VITE_CRM_URL as string | undefined,
+  "http://localhost:5173",
+);
 
 const TOKEN_KEY = "tomstore_platform_token";
 const PERMS_KEY = "tomstore_platform_perms";
