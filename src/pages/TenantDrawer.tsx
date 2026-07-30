@@ -22,7 +22,7 @@ import {
   Typography,
 } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
 import {
@@ -104,32 +104,55 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     (data?.modules?.[k] !== false) !== (data?.tariffModules?.[k] !== false);
   const overrideKeys = new Set(allSectionKeys.filter(isOverride));
   const overrideCount = overrideKeys.size;
-  const moduleTreeData = groups.map((g) => ({
-    key: `grp:${g.key}`,
-    title: g.label,
-    children: g.sections.map((s) => ({
-      key: s.key,
-      title: (
-        <span>
-          {s.alwaysOn ? `${s.label} · всегда` : s.label}
-          {overrideKeys.has(s.key) && (
-            <Tag
-              color="gold"
-              style={{
-                marginLeft: 6,
-                fontSize: 10,
-                lineHeight: "16px",
-                padding: "0 4px",
-              }}
-            >
-              override
-            </Tag>
-          )}
-        </span>
-      ),
-      disabled: s.alwaysOn,
-    })),
-  }));
+  // Подпись листа: название (+ «всегда» для always-on) + бейдж override.
+  const leafTitle = (s: { key: string; label: string; alwaysOn?: boolean }) => (
+    <span>
+      {s.alwaysOn ? `${s.label} · всегда` : s.label}
+      {overrideKeys.has(s.key) && (
+        <Tag
+          color="gold"
+          style={{ marginLeft: 6, fontSize: 10, lineHeight: "16px", padding: "0 4px" }}
+        >
+          override
+        </Tag>
+      )}
+    </span>
+  );
+  type TreeNode = {
+    key: string;
+    title: ReactNode;
+    disabled?: boolean;
+    children?: TreeNode[];
+  };
+  const moduleTreeData: TreeNode[] = groups.flatMap((g): TreeNode[] => {
+    // п.15: группа из одного раздела («Аналитика → Аналитика») — одной строкой.
+    if (g.sections.length === 1) {
+      const s = g.sections[0];
+      return [{ key: s.key, title: leafTitle(s), disabled: s.alwaysOn }];
+    }
+    // п.16: у группы — «N из M» включённых (по эффективному набору компании).
+    const enabled = g.sections.filter(
+      (s) => data?.modules?.[s.key] !== false,
+    ).length;
+    return [
+      {
+        key: `grp:${g.key}`,
+        title: (
+          <span>
+            {g.label}{" "}
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              · {enabled} из {g.sections.length}
+            </Text>
+          </span>
+        ),
+        children: g.sections.map((s) => ({
+          key: s.key,
+          title: leafTitle(s),
+          disabled: s.alwaysOn,
+        })),
+      },
+    ];
+  });
   const impersonate = useImpersonate();
   const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(
     null,
