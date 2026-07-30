@@ -888,18 +888,29 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
           {/* Уведомления клиенту (все уведомления — про триал и оплату) */}
           <Divider titlePlacement="start">Уведомления</Divider>
-          <Space wrap>
-            {REMINDER_TYPES.map((rt) => (
-              <Button
-                key={rt.value}
-                size="small"
-                onClick={() => doSendReminder(rt.value)}
-                loading={sendReminder.isPending}
-              >
-                {rt.label}
-              </Button>
-            ))}
-          </Space>
+          <Dropdown
+            trigger={["click"]}
+            menu={{
+              items: REMINDER_TYPES.map((rt) => ({
+                key: rt.value,
+                label: rt.label,
+                onClick: () =>
+                  modal.confirm({
+                    title: "Отправить уведомление?",
+                    content: `«${rt.label}» получателю: ${
+                      t.contactPhone || t.contactEmail || "контакт не указан"
+                    }`,
+                    okText: "Отправить",
+                    cancelText: "Отмена",
+                    onOk: () => doSendReminder(rt.value),
+                  }),
+              })),
+            }}
+          >
+            <Button size="small" loading={sendReminder.isPending}>
+              Отправить уведомление ▾
+            </Button>
+          </Dropdown>
           <List
             size="small"
             style={{ marginTop: 8 }}
