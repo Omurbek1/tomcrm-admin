@@ -71,6 +71,19 @@ interface Props {
 export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { message, modal } = App.useApp();
   const { data, isLoading, isError, refetch } = useTenant(tenantId);
+  // п.6: активная вкладка синхронизируется с URL (?tab=…).
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const t0 = new URLSearchParams(window.location.search).get("tab") ?? "";
+    return ["overview", "tariff", "billing", "journal"].includes(t0)
+      ? t0
+      : "overview";
+  });
+  const onTabChange = (k: string) => {
+    setActiveTab(k);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", k);
+    window.history.replaceState(null, "", url.toString());
+  };
   const { data: tariffs } = useTariffs();
   const [auditFilter, setAuditFilter] = useState(0);
   const [auditLimit, setAuditLimit] = useState(20);
@@ -572,7 +585,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           )}
 
           <Tabs
-            defaultActiveKey="overview"
+            activeKey={activeTab}
+            onChange={onTabChange}
             className="tenant-card-tabs"
             style={{ flex: 1, minHeight: 0 }}
             items={[

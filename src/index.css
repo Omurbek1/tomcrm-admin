@@ -140,3 +140,12 @@ body,
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+/* п.22: видимый фокус на узлах/чекбоксах дерева модулей (клавиатурная доступность). */
+.tenant-card-tabs .ant-tree .ant-tree-treenode:focus-visible,
+.tenant-card-tabs .ant-tree .ant-tree-checkbox input:focus-visible + .ant-tree-checkbox-inner,
+.tenant-card-tabs .ant-tree-node-content-wrapper:focus-visible {
+  outline: 2px solid #1677ff;
+  outline-offset: 1px;
+  border-radius: 4px;
+}

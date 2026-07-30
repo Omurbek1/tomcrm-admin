@@ -13,7 +13,7 @@ import {
   Tag,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   useBulkNotify,
@@ -98,6 +98,21 @@ export const TenantsPage = () => {
   const { data: overview } = useOverview();
   const { data: tenants, isLoading } = useTenants(search, status, filter);
   const { data: tariffs } = useTariffs();
+
+  // п.6: синхронизация открытой карточки с URL (?id=<slug>) — F5/ссылка коллеге.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const slug = tenants?.find((t) => t.id === openId)?.slug;
+    if (openId && slug) url.searchParams.set("id", slug);
+    else url.searchParams.delete("id");
+    window.history.replaceState(null, "", url.toString());
+  }, [openId, tenants]);
+  useEffect(() => {
+    if (openId) return;
+    const slug = new URLSearchParams(window.location.search).get("id");
+    const found = slug ? tenants?.find((t) => t.slug === slug) : undefined;
+    if (found) setOpenId(found.id);
+  }, [tenants, openId]);
   const bulkTariff = useBulkTariff();
   const bulkNotify = useBulkNotify();
 
