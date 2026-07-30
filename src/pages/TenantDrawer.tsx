@@ -542,10 +542,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             }}
           >
             <span>
-              Отрасль: <b>—</b>
+              Отрасль: <b>{data.industry?.name ?? "—"}</b>
             </span>
             <span>
-              Владелец: <b>—</b>
+              Владелец: <b>{data.owner?.email ?? data.owner?.name ?? "—"}</b>
             </span>
             <span>
               Оплачено до: <b>{fmtDate(t.paidUntil)}</b>
@@ -668,17 +668,26 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   <Button onClick={() => savePrice(null)}>Сброс</Button>
                 )}
               </Space.Compact>
-              {tariff &&
-                t.priceOverride &&
-                Number(t.priceOverride) !== Number(tariff.price) && (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    на {fmtMoney(Math.abs(Number(t.priceOverride) - Number(tariff.price)))}{" "}
-                    {Number(t.priceOverride) > Number(tariff.price)
-                      ? "больше"
-                      : "меньше"}{" "}
-                    тарифа
-                  </Text>
-                )}
+              <div style={{ fontSize: 12, marginTop: 2 }}>
+                <Text type="secondary">
+                  Эффективно (MRR): <b>{fmtMoney(data.monthlyPrice)}</b> · база
+                  тарифа {fmtMoney(data.tariffPrice)}
+                </Text>
+                {t.priceOverride &&
+                  Number(t.priceOverride) !== data.tariffPrice && (
+                    <Text type="secondary">
+                      {" "}
+                      · на{" "}
+                      {fmtMoney(
+                        Math.abs(Number(t.priceOverride) - data.tariffPrice),
+                      )}{" "}
+                      {Number(t.priceOverride) > data.tariffPrice
+                        ? "больше"
+                        : "меньше"}{" "}
+                      тарифа
+                    </Text>
+                  )}
+              </div>
             </div>
 
             <Divider titlePlacement="start">Модули</Divider>

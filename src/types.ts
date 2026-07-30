@@ -123,6 +123,11 @@ export interface TenantDetail {
   addons: Record<string, number>;
   hasOverrides: boolean;
   limitPolicy: "hard" | "soft";
+  industry: { slug: string; name: string } | null;
+  owner: { email: string | null; name: string } | null;
+  /** Эффективная месячная цена = MRR (та же формула, что в списке). */
+  monthlyPrice: number;
+  tariffPrice: number;
 }
 
 /** Группы действий журнала для фильтра (категория → набор action-ключей). */
