@@ -104,6 +104,12 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     (data?.modules?.[k] !== false) !== (data?.tariffModules?.[k] !== false);
   const overrideKeys = new Set(allSectionKeys.filter(isOverride));
   const overrideCount = overrideKeys.size;
+  // п.17: поиск по модулям + управление раскрытием групп.
+  const [moduleSearch, setModuleSearch] = useState("");
+  const [moduleExpanded, setModuleExpanded] = useState<string[] | null>(null);
+  const q = moduleSearch.trim().toLowerCase();
+  const matchesSearch = (label: string) =>
+    !q || label.toLowerCase().includes(q);
   // Подпись листа: название (+ «всегда» для always-on) + бейдж override.
   const leafTitle = (s: { key: string; label: string; alwaysOn?: boolean }) => (
     <span>
@@ -128,8 +134,13 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     // п.15: группа из одного раздела («Аналитика → Аналитика») — одной строкой.
     if (g.sections.length === 1) {
       const s = g.sections[0];
-      return [{ key: s.key, title: leafTitle(s), disabled: s.alwaysOn }];
+      return matchesSearch(s.label)
+        ? [{ key: s.key, title: leafTitle(s), disabled: s.alwaysOn }]
+        : [];
     }
+    // п.17: фильтр по поиску; группа без совпадений — скрыта.
+    const secs = g.sections.filter((s) => matchesSearch(s.label));
+    if (!secs.length) return [];
     // п.16: у группы — «N из M» включённых (по эффективному набору компании).
     const enabled = g.sections.filter(
       (s) => data?.modules?.[s.key] !== false,
@@ -145,7 +156,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </Text>
           </span>
         ),
-        children: g.sections.map((s) => ({
+        children: secs.map((s) => ({
           key: s.key,
           title: leafTitle(s),
           disabled: s.alwaysOn,
@@ -153,6 +164,20 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
       },
     ];
   });
+  // Ключи групп (только многосекционные — одиночные свёрнуты в лист).
+  const groupTreeKeys = groups
+    .filter((g) => g.sections.length > 1)
+    .map((g) => `grp:${g.key}`);
+  // По умолчанию свёрнуто, кроме групп с override; при поиске — раскрыты все.
+  const overrideGroupKeys = groups
+    .filter(
+      (g) =>
+        g.sections.length > 1 && g.sections.some((s) => overrideKeys.has(s.key)),
+    )
+    .map((g) => `grp:${g.key}`);
+  const moduleExpandedKeys = q
+    ? groupTreeKeys
+    : (moduleExpanded ?? overrideGroupKeys);
   const impersonate = useImpersonate();
   const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(
     null,
@@ -660,12 +685,29 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 Итоговый набор разделов = тариф + индивидуальные правки. Отличия
                 от тарифа помечены.
               </div>
+              <Space style={{ width: "100%", marginBottom: 6 }}>
+                <Input.Search
+                  allowClear
+                  size="small"
+                  placeholder="Поиск модуля"
+                  value={moduleSearch}
+                  onChange={(e) => setModuleSearch(e.target.value)}
+                  style={{ width: 200 }}
+                />
+                <Button size="small" onClick={() => setModuleExpanded(groupTreeKeys)}>
+                  Развернуть всё
+                </Button>
+                <Button size="small" onClick={() => setModuleExpanded([])}>
+                  Свернуть всё
+                </Button>
+              </Space>
               <Tree
                 checkable
                 selectable={false}
-                defaultExpandAll
                 disabled={!can("tenants.tariff")}
                 treeData={moduleTreeData}
+                expandedKeys={moduleExpandedKeys}
+                onExpand={(keys) => setModuleExpanded(keys as string[])}
                 checkedKeys={
                   moduleChecked ??
                   allSectionKeys.filter((k) => data.modules[k] !== false)
