@@ -215,18 +215,16 @@ export function IndustriesPage() {
                 </Tooltip>
                 <Tooltip
                   title={
-                    r.slug === "other"
-                      ? "«Другое» — системная, нельзя удалить"
-                      : r.tenantsCount > 0
-                        ? "Есть компании — уйдёт в архив"
-                        : "Удалить"
+                    r.tenantsCount > 0
+                      ? "Есть компании — уйдёт в архив"
+                      : "Удалить"
                   }
                 >
                   <Button
                     size="small"
                     danger
                     icon={<DeleteOutlined />}
-                    disabled={!editable || r.slug === "other"}
+                    disabled={!editable}
                     onClick={() => remove(r)}
                   />
                 </Tooltip>
