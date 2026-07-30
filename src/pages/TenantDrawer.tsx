@@ -5,7 +5,6 @@ import {
   Checkbox,
   Descriptions,
   Divider,
-  Drawer,
   Form,
   Input,
   InputNumber,
@@ -14,6 +13,7 @@ import {
   Select,
   Space,
   Spin,
+  Tabs,
   Tag,
   Tree,
   Typography,
@@ -282,11 +282,13 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const noContacts = t && !t.contactPhone && !t.contactEmail;
 
   return (
-    <Drawer
+    <Modal
       open={!!tenantId}
-      onClose={onClose}
-      width="min(560px, 100vw)"
+      onCancel={onClose}
+      footer={null}
+      width="min(760px, 96vw)"
       title={t ? t.name : "Компания"}
+      styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}
     >
       {isLoading || !t || !data ? (
         <Spin />
@@ -339,6 +341,14 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             />
           )}
 
+          <Tabs
+            defaultActiveKey="overview"
+            items={[
+              {
+                label: "Обзор",
+                key: "overview",
+                children: (
+                  <>
           {/* Контакты (редактируемые) */}
           <Divider titlePlacement="start">Контакты</Divider>
           <Form
@@ -411,8 +421,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </div>
           </Space>
 
+                  </>
+                ),
+              },
+              {
+                label: "Тариф и модули",
+                key: "tariff",
+                children: (
+                  <>
           {/* Тариф, модули, цена и аддоны */}
-          <Divider titlePlacement="start">Тариф и модули</Divider>
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <div>
               <Text strong>Тариф</Text>
@@ -624,8 +641,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               : "При превышении показывается предупреждение, создание разрешено."}
           </Text>
 
+                  </>
+                ),
+              },
+              {
+                label: "Оплата",
+                key: "payment",
+                children: (
+                  <>
           {/* Биллинг (ручной) */}
-          <Divider titlePlacement="start">Оплата</Divider>
           <Space wrap style={{ marginBottom: 8 }}>
             <Tag color={PAYMENT_COLOR[t.paymentStatus]}>
               {PAYMENT_LABEL[t.paymentStatus]}
@@ -720,8 +744,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             )}
           />
 
+                  </>
+                ),
+              },
+              {
+                label: "Уведомления",
+                key: "notify",
+                children: (
+                  <>
           {/* Уведомления клиенту */}
-          <Divider titlePlacement="start">Уведомления клиенту</Divider>
           <Space wrap>
             {REMINDER_TYPES.map((rt) => (
               <Button
@@ -758,8 +789,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             )}
           />
 
+                  </>
+                ),
+              },
+              {
+                label: "Опасная зона",
+                key: "danger",
+                children: (
+                  <>
           {/* Опасная зона */}
-          <Divider titlePlacement="start">Опасная зона</Divider>
           <Space wrap>
             <Button
               danger
@@ -777,8 +815,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </Button>
           </Space>
 
+                  </>
+                ),
+              },
+              {
+                label: "Журнал",
+                key: "journal",
+                children: (
+                  <>
           {/* Журнал действий админа */}
-          <Divider titlePlacement="start">Журнал действий</Divider>
           <Select
             size="small"
             value={auditFilter}
@@ -818,6 +863,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 </Space>
               </List.Item>
             )}
+          />
+                  </>
+                ),
+              },
+            ]}
           />
 
           <Modal
@@ -877,6 +927,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           </Modal>
         </>
       )}
-    </Drawer>
+    </Modal>
   );
 };
