@@ -5,7 +5,6 @@ import {
   Checkbox,
   Descriptions,
   Divider,
-  Drawer,
   Dropdown,
   Form,
   Input,
@@ -335,12 +334,16 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   };
 
   return (
-    <Drawer
+    <Modal
       open={!!tenantId}
-      onClose={onClose}
-      width={720}
+      onCancel={onClose}
+      footer={null}
+      width={880}
+      style={{ top: 24 }}
       title={t ? t.name : "Компания"}
-      styles={{ body: { paddingTop: 12 } }}
+      styles={{
+        body: { maxHeight: "80vh", overflowY: "auto", paddingTop: 12 },
+      }}
     >
       {isLoading || !t || !data ? (
         <Spin />
@@ -1082,6 +1085,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           </Modal>
         </>
       )}
-    </Drawer>
+    </Modal>
   );
 };
