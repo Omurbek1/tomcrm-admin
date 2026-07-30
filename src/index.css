@@ -128,17 +128,14 @@ body,
   }
 }
 
-/* Карточка компании: шапка + таб-бар зафиксированы, скроллится только
-   содержимое активной вкладки (тело Modal — flex-колонка фикс. высоты). */
-.tenant-card-tabs.ant-tabs {
-  display: flex;
-  flex-direction: column;
-}
-.tenant-card-tabs > .ant-tabs-content-holder {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+/* Карточка компании: скроллится всё тело Modal целиком (шапка + вкладки).
+   Таб-бар делаем sticky — остаётся доступным, пока шапка/контент прокручиваются. */
+.tenant-card-tabs > .ant-tabs-nav {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-bottom: 8px;
+  background: var(--ant-color-bg-elevated, #fff);
 }
 
 /* п.22: видимый фокус на узлах/чекбоксах дерева модулей (клавиатурная доступность). */

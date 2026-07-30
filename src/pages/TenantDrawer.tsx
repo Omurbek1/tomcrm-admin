@@ -632,15 +632,13 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
         ) : null
       }
       styles={{
-        // У Modal тело не тянется само — задаём явную высоту, чтобы flex-цепочка
-        // работала: шапка + таб-бар фиксированы, скроллится только контент
-        // вкладки (.tenant-card-tabs → content-holder overflow-y:auto).
+        // Тело — единая область прокрутки: скроллится вся карточка целиком
+        // (шапка + вкладки + контент). Таб-бар остаётся доступным (sticky в CSS).
         body: {
-          height: "72vh",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          padding: "12px 16px 0",
+          maxHeight: "78vh",
+          overflowY: "auto",
+          overflowX: "hidden",
+          padding: "12px 16px 16px",
         },
       }}
     >
@@ -784,7 +782,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             activeKey={activeTab}
             onChange={onTabChange}
             className="tenant-card-tabs"
-            style={{ flex: 1, minHeight: 0 }}
             items={[
               {
                 label: "Обзор",
