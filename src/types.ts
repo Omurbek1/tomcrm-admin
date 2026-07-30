@@ -326,3 +326,26 @@ export const STATUS_COLOR: Record<TenantStatus, string> = {
   blocked: "red",
   deleted: "default",
 };
+
+/** Отрасль из справочника (супер-админка). */
+export interface Industry {
+  id: string;
+  slug: string;
+  nameRu: string;
+  nameKy: string;
+  nameEn: string;
+  icon: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  modules: string[];
+  pipelineStages: string[];
+  clientTermRu: string;
+  clientTermKy: string;
+  clientTermEn: string;
+  warehouseEnabled: boolean;
+  tenantsCount: number;
+}
+
+export type IndustryInput = Partial<
+  Omit<Industry, "id" | "tenantsCount">
+>;

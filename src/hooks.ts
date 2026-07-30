@@ -9,6 +9,8 @@ import type {
   AuditPage,
   AdminRow,
   Analytics,
+  Industry,
+  IndustryInput,
   NotificationTemplate,
   PaymentsResponse,
   PlatformOverview,
@@ -556,5 +558,49 @@ export const useDeleteAdmin = () => {
     mutationFn: async (id: string) =>
       (await api.delete(`/api/platform/admins/${id}`)).data,
     onSuccess: () => void invalidate(),
+  });
+};
+
+// ── Отрасли (справочник) ─────────────────────────────────────────────────────
+export const useIndustries = () =>
+  useQuery<Industry[]>({
+    queryKey: ["industries"],
+    queryFn: async () => (await api.get("/api/platform/industries")).data,
+  });
+
+export const useCreateIndustry = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: IndustryInput) =>
+      (await api.post(`/api/platform/industries`, v)).data as Industry,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["industries"] }),
+  });
+};
+
+export const useUpdateIndustry = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; patch: IndustryInput }) =>
+      (await api.patch(`/api/platform/industries/${v.id}`, v.patch))
+        .data as Industry,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["industries"] }),
+  });
+};
+
+export const useDeleteIndustry = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await api.delete(`/api/platform/industries/${id}`)).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["industries"] }),
+  });
+};
+
+export const useReorderIndustries = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) =>
+      (await api.post(`/api/platform/industries/reorder`, { ids })).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["industries"] }),
   });
 };
