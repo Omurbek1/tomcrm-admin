@@ -331,13 +331,47 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
   const changeTariff = (tariffId: string) => {
     if (!t) return;
-    setTariff.mutate(
-      { id: t.id, tariffId },
-      {
-        onSuccess: () => message.success("Тариф изменён"),
-        onError: () => message.error("Не удалось сменить тариф"),
-      },
+    const apply = () =>
+      setTariff.mutate(
+        { id: t.id, tariffId },
+        {
+          onSuccess: () => message.success("Тариф изменён"),
+          onError: () => message.error("Не удалось сменить тариф"),
+        },
+      );
+    // п.13: показываем, как изменится набор модулей + предупреждаем про override.
+    const newMods = tariffs?.find((tf) => tf.id === tariffId)?.modules ?? {};
+    const labelOf = (k: string) =>
+      groups.flatMap((g) => g.sections).find((s) => s.key === k)?.label ?? k;
+    const willDisable = allSectionKeys.filter(
+      (k) =>
+        data?.modules?.[k] !== false &&
+        newMods[k] === false &&
+        !overrideKeys.has(k),
     );
+    const newCount = allSectionKeys.filter((k) => newMods[k] !== false).length;
+    const curCount = allSectionKeys.filter(
+      (k) => data?.modules?.[k] !== false,
+    ).length;
+    if (willDisable.length || overrideCount > 0) {
+      modal.confirm({
+        title: "Сменить тариф?",
+        content: `Модулей станет ${newCount} вместо ${curCount}${
+          willDisable.length
+            ? `, отключатся: ${willDisable.map(labelOf).join(", ")}`
+            : ""
+        }.${
+          overrideCount > 0
+            ? " У компании есть индивидуальные правки модулей — проверьте их после смены."
+            : ""
+        }`,
+        okText: "Сменить",
+        cancelText: "Отмена",
+        onOk: apply,
+      });
+    } else {
+      apply();
+    }
   };
 
   const saveContacts = (v: { contactPhone?: string; contactEmail?: string }) => {
@@ -733,16 +767,49 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                     const byTariff = data.tariffModules?.[k] !== false;
                     if (want !== byTariff) override[k] = want;
                   }
-                  setModules.mutate(
-                    { id: t.id, modules: override },
-                    {
-                      onSuccess: () => {
-                        message.success("Модули компании сохранены");
-                        setModuleChecked(null);
+                  const doSave = () =>
+                    setModules.mutate(
+                      { id: t.id, modules: override },
+                      {
+                        onSuccess: () => {
+                          message.success("Модули компании сохранены");
+                          setModuleChecked(null);
+                        },
+                        onError: () => message.error("Не удалось сохранить"),
                       },
-                      onError: () => message.error("Не удалось сохранить"),
-                    },
-                  );
+                    );
+                  // п.19: отключаем раздел, в котором есть данные — предупреждаем.
+                  const dataMod: Record<string, string> = {
+                    "3": "products",
+                    "18": "products",
+                    "4": "users",
+                    "8": "branches",
+                  };
+                  const labelOf = (k: string) =>
+                    groups.flatMap((g) => g.sections).find((s) => s.key === k)
+                      ?.label ?? k;
+                  const offWithData = allSectionKeys.filter((k) => {
+                    const want = desired.includes(k);
+                    const nowOn = data.modules[k] !== false;
+                    const uk = dataMod[k];
+                    return (
+                      nowOn && !want && uk && (data.usage?.[uk] ?? 0) > 0
+                    );
+                  });
+                  if (offWithData.length) {
+                    modal.confirm({
+                      title: "Отключить разделы с данными?",
+                      content: `Данные сохранятся, разделы скроются: ${offWithData
+                        .map(labelOf)
+                        .join(", ")}.`,
+                      okText: "Отключить",
+                      okButtonProps: { danger: true },
+                      cancelText: "Отмена",
+                      onOk: doSave,
+                    });
+                  } else {
+                    doSave();
+                  }
                 }}
               >
                 Сохранить модули
