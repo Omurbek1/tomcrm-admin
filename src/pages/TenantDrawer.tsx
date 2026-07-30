@@ -5,6 +5,8 @@ import {
   Checkbox,
   Descriptions,
   Divider,
+  Drawer,
+  Dropdown,
   Form,
   Input,
   InputNumber,
@@ -18,6 +20,7 @@ import {
   Tree,
   Typography,
 } from "antd";
+import { MoreOutlined } from "@ant-design/icons";
 import { useState } from "react";
 
 import { can, CRM_URL } from "../api/client";
@@ -53,7 +56,6 @@ import {
   PAYMENT_LABEL,
   PAYMENT_PERIODS,
   REMINDER_TYPES,
-  STATUS_COLOR,
   STATUS_DATA_POLICY,
   STATUS_LABEL,
 } from "../types";
@@ -281,37 +283,58 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
   const noContacts = t && !t.contactPhone && !t.contactEmail;
 
+  // Статус — ВЫЧИСЛЯЕМЫЙ (оплачено/триал/истёк/просрочено/заморожена/удалена),
+  // руками не меняется (только заморозка/разморозка/продление триала).
+  const statusBadge = t
+    ? t.deletedAt || t.status === "deleted"
+      ? { label: "Удалена", color: "default" as const }
+      : t.status === "blocked"
+        ? { label: "Заморожена", color: "red" as const }
+        : t.paymentStatus === "overdue"
+          ? { label: "Просрочено", color: "volcano" as const }
+          : t.status === "active"
+            ? { label: "Оплачено", color: "green" as const }
+            : t.status === "trial"
+              ? t.trialDaysLeft <= 0
+                ? { label: "Триал истёк", color: "orange" as const }
+                : { label: `Триал · ${t.trialDaysLeft} дн.`, color: "blue" as const }
+              : { label: STATUS_LABEL[t.status], color: "default" as const }
+    : { label: "", color: "default" as const };
+
+  // Деструктив (заморозка/удаление) — подтверждение с вводом slug вручную.
+  const [danger, setDanger] = useState<null | "freeze" | "delete">(null);
+  const [confirmSlug, setConfirmSlug] = useState("");
+  const openDanger = (kind: "freeze" | "delete") => {
+    setConfirmSlug("");
+    setDanger(kind);
+  };
+  const runDanger = () => {
+    if (!t) return;
+    changeStatus(danger === "delete" ? "deleted" : "blocked");
+    setDanger(null);
+  };
+
   return (
-    <Modal
+    <Drawer
       open={!!tenantId}
-      onCancel={onClose}
-      footer={null}
-      width="min(760px, 96vw)"
+      onClose={onClose}
+      width={720}
       title={t ? t.name : "Компания"}
-      styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}
+      styles={{ body: { paddingTop: 12 } }}
     >
       {isLoading || !t || !data ? (
         <Spin />
       ) : (
         <>
+          {/* Шапка: статус-бейдж (вычисляемый) · slug (копируется) · тест · ⋯ */}
           <Space size="middle" wrap style={{ marginBottom: 8 }}>
-            <Tag color={STATUS_COLOR[t.status]}>{STATUS_LABEL[t.status]}</Tag>
-            <Text type="secondary">/{t.slug}</Text>
-            {t.status === "trial" && (
-              <Text type={t.trialDaysLeft <= 0 ? "danger" : "secondary"}>
-                Триал: {t.trialDaysLeft} дн.
-              </Text>
-            )}
-            {t.isTest && <Tag color="purple">тест</Tag>}
-            {t.deletedAt && (
-              <Text type="secondary">
-                удалена {new Date(t.deletedAt).toLocaleDateString("ru-RU")}
-              </Text>
-            )}
-          </Space>
-          <div style={{ marginBottom: 8 }}>
+            <Tag color={statusBadge.color}>{statusBadge.label}</Tag>
+            <Text copyable={{ text: t.slug }} type="secondary">
+              /{t.slug}
+            </Text>
             <Checkbox
               checked={t.isTest}
+              style={{ fontSize: 12 }}
               onChange={(e) =>
                 setTest.mutate(
                   { id: t.id, isTest: e.target.checked },
@@ -319,17 +342,83 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 )
               }
             >
-              Тестовая компания (не в MRR/конверсии/аналитике)
+              Тестовая
             </Checkbox>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <Button
-              onClick={doImpersonate}
-              loading={impersonate.isPending}
-              disabled={t.status === "deleted" || !can("impersonate")}
+            <Dropdown
+              trigger={["click"]}
+              menu={{
+                items: [
+                  {
+                    key: "impersonate",
+                    label: "Войти под владельцем ↗",
+                    disabled: t.status === "deleted" || !can("impersonate"),
+                    onClick: doImpersonate,
+                  },
+                  {
+                    key: "reset-pw",
+                    label: "Сбросить пароль владельца",
+                    disabled: true, // Фаза 3 (эндпоинт)
+                  },
+                  { type: "divider" },
+                  {
+                    key: "freeze",
+                    danger: true,
+                    disabled: t.status === "deleted",
+                    label:
+                      t.status === "blocked"
+                        ? "Разморозить компанию"
+                        : "Заморозить компанию",
+                    onClick: () =>
+                      t.status === "blocked"
+                        ? modal.confirm({
+                            title: "Разморозить компанию?",
+                            content: "Доступ восстановится сразу.",
+                            okText: "Разморозить",
+                            onOk: () => changeStatus("active"),
+                          })
+                        : openDanger("freeze"),
+                  },
+                  {
+                    key: "delete",
+                    danger: true,
+                    disabled: t.status === "deleted" || !can("tenants.delete"),
+                    label: "Удалить компанию",
+                    onClick: () => openDanger("delete"),
+                  },
+                ],
+              }}
             >
-              Войти под владельцем ↗
-            </Button>
+              <Button icon={<MoreOutlined />} />
+            </Dropdown>
+          </Space>
+
+          {/* Строка метрик */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "4px 16px",
+              marginBottom: 8,
+              fontSize: 12,
+              color: "#64748b",
+            }}
+          >
+            <span>
+              Тариф: <b>{t.tariffName ?? "—"}</b>
+            </span>
+            <span>
+              Оплачено до: <b>{fmtDate(t.paidUntil)}</b>
+            </span>
+            <span>
+              Сотрудников: <b>{t.employees}</b>
+            </span>
+            <span>
+              Сделок: <b>{t.deals}</b>
+            </span>
+            <span>
+              Создана:{" "}
+              <b>{new Date(t.createdAt).toLocaleDateString("ru-RU")}</b>
+            </span>
           </div>
 
           {noContacts && (
@@ -377,49 +466,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </Button>
           </Form>
 
-          {/* Статус компании */}
-          <Divider titlePlacement="start">Статус</Divider>
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <div>
-              <Text strong>Статус</Text>
-              <br />
-              <Select
-                value={t.status}
-                style={{ width: "100%", marginTop: 4 }}
-                onChange={changeStatus}
-                loading={setStatus.isPending}
-                options={(
-                  ["trial", "active", "blocked", "deleted"] as TenantStatus[]
-                ).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
-              />
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {STATUS_DATA_POLICY[t.status]}
-              </Text>
-            </div>
-
-            <div>
-              <Text strong>Продлить триал</Text>
-              <br />
-              {t.status === "active" ? (
-                <Text type="secondary">
-                  Компания оплачена — управляйте датой оплаты в биллинге, триал
-                  не применяется.
-                </Text>
-              ) : (
-                <Space style={{ marginTop: 4 }}>
-                  {[7, 14, 30].map((d) => (
-                    <Button
-                      key={d}
-                      onClick={() => addDays(d)}
-                      loading={extendTrial.isPending}
-                    >
-                      +{d} дн.
-                    </Button>
-                  ))}
-                </Space>
-              )}
-            </div>
-          </Space>
 
                   </>
                 ),
@@ -645,8 +691,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 ),
               },
               {
-                label: "Оплата",
-                key: "payment",
+                label: "Биллинг",
+                key: "billing",
                 children: (
                   <>
           {/* Биллинг (ручной) */}
@@ -657,6 +703,33 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <Text type="secondary">Оплачено до: {fmtDate(t.paidUntil)}</Text>
             <Text type="secondary">След. списание: {fmtDate(t.nextChargeAt)}</Text>
           </Space>
+
+          {/* Триал — только если активен */}
+          {t.status !== "active" && t.status !== "deleted" && (
+            <>
+              <Divider titlePlacement="start">Триал</Divider>
+              <Space direction="vertical" style={{ marginBottom: 8 }}>
+                <Text type={t.trialDaysLeft <= 0 ? "danger" : undefined}>
+                  {t.trialDaysLeft > 0
+                    ? `Осталось ${t.trialDaysLeft} дн. (до ${fmtDate(t.trialEndsAt)})`
+                    : `Триал истёк (${fmtDate(t.trialEndsAt)})`}
+                </Text>
+                <Space>
+                  {[7, 14, 30].map((d) => (
+                    <Button
+                      key={d}
+                      size="small"
+                      onClick={() => addDays(d)}
+                      loading={extendTrial.isPending}
+                    >
+                      +{d} дн.
+                    </Button>
+                  ))}
+                </Space>
+              </Space>
+              <Divider titlePlacement="start">Платежи</Divider>
+            </>
+          )}
           <div>
             <Button
               type="primary"
@@ -744,15 +817,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             )}
           />
 
-                  </>
-                ),
-              },
-              {
-                label: "Уведомления",
-                key: "notify",
-                children: (
-                  <>
-          {/* Уведомления клиенту */}
+          {/* Уведомления клиенту (все уведомления — про триал и оплату) */}
+          <Divider titlePlacement="start">Уведомления</Divider>
           <Space wrap>
             {REMINDER_TYPES.map((rt) => (
               <Button
@@ -788,32 +854,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               </List.Item>
             )}
           />
-
-                  </>
-                ),
-              },
-              {
-                label: "Опасная зона",
-                key: "danger",
-                children: (
-                  <>
-          {/* Опасная зона */}
-          <Space wrap>
-            <Button
-              danger
-              disabled={t.status === "blocked" || t.status === "deleted"}
-              onClick={() => changeStatus("blocked")}
-            >
-              Заморозить компанию
-            </Button>
-            <Button
-              danger
-              disabled={t.status === "deleted" || !can("tenants.delete")}
-              onClick={() => changeStatus("deleted")}
-            >
-              Удалить компанию
-            </Button>
-          </Space>
 
                   </>
                 ),
@@ -925,8 +965,43 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               </Text>
             </Form>
           </Modal>
+
+          {/* Деструктив (заморозка/удаление) — ввод slug вручную. */}
+          <Modal
+            open={danger !== null}
+            title={
+              danger === "delete" ? "Удалить компанию?" : "Заморозить компанию?"
+            }
+            okText={danger === "delete" ? "Удалить" : "Заморозить"}
+            okButtonProps={{
+              danger: true,
+              disabled: confirmSlug.trim() !== t.slug,
+            }}
+            confirmLoading={setStatus.isPending}
+            cancelText="Отмена"
+            onCancel={() => setDanger(null)}
+            onOk={runDanger}
+          >
+            <Text>
+              {danger === "delete"
+                ? "Вход закроется, данные — мягкое удаление (восстановимо сменой статуса)."
+                : "Доступ станет только на чтение, данные сохранятся."}
+            </Text>
+            <div style={{ marginTop: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Для подтверждения введите slug компании:{" "}
+                <Text code>{t.slug}</Text>
+              </Text>
+              <Input
+                style={{ marginTop: 6 }}
+                value={confirmSlug}
+                onChange={(e) => setConfirmSlug(e.target.value)}
+                placeholder={t.slug}
+              />
+            </div>
+          </Modal>
         </>
       )}
-    </Modal>
+    </Drawer>
   );
 };
