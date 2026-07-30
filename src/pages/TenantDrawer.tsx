@@ -14,8 +14,8 @@ import {
   List,
   Modal,
   Select,
+  Skeleton,
   Space,
-  Spin,
   Tabs,
   Tag,
   Tree,
@@ -70,7 +70,7 @@ interface Props {
 
 export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { message, modal } = App.useApp();
-  const { data, isLoading } = useTenant(tenantId);
+  const { data, isLoading, isError, refetch } = useTenant(tenantId);
   const { data: tariffs } = useTariffs();
   const [auditFilter, setAuditFilter] = useState(0);
   const [auditLimit, setAuditLimit] = useState(20);
@@ -444,8 +444,20 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
         },
       }}
     >
-      {isLoading || !t || !data ? (
-        <Spin />
+      {isLoading ? (
+        <Skeleton active paragraph={{ rows: 8 }} style={{ padding: 8 }} />
+      ) : isError || !t || !data ? (
+        <div style={{ textAlign: "center", padding: 24 }}>
+          <Text type="secondary">Не удалось загрузить компанию.</Text>
+          <br />
+          <Button
+            style={{ marginTop: 8 }}
+            loading={isLoading}
+            onClick={() => refetch()}
+          >
+            Повторить
+          </Button>
+        </div>
       ) : (
         <>
           {/* Шапка: статус-бейдж (вычисляемый) · slug (копируется) · тест · ⋯ */}
