@@ -124,7 +124,12 @@ export interface TenantDetail {
   hasOverrides: boolean;
   limitPolicy: "hard" | "soft";
   industry: { slug: string; name: string } | null;
-  owner: { email: string | null; name: string } | null;
+  owner: {
+    id: string;
+    email: string | null;
+    name: string;
+    lastLoginAt: string | null;
+  } | null;
   /** Эффективная месячная цена = MRR (та же формула, что в списке). */
   monthlyPrice: number;
   tariffPrice: number;

@@ -36,6 +36,7 @@ import {
   useApplyIndustryPreset,
   useIndustries,
   useRecordPayment,
+  useResetOwnerPassword,
   useSendReminder,
   useSetContacts,
   useSetPriceOverride,
@@ -111,6 +112,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const industriesQ = useIndustries();
   const setIndustry = useSetTenantIndustry();
   const applyPreset = useApplyIndustryPreset();
+  const resetOwnerPw = useResetOwnerPassword();
   // Единый источник — группы/разделы/аддоны с бэка; хардкод только фолбэк.
   const { data: moduleCatalog } = useModuleCatalog();
   const groups = moduleCatalog?.groups ?? MODULE_GROUPS_FALLBACK;
@@ -442,6 +444,45 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     });
   };
 
+  const doResetOwnerPassword = () => {
+    if (!t) return;
+    modal.confirm({
+      title: "Сбросить пароль владельца?",
+      content:
+        "Сгенерируем новый временный пароль и завершим активные сессии владельца. Пароль покажем один раз — передайте его клиенту.",
+      okText: "Сбросить",
+      okButtonProps: { danger: true },
+      cancelText: "Отмена",
+      onOk: () =>
+        resetOwnerPw.mutate(
+          { id: t.id },
+          {
+            onSuccess: (r) =>
+              modal.info({
+                title: "Новый пароль владельца",
+                content: (
+                  <div>
+                    <div>
+                      Владелец: <b>{r.email ?? r.name}</b>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      Пароль:{" "}
+                      <Text copyable strong code>
+                        {r.password}
+                      </Text>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Скопируйте — больше он не будет показан.
+                    </Text>
+                  </div>
+                ),
+              }),
+            onError: () => message.error("Не удалось сбросить пароль"),
+          },
+        ),
+    });
+  };
+
   const addDays = (days: number) => {
     if (!t) return;
     extendTrial.mutate(
@@ -650,7 +691,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   {
                     key: "reset-pw",
                     label: "Сбросить пароль владельца",
-                    disabled: true, // Фаза 3 (эндпоинт)
+                    disabled: !can("impersonate") || !data?.owner,
+                    onClick: doResetOwnerPassword,
                   },
                   { type: "divider" },
                   {
@@ -703,6 +745,14 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </span>
             <span>
               Владелец: <b>{data.owner?.email ?? data.owner?.name ?? "—"}</b>
+            </span>
+            <span>
+              Вход владельца:{" "}
+              <b>
+                {data.owner?.lastLoginAt
+                  ? fmtDate(data.owner.lastLoginAt)
+                  : "не входил"}
+              </b>
             </span>
             <span>
               Оплачено до: <b>{fmtDate(t.paidUntil)}</b>

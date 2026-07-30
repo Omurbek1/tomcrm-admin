@@ -312,6 +312,13 @@ export const useApplyIndustryPreset = () => {
   });
 };
 
+export const useResetOwnerPassword = () =>
+  useMutation({
+    mutationFn: async (v: { id: string }) =>
+      (await api.post(`/api/platform/tenants/${v.id}/owner/reset-password`))
+        .data as { email: string | null; name: string; password: string },
+  });
+
 export const useBulkTariff = () => {
   const qc = useQueryClient();
   return useMutation({
