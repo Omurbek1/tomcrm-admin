@@ -165,6 +165,7 @@ export function IndustriesPage() {
             render: (v: string, r) => (
               <Space>
                 <span>{v}</span>
+                {r.isDefault && <Tag color="blue">дефолт</Tag>}
                 {!r.isActive && <Tag color="default">архив</Tag>}
               </Space>
             ),
@@ -214,16 +215,18 @@ export function IndustriesPage() {
                 </Tooltip>
                 <Tooltip
                   title={
-                    r.tenantsCount > 0
-                      ? "Есть компании — уйдёт в архив"
-                      : "Удалить"
+                    r.slug === "other"
+                      ? "«Другое» — системная, нельзя удалить"
+                      : r.tenantsCount > 0
+                        ? "Есть компании — уйдёт в архив"
+                        : "Удалить"
                   }
                 >
                   <Button
                     size="small"
                     danger
                     icon={<DeleteOutlined />}
-                    disabled={!editable}
+                    disabled={!editable || r.slug === "other"}
                     onClick={() => remove(r)}
                   />
                 </Tooltip>

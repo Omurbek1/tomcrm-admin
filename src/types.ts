@@ -337,6 +337,7 @@ export interface Industry {
   icon: string | null;
   sortOrder: number;
   isActive: boolean;
+  isDefault: boolean;
   modules: string[];
   pipelineStages: string[];
   clientTermRu: string;
