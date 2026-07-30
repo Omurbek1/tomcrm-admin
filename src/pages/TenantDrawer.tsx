@@ -33,10 +33,13 @@ import {
   useImpersonate,
   useNotifications,
   usePayments,
+  useApplyIndustryPreset,
+  useIndustries,
   useRecordPayment,
   useSendReminder,
   useSetContacts,
   useSetPriceOverride,
+  useSetTenantIndustry,
   useSetStatus,
   useSetTariff,
   useSetTenantAddons,
@@ -105,6 +108,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const setAddons = useSetTenantAddons();
   const setModules = useSetTenantModules();
   const setTest = useSetTest();
+  const industriesQ = useIndustries();
+  const setIndustry = useSetTenantIndustry();
+  const applyPreset = useApplyIndustryPreset();
   // Единый источник — группы/разделы/аддоны с бэка; хардкод только фолбэк.
   const { data: moduleCatalog } = useModuleCatalog();
   const groups = moduleCatalog?.groups ?? MODULE_GROUPS_FALLBACK;
@@ -201,6 +207,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const [payOpen, setPayOpen] = useState(false);
   const [payForm] = Form.useForm();
   const [priceDraft, setPriceDraft] = useState<string>("");
+  const [industryDraft, setIndustryDraft] = useState<string | null>(null);
 
   const savePrice = (price: number | null) => {
     if (!t) return;
@@ -845,6 +852,91 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   )}
               </div>
             </div>
+
+            {/* Отрасль: привязка + применение пресета (перезапись override модулей). */}
+            <Divider titlePlacement="start">Отрасль</Divider>
+            {(() => {
+              const list = (industriesQ.data ?? []).filter((i) => i.isActive);
+              const currentId =
+                list.find((i) => i.slug === data.industry?.slug)?.id ?? null;
+              const selected = industryDraft ?? currentId;
+              const selectedName =
+                list.find((i) => i.id === selected)?.nameRu ?? "—";
+              const canEdit = can("tenants.tariff");
+              return (
+                <div>
+                  <Space.Compact style={{ width: "100%" }}>
+                    <Select
+                      style={{ width: "100%" }}
+                      loading={industriesQ.isLoading}
+                      placeholder="Не задана"
+                      value={selected ?? undefined}
+                      disabled={!canEdit}
+                      onChange={(v) => setIndustryDraft(v ?? null)}
+                      options={list.map((i) => ({
+                        value: i.id,
+                        label: i.nameRu,
+                      }))}
+                      allowClear
+                    />
+                    <Button
+                      disabled={!canEdit || selected === currentId}
+                      loading={setIndustry.isPending}
+                      onClick={() =>
+                        setIndustry.mutate(
+                          { id: t.id, industryId: selected },
+                          {
+                            onSuccess: () => {
+                              message.success("Отрасль обновлена");
+                              setIndustryDraft(null);
+                            },
+                            onError: () =>
+                              message.error("Не удалось сохранить отрасль"),
+                          },
+                        )
+                      }
+                    >
+                      Привязать
+                    </Button>
+                    <Button
+                      type="primary"
+                      ghost
+                      disabled={!canEdit || !selected}
+                      loading={applyPreset.isPending}
+                      onClick={() =>
+                        modal.confirm({
+                          title: "Применить пресет отрасли?",
+                          content: `Модули компании будут перезаписаны по пресету отрасли «${selectedName}» (термин клиента и склад — тоже). Воронка и данные не затрагиваются.`,
+                          okText: "Применить",
+                          cancelText: "Отмена",
+                          onOk: () =>
+                            applyPreset.mutate(
+                              { id: t.id, industryId: selected as string },
+                              {
+                                onSuccess: () => {
+                                  message.success("Пресет отрасли применён");
+                                  setIndustryDraft(null);
+                                  setModuleChecked(null);
+                                },
+                                onError: () =>
+                                  message.error("Не удалось применить пресет"),
+                              },
+                            ),
+                        })
+                      }
+                    >
+                      Применить пресет
+                    </Button>
+                  </Space.Compact>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>
+                    <Text type="secondary">
+                      «Применить пресет» перезапишет набор модулей по отрасли.
+                      «Привязать» — только сменит отрасль, модули не трогает.
+                    </Text>
+                  </div>
+                </div>
+              );
+            })()}
 
             <Divider titlePlacement="start">Модули</Divider>
             <div>

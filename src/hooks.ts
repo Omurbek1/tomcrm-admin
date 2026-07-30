@@ -280,6 +280,38 @@ export const useSetTenantModules = () => {
   });
 };
 
+export const useSetTenantIndustry = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; industryId: string | null }) =>
+      (
+        await api.patch(`/api/platform/tenants/${v.id}/industry`, {
+          industryId: v.industryId,
+        })
+      ).data,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+};
+
+export const useApplyIndustryPreset = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; industryId: string }) =>
+      (
+        await api.post(`/api/platform/tenants/${v.id}/apply-industry`, {
+          industryId: v.industryId,
+        })
+      ).data,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+};
+
 export const useBulkTariff = () => {
   const qc = useQueryClient();
   return useMutation({
