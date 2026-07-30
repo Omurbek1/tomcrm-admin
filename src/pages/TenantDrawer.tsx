@@ -96,12 +96,32 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const groups = moduleCatalog?.groups ?? MODULE_GROUPS_FALLBACK;
   const addonMeta = moduleCatalog?.addons ?? ADDON_META;
   const allSectionKeys = groups.flatMap((g) => g.sections.map((s) => s.key));
+  // Ключи, где компания отличается от тарифа (явный override) — помечаем в дереве.
+  const overrideKeys = new Set(Object.keys(data?.overrideModules ?? {}));
+  const overrideCount = allSectionKeys.filter((k) => overrideKeys.has(k)).length;
   const moduleTreeData = groups.map((g) => ({
     key: `grp:${g.key}`,
     title: g.label,
     children: g.sections.map((s) => ({
       key: s.key,
-      title: s.alwaysOn ? `${s.label} · всегда` : s.label,
+      title: (
+        <span>
+          {s.alwaysOn ? `${s.label} · всегда` : s.label}
+          {overrideKeys.has(s.key) && (
+            <Tag
+              color="gold"
+              style={{
+                marginLeft: 6,
+                fontSize: 10,
+                lineHeight: "16px",
+                padding: "0 4px",
+              }}
+            >
+              override
+            </Tag>
+          )}
+        </span>
+      ),
       disabled: s.alwaysOn,
     })),
   }));
@@ -519,13 +539,62 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   <Button onClick={() => savePrice(null)}>Сброс</Button>
                 )}
               </Space.Compact>
+              {tariff && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  по тарифу {Number(tariff.price).toLocaleString("ru-RU")}{" "}
+                  {tariff.currency}
+                </Text>
+              )}
             </div>
 
             <div>
-              <Text strong>Модули компании</Text>
+              <Space
+                style={{
+                  width: "100%",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                }}
+              >
+                <Text strong>Модули компании</Text>
+                {overrideCount > 0 && (
+                  <Space size={8}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Изменено относительно тарифа: {overrideCount}
+                    </Text>
+                    <Button
+                      size="small"
+                      disabled={!can("tenants.tariff")}
+                      onClick={() =>
+                        modal.confirm({
+                          title: "Сбросить модули к тарифу?",
+                          content:
+                            "Индивидуальные правки модулей удалятся, останутся модули тарифа.",
+                          okText: "Сбросить",
+                          okButtonProps: { danger: true },
+                          cancelText: "Отмена",
+                          onOk: () =>
+                            setModules.mutate(
+                              { id: t.id, modules: {} },
+                              {
+                                onSuccess: () => {
+                                  message.success("Сброшено к тарифу");
+                                  setModuleChecked(null);
+                                },
+                                onError: () =>
+                                  message.error("Не удалось сбросить"),
+                              },
+                            ),
+                        })
+                      }
+                    >
+                      Сбросить к тарифу
+                    </Button>
+                  </Space>
+                )}
+              </Space>
               <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
                 Итоговые разделы компании (тариф + индивидуальные правки).
-                Отметьте/снимите раздел — сохранится как override поверх тарифа.
+                Раздел с бейджем <Text code>override</Text> отличается от тарифа.
               </div>
               <Tree
                 checkable
