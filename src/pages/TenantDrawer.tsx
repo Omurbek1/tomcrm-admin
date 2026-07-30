@@ -217,6 +217,115 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const t = data?.tenant;
   const tariff = tariffs?.find((tf) => tf.id === t?.tariffId);
 
+  // п.5: сохранения полей извлечены в функции — их вызывает единая панель
+  // «Сохранить» в футере (и подтверждение п.19 при отключении разделов с данными).
+  const saveModules = (): void => {
+    if (!t || !data || !moduleChecked) return;
+    const desired = moduleChecked;
+    const override: Record<string, boolean> = {};
+    for (const k of allSectionKeys) {
+      const want = desired.includes(k);
+      const byTariff = data.tariffModules?.[k] !== false;
+      if (want !== byTariff) override[k] = want;
+    }
+    const doSave = () =>
+      setModules.mutate(
+        { id: t.id, modules: override },
+        {
+          onSuccess: () => {
+            message.success("Модули компании сохранены");
+            setModuleChecked(null);
+          },
+          onError: () => message.error("Не удалось сохранить"),
+        },
+      );
+    const dataMod: Record<string, string> = {
+      "3": "products",
+      "18": "products",
+      "4": "users",
+      "8": "branches",
+    };
+    const labelOf = (k: string) =>
+      groups.flatMap((g) => g.sections).find((s) => s.key === k)?.label ?? k;
+    const offWithData = allSectionKeys.filter((k) => {
+      const want = desired.includes(k);
+      const nowOn = data.modules[k] !== false;
+      const uk = dataMod[k];
+      return nowOn && !want && uk && (data.usage?.[uk] ?? 0) > 0;
+    });
+    if (offWithData.length) {
+      modal.confirm({
+        title: "Отключить разделы с данными?",
+        content: `Данные сохранятся, разделы скроются: ${offWithData
+          .map(labelOf)
+          .join(", ")}.`,
+        okText: "Отключить",
+        okButtonProps: { danger: true },
+        cancelText: "Отмена",
+        onOk: doSave,
+      });
+    } else {
+      doSave();
+    }
+  };
+
+  const saveAddons = (): void => {
+    if (!t || !addonDraft) return;
+    setAddons.mutate(
+      { id: t.id, addons: addonDraft },
+      {
+        onSuccess: () => {
+          message.success("Аддоны сохранены");
+          setAddonDraft(null);
+        },
+        onError: () => message.error("Не удалось сохранить"),
+      },
+    );
+  };
+
+  // Единый dirty-подсчёт: цена / модули / аддоны.
+  const savedOverride = t?.priceOverride ? Number(t.priceOverride) : null;
+  const draftPrice = priceDraft === "" ? null : Number(priceDraft);
+  const priceDirty = priceDraft !== "" && draftPrice !== savedOverride;
+  const modulesDirty = moduleChecked !== null;
+  const addonsDirty = addonDraft !== null;
+  const dirtyLabels = [
+    priceDirty && "цена",
+    modulesDirty && "модули",
+    addonsDirty && "аддоны",
+  ].filter(Boolean) as string[];
+  const dirtyCount = dirtyLabels.length;
+  const saveAll = () => {
+    if (priceDirty) savePrice(draftPrice);
+    if (modulesDirty) saveModules();
+    if (addonsDirty) saveAddons();
+  };
+  const cancelAll = () => {
+    setPriceDraft("");
+    setModuleChecked(null);
+    setAddonDraft(null);
+  };
+  // п.21: закрытие (Esc / клик по подложке / крестик) при грязном — с подтверждением.
+  const requestClose = () => {
+    if (dirtyCount > 0) {
+      modal.confirm({
+        title: "Несохранённые изменения",
+        content: `Изменено: ${dirtyCount} (${dirtyLabels.join(
+          " · ",
+        )}). Закрыть без сохранения?`,
+        okText: "Закрыть",
+        okButtonProps: { danger: true },
+        cancelText: "Остаться",
+        onOk: () => {
+          cancelAll();
+          onClose();
+        },
+      });
+    } else {
+      onClose();
+    }
+  };
+
   // Подсказка суммы: цена тарифа × месяцы × (1 − скидка периода).
   const suggestAmount = (months: number): number => {
     if (!tariff) return 0;
@@ -443,9 +552,37 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   return (
     <Drawer
       open={!!tenantId}
-      onClose={onClose}
+      onClose={requestClose}
       width={720}
       title={t ? t.name : "Компания"}
+      footer={
+        dirtyCount > 0 ? (
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 12 }}
+            role="region"
+            aria-label="Несохранённые изменения"
+          >
+            <Text strong>Изменено: {dirtyCount}</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {dirtyLabels.join(" · ")}
+            </Text>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              <Button onClick={cancelAll}>Отменить</Button>
+              <Button
+                type="primary"
+                loading={
+                  setPrice.isPending ||
+                  setModules.isPending ||
+                  setAddons.isPending
+                }
+                onClick={saveAll}
+              >
+                Сохранить
+              </Button>
+            </div>
+          </div>
+        ) : null
+      }
       styles={{
         // Тело Drawer заполняет высоту экрана → flex-колонка: шапка + таб-бар
         // фиксированы, скроллится только контент вкладки (.tenant-card-tabs).
@@ -667,19 +804,24 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   placeholder={
                     tariff ? String(Number(tariff.price)) : "по тарифу"
                   }
-                  value={t.priceOverride ? Number(t.priceOverride) : undefined}
+                  value={
+                    priceDraft !== ""
+                      ? Number(priceDraft)
+                      : t.priceOverride
+                        ? Number(t.priceOverride)
+                        : undefined
+                  }
                   onChange={(v) => setPriceDraft(v == null ? "" : String(v))}
                 />
-                <Button
-                  onClick={() =>
-                    savePrice(priceDraft === "" ? null : Number(priceDraft))
-                  }
-                  loading={setPrice.isPending}
-                >
-                  Сохранить
-                </Button>
-                {t.priceOverride && (
-                  <Button onClick={() => savePrice(null)}>Сброс</Button>
+                {(t.priceOverride || priceDraft !== "") && (
+                  <Button
+                    onClick={() => {
+                      setPriceDraft("");
+                      savePrice(null);
+                    }}
+                  >
+                    Сброс
+                  </Button>
                 )}
               </Space.Compact>
               <div style={{ fontSize: 12, marginTop: 2 }}>
@@ -788,67 +930,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   setModuleChecked(arr.filter((k) => !k.startsWith("grp:")));
                 }}
               />
-              <Button
-                size="small"
-                style={{ marginTop: 8 }}
-                disabled={!can("tenants.tariff") || !moduleChecked}
-                loading={setModules.isPending}
-                onClick={() => {
-                  // Override = отличия от тарифа (иначе — по тарифу, ключа нет).
-                  const desired = moduleChecked ?? [];
-                  const override: Record<string, boolean> = {};
-                  for (const k of allSectionKeys) {
-                    const want = desired.includes(k);
-                    const byTariff = data.tariffModules?.[k] !== false;
-                    if (want !== byTariff) override[k] = want;
-                  }
-                  const doSave = () =>
-                    setModules.mutate(
-                      { id: t.id, modules: override },
-                      {
-                        onSuccess: () => {
-                          message.success("Модули компании сохранены");
-                          setModuleChecked(null);
-                        },
-                        onError: () => message.error("Не удалось сохранить"),
-                      },
-                    );
-                  // п.19: отключаем раздел, в котором есть данные — предупреждаем.
-                  const dataMod: Record<string, string> = {
-                    "3": "products",
-                    "18": "products",
-                    "4": "users",
-                    "8": "branches",
-                  };
-                  const labelOf = (k: string) =>
-                    groups.flatMap((g) => g.sections).find((s) => s.key === k)
-                      ?.label ?? k;
-                  const offWithData = allSectionKeys.filter((k) => {
-                    const want = desired.includes(k);
-                    const nowOn = data.modules[k] !== false;
-                    const uk = dataMod[k];
-                    return (
-                      nowOn && !want && uk && (data.usage?.[uk] ?? 0) > 0
-                    );
-                  });
-                  if (offWithData.length) {
-                    modal.confirm({
-                      title: "Отключить разделы с данными?",
-                      content: `Данные сохранятся, разделы скроются: ${offWithData
-                        .map(labelOf)
-                        .join(", ")}.`,
-                      okText: "Отключить",
-                      okButtonProps: { danger: true },
-                      cancelText: "Отмена",
-                      onOk: doSave,
-                    });
-                  } else {
-                    doSave();
-                  }
-                }}
-              >
-                Сохранить модули
-              </Button>
             </div>
 
             <div>
@@ -916,26 +997,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   </div>
                 );
               })()}
-              <Button
-                size="small"
-                style={{ marginTop: 8 }}
-                disabled={!can("billing.edit") || !addonDraft}
-                loading={setAddons.isPending}
-                onClick={() =>
-                  setAddons.mutate(
-                    { id: t.id, addons: addonDraft ?? {} },
-                    {
-                      onSuccess: () => {
-                        message.success("Аддоны сохранены");
-                        setAddonDraft(null);
-                      },
-                      onError: () => message.error("Не удалось сохранить"),
-                    },
-                  )
-                }
-              >
-                Сохранить аддоны
-              </Button>
             </div>
           </Space>
 
