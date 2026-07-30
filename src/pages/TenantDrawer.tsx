@@ -5,7 +5,6 @@ import {
   Checkbox,
   Descriptions,
   Divider,
-  Drawer,
   Dropdown,
   Form,
   Tooltip,
@@ -598,10 +597,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   };
 
   return (
-    <Drawer
+    <Modal
       open={!!tenantId}
-      onClose={requestClose}
-      width={720}
+      onCancel={requestClose}
+      width={900}
+      centered
       title={t ? t.name : "Компания"}
       footer={
         dirtyCount > 0 ? (
@@ -632,9 +632,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
         ) : null
       }
       styles={{
-        // Тело Drawer заполняет высоту экрана → flex-колонка: шапка + таб-бар
-        // фиксированы, скроллится только контент вкладки (.tenant-card-tabs).
+        // У Modal тело не тянется само — задаём явную высоту, чтобы flex-цепочка
+        // работала: шапка + таб-бар фиксированы, скроллится только контент
+        // вкладки (.tenant-card-tabs → content-holder overflow-y:auto).
         body: {
+          height: "72vh",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -1493,6 +1495,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           </Modal>
         </>
       )}
-    </Drawer>
+    </Modal>
   );
 };
