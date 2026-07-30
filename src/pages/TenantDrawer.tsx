@@ -5,8 +5,10 @@ import {
   Checkbox,
   Descriptions,
   Divider,
+  Drawer,
   Dropdown,
   Form,
+  Tooltip,
   Input,
   InputNumber,
   List,
@@ -95,9 +97,13 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const groups = moduleCatalog?.groups ?? MODULE_GROUPS_FALLBACK;
   const addonMeta = moduleCatalog?.addons ?? ADDON_META;
   const allSectionKeys = groups.flatMap((g) => g.sections.map((s) => s.key));
-  // Ключи, где компания отличается от тарифа (явный override) — помечаем в дереве.
-  const overrideKeys = new Set(Object.keys(data?.overrideModules ?? {}));
-  const overrideCount = allSectionKeys.filter((k) => overrideKeys.has(k)).length;
+  // Override = эффективный набор компании ОТЛИЧАЕТСЯ от тарифа (сравниваем
+  // effective vs plan, а не только явный override-словарь — он может быть пуст,
+  // а отличие всё равно есть). Помечаем такие модули в дереве.
+  const isOverride = (k: string) =>
+    (data?.modules?.[k] !== false) !== (data?.tariffModules?.[k] !== false);
+  const overrideKeys = new Set(allSectionKeys.filter(isOverride));
+  const overrideCount = overrideKeys.size;
   const moduleTreeData = groups.map((g) => ({
     key: `grp:${g.key}`,
     title: g.label,
@@ -186,6 +192,12 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
   const fmtDate = (s: string | null) =>
     s ? new Date(s).toLocaleDateString("ru-RU") : "—";
+  // Деньги в интерфейсе — локализованно «5 000 сом» (неразрывные пробелы);
+  // код валюты (KGS) оставляем для CSV/API.
+  const fmtMoney = (n: number | string | null | undefined) => {
+    const v = Number(n ?? 0);
+    return `${v.toLocaleString("ru-RU").replace(/\s/g, " ")} сом`;
+  };
 
   const doSendReminder = (type: string) => {
     if (!t) return;
@@ -334,22 +346,19 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   };
 
   return (
-    <Modal
+    <Drawer
       open={!!tenantId}
-      onCancel={onClose}
-      footer={null}
-      width={880}
-      style={{ top: 24 }}
+      onClose={onClose}
+      width={720}
       title={t ? t.name : "Компания"}
       styles={{
-        // Тело — flex-колонка фикс. высоты: шапка + таб-бар зафиксированы,
-        // скроллится только контент активной вкладки (см. .tenant-card-tabs).
+        // Тело Drawer заполняет высоту экрана → flex-колонка: шапка + таб-бар
+        // фиксированы, скроллится только контент вкладки (.tenant-card-tabs).
         body: {
-          height: "78vh",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          paddingTop: 12,
+          padding: "12px 16px 0",
         },
       }}
     >
@@ -363,18 +372,20 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <Text copyable={{ text: t.slug }} type="secondary">
               /{t.slug}
             </Text>
-            <Checkbox
-              checked={t.isTest}
-              style={{ fontSize: 12 }}
-              onChange={(e) =>
-                setTest.mutate(
-                  { id: t.id, isTest: e.target.checked },
-                  { onError: () => message.error("Не удалось") },
-                )
-              }
-            >
-              Тестовая
-            </Checkbox>
+            <Tooltip title="Не учитывается в MRR, конверсии и аналитике">
+              <Checkbox
+                checked={t.isTest}
+                style={{ fontSize: 12 }}
+                onChange={(e) =>
+                  setTest.mutate(
+                    { id: t.id, isTest: e.target.checked },
+                    { onError: () => message.error("Не удалось") },
+                  )
+                }
+              >
+                Тестовая компания
+              </Checkbox>
+            </Tooltip>
             <Dropdown
               trigger={["click"]}
               menu={{
@@ -419,7 +430,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 ],
               }}
             >
-              <Button icon={<MoreOutlined />} />
+              <Tooltip title="Действия">
+                <Button icon={<MoreOutlined />} aria-label="Действия" />
+              </Tooltip>
             </Dropdown>
           </Space>
 
@@ -435,7 +448,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             }}
           >
             <span>
-              Тариф: <b>{t.tariffName ?? "—"}</b>
+              Отрасль: <b>—</b>
+            </span>
+            <span>
+              Владелец: <b>—</b>
             </span>
             <span>
               Оплачено до: <b>{fmtDate(t.paidUntil)}</b>
@@ -508,7 +524,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 key: "tariff",
                 children: (
                   <>
-          {/* Тариф, модули, цена и аддоны */}
+          {/* Секция 1: Тариф и цена */}
+          <Divider titlePlacement="start" style={{ marginTop: 0 }}>
+            Тариф и цена
+          </Divider>
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <div>
               <Text strong>Тариф</Text>
@@ -530,13 +549,16 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </div>
 
             <div>
-              <Text strong>Индивидуальная цена (мес.)</Text>
+              <Text strong>Индивидуальная цена, сом/мес</Text>
               <br />
               <Space.Compact style={{ width: "100%", marginTop: 4 }}>
                 <InputNumber
                   min={0}
+                  max={100_000_000}
                   style={{ width: "100%" }}
-                  placeholder="по тарифу"
+                  placeholder={
+                    tariff ? String(Number(tariff.price)) : "по тарифу"
+                  }
                   value={t.priceOverride ? Number(t.priceOverride) : undefined}
                   onChange={(v) => setPriceDraft(v == null ? "" : String(v))}
                 />
@@ -552,14 +574,20 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   <Button onClick={() => savePrice(null)}>Сброс</Button>
                 )}
               </Space.Compact>
-              {tariff && (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  по тарифу {Number(tariff.price).toLocaleString("ru-RU")}{" "}
-                  {tariff.currency}
-                </Text>
-              )}
+              {tariff &&
+                t.priceOverride &&
+                Number(t.priceOverride) !== Number(tariff.price) && (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    на {fmtMoney(Math.abs(Number(t.priceOverride) - Number(tariff.price)))}{" "}
+                    {Number(t.priceOverride) > Number(tariff.price)
+                      ? "больше"
+                      : "меньше"}{" "}
+                    тарифа
+                  </Text>
+                )}
             </div>
 
+            <Divider titlePlacement="start">Модули</Divider>
             <div>
               <Space
                 style={{
@@ -606,8 +634,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 )}
               </Space>
               <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
-                Итоговые разделы компании (тариф + индивидуальные правки).
-                Раздел с бейджем <Text code>override</Text> отличается от тарифа.
+                Итоговый набор разделов = тариф + индивидуальные правки. Отличия
+                от тарифа помечены.
               </div>
               <Tree
                 checkable
@@ -1095,6 +1123,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           </Modal>
         </>
       )}
-    </Modal>
+    </Drawer>
   );
 };
