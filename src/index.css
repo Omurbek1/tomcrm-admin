@@ -127,3 +127,16 @@ body,
     margin-inline-end: 8px;
   }
 }
+
+/* Карточка компании: шапка + таб-бар зафиксированы, скроллится только
+   содержимое активной вкладки (тело Modal — flex-колонка фикс. высоты). */
+.tenant-card-tabs.ant-tabs {
+  display: flex;
+  flex-direction: column;
+}
+.tenant-card-tabs > .ant-tabs-content-holder {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}

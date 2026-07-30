@@ -342,7 +342,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
       style={{ top: 24 }}
       title={t ? t.name : "Компания"}
       styles={{
-        body: { maxHeight: "80vh", overflowY: "auto", paddingTop: 12 },
+        // Тело — flex-колонка фикс. высоты: шапка + таб-бар зафиксированы,
+        // скроллится только контент активной вкладки (см. .tenant-card-tabs).
+        body: {
+          height: "78vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          paddingTop: 12,
+        },
       }}
     >
       {isLoading || !t || !data ? (
@@ -455,6 +463,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
           <Tabs
             defaultActiveKey="overview"
+            className="tenant-card-tabs"
+            style={{ flex: 1, minHeight: 0 }}
             items={[
               {
                 label: "Обзор",
