@@ -26,16 +26,37 @@ export const useOverview = () =>
     queryFn: async () => (await api.get("/api/platform/overview")).data,
   });
 
-export const useTenants = (search: string, status: string, filter = "") =>
+export const useTenants = (opts: {
+  search?: string;
+  status?: string;
+  filter?: string;
+  industryId?: string;
+  tariffId?: string;
+  includeDeleted?: boolean;
+  sort?: string;
+}) =>
   useQuery<TenantRow[]>({
-    queryKey: ["tenants", search, status, filter],
+    queryKey: [
+      "tenants",
+      opts.search,
+      opts.status,
+      opts.filter,
+      opts.industryId,
+      opts.tariffId,
+      opts.includeDeleted,
+      opts.sort,
+    ],
     queryFn: async () =>
       (
         await api.get("/api/platform/tenants", {
           params: {
-            search: search || undefined,
-            status: status || undefined,
-            filter: filter || undefined,
+            search: opts.search || undefined,
+            status: opts.status || undefined,
+            filter: opts.filter || undefined,
+            industryId: opts.industryId || undefined,
+            tariffId: opts.tariffId || undefined,
+            includeDeleted: opts.includeDeleted ? "1" : undefined,
+            sort: opts.sort || undefined,
           },
         })
       ).data,
@@ -416,6 +437,21 @@ export const useBulkNotify = () =>
         skipped: number;
       },
   });
+
+export const useBulkExtend = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { ids: string[]; periodMonths: number }) =>
+      (await api.post("/api/platform/tenants/bulk/extend", v)).data as {
+        extended: number;
+        failed: number;
+      },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+};
 
 export const useImpersonate = () =>
   useMutation({

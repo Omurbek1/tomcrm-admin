@@ -10,7 +10,7 @@ export const AuditPage = () => {
   const [tenantId, setTenantId] = useState<string>("");
   const [filterIdx, setFilterIdx] = useState<number>(0);
   const [limit, setLimit] = useState<number>(25);
-  const { data: tenants } = useTenants("", "", "");
+  const { data: tenants } = useTenants({ includeDeleted: true });
   const { data: audit, isLoading } = useAudit(tenantId, {
     actions: AUDIT_FILTERS[filterIdx].actions,
     limit,

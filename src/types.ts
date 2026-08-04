@@ -22,6 +22,12 @@ export interface TenantRow {
   priceOverride: string | null;
   isTest: boolean;
   deletedAt: string | null;
+  industryId?: string | null;
+  industryName?: string | null;
+  ownerName?: string | null;
+  ownerPhone?: string | null;
+  lastActivityAt?: string | null;
+  mrr?: number | null;
 }
 
 export interface PaymentRow {
@@ -46,6 +52,7 @@ export const PAYMENT_PERIODS = [1, 3, 6, 12];
 
 export interface PlatformOverview {
   total: number;
+  deleted: number;
   byStatus: Record<string, number>;
   trialsExpiringSoon: number;
   trialsExpired: number;
@@ -59,7 +66,14 @@ export interface PlatformOverview {
 }
 
 /** Именованные фильтры дашборда (кликабельные карточки). */
-export type TenantFilter = "" | "trial_expiring" | "trial_expired" | "overdue";
+export type TenantFilter =
+  | ""
+  | "trial_expiring"
+  | "trial_expired"
+  | "overdue"
+  | "expiring_7d"
+  | "inactive_14d"
+  | "attention";
 
 export interface NotificationTemplate {
   key: string;

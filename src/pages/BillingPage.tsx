@@ -48,7 +48,7 @@ export const BillingPage = () => {
   const markManual = useMarkManualPayment();
   const [modalOpen, setModalOpen] = useState(false);
   const [tenantSearch, setTenantSearch] = useState("");
-  const { data: tenants } = useTenants(tenantSearch, "", "");
+  const { data: tenants } = useTenants({ search: tenantSearch });
   const [form] = Form.useForm();
 
   const editable = can("billing.edit");
