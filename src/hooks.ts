@@ -54,6 +54,57 @@ export const useTariffs = () =>
     queryFn: async () => (await api.get("/api/platform/tariffs")).data,
   });
 
+// ── Биллинг (Ч6): все счета онлайн+ручные, ручная отметка оплаты ──
+export interface BillingInvoiceRow {
+  id: string;
+  tenantId: string;
+  tenantName: string | null;
+  amount: string;
+  currency: string;
+  periodMonths: number;
+  status:
+    | "draft"
+    | "pending"
+    | "paid"
+    | "expired"
+    | "cancelled"
+    | "failed";
+  provider: string;
+  providerTransactionId: string | null;
+  signatureValid: boolean;
+  paidAt: string | null;
+  paidUntil: string | null;
+  createdAt: string;
+  kind?: "subscription" | "addon";
+  addonKey?: string | null;
+  addonQty?: number | null;
+}
+
+export const useBillingInvoices = () =>
+  useQuery<BillingInvoiceRow[]>({
+    queryKey: ["billing-invoices"],
+    queryFn: async () =>
+      (await api.get("/api/platform/billing/invoices")).data,
+  });
+
+export const useMarkManualPayment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      tenantId: string;
+      periodMonths: number;
+      amount?: number | null;
+      method?: string | null;
+      note?: string | null;
+    }) => (await api.post("/api/platform/billing/manual-payment", body)).data,
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
+      void qc.invalidateQueries({ queryKey: ["tenant", v.tenantId] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+};
+
 export interface ModuleGroup {
   key: string;
   label: string;

@@ -7,6 +7,7 @@ import { identify, resetIdentity } from "./lib/monitoring";
 import { AdminsPage } from "./pages/AdminsPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AuditPage } from "./pages/AuditPage";
+import { BillingPage } from "./pages/BillingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { TariffsPage } from "./pages/TariffsPage";
 import { IndustriesPage } from "./pages/IndustriesPage";
@@ -21,6 +22,7 @@ type View =
   | "tenants"
   | "analytics"
   | "tariffs"
+  | "billing"
   | "industries"
   | "templates"
   | "audit"
@@ -30,6 +32,7 @@ const NAV: { key: View; label: string }[] = [
   { key: "tenants", label: "Компании" },
   { key: "analytics", label: "Аналитика" },
   { key: "tariffs", label: "Тарифы" },
+  { key: "billing", label: "Биллинг" },
   { key: "industries", label: "Отрасли" },
   { key: "templates", label: "Уведомления" },
   { key: "audit", label: "Журнал" },
@@ -163,6 +166,7 @@ export const App = () => {
         {view === "tenants" && <TenantsPage />}
         {view === "analytics" && <AnalyticsPage />}
         {view === "tariffs" && <TariffsPage />}
+        {view === "billing" && <BillingPage />}
         {view === "industries" && <IndustriesPage />}
         {view === "templates" && <TemplatesPage />}
         {view === "audit" && <AuditPage />}
