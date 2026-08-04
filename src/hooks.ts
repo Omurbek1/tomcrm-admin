@@ -191,6 +191,63 @@ export const useSetStatus = () => {
   });
 };
 
+export interface TenantImpact {
+  deals: number;
+  clients: number;
+  products: number;
+  employees: number;
+  files: number;
+  purgeAfter: string | null;
+}
+
+export const useTenantImpact = (id: string | null, enabled: boolean) =>
+  useQuery<TenantImpact>({
+    queryKey: ["tenant-impact", id],
+    enabled: enabled && !!id,
+    queryFn: async () =>
+      (await api.get(`/api/platform/tenants/${id}/impact`)).data,
+  });
+
+export const useSoftDeleteTenant = () => {
+  const invalidate = useInvalidateTenant();
+  return useMutation({
+    mutationFn: async (v: {
+      id: string;
+      reason: string;
+      confirmSlug: string;
+    }) =>
+      (
+        await api.post(`/api/platform/tenants/${v.id}/soft-delete`, {
+          reason: v.reason,
+          confirmSlug: v.confirmSlug,
+        })
+      ).data as TenantRow,
+    onSuccess: (_d, v) => invalidate(v.id),
+  });
+};
+
+export const useRestoreTenant = () => {
+  const invalidate = useInvalidateTenant();
+  return useMutation({
+    mutationFn: async (v: { id: string }) =>
+      (await api.post(`/api/platform/tenants/${v.id}/restore`)).data as TenantRow,
+    onSuccess: (_d, v) => invalidate(v.id),
+  });
+};
+
+export const usePurgeTestTenant = () => {
+  const invalidate = useInvalidateTenant();
+  return useMutation({
+    mutationFn: async (v: { id: string; confirmSlug: string }) =>
+      (
+        await api.post(`/api/platform/tenants/${v.id}/purge-test`, {
+          confirmSlug: v.confirmSlug,
+        })
+      ).data as { totalRows: number },
+    onSuccess: (_d, v) => invalidate(v.id),
+  });
+};
+
 export const useExtendTrial = () => {
   const invalidate = useInvalidateTenant();
   return useMutation({

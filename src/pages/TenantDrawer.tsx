@@ -41,6 +41,7 @@ import {
   useSetPriceOverride,
   useSetTenantIndustry,
   useSetStatus,
+  useRestoreTenant,
   useSetTariff,
   useSetTenantAddons,
   useSetTenantModules,
@@ -64,6 +65,7 @@ import {
   STATUS_DATA_POLICY,
   STATUS_LABEL,
 } from "../types";
+import { DeleteTenantModal } from "./DeleteTenantModal";
 
 const { Text } = Typography;
 
@@ -208,6 +210,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const [moduleChecked, setModuleChecked] = useState<string[] | null>(null);
   const [contactForm] = Form.useForm();
   const [payOpen, setPayOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const restoreTenant = useRestoreTenant();
   const [payForm] = Form.useForm();
   const [priceDraft, setPriceDraft] = useState<string>("");
   const [industryDraft, setIndustryDraft] = useState<string | null>(null);
@@ -715,13 +719,34 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                           })
                         : openDanger("freeze"),
                   },
-                  {
-                    key: "delete",
-                    danger: true,
-                    disabled: t.status === "deleted" || !can("tenants.delete"),
-                    label: "Удалить компанию",
-                    onClick: () => openDanger("delete"),
-                  },
+                  ...(t.status === "deleted"
+                    ? [
+                        {
+                          key: "restore",
+                          disabled: !can("tenants.delete"),
+                          label: "Восстановить компанию",
+                          onClick: () =>
+                            modal.confirm({
+                              title: "Восстановить компанию?",
+                              content: "Доступ и данные вернутся, статус станет «активна».",
+                              okText: "Восстановить",
+                              onOk: () =>
+                                restoreTenant.mutateAsync({ id: t.id }).then(
+                                  () => message.success("Компания восстановлена"),
+                                  () => message.error("Не удалось восстановить"),
+                                ),
+                            }),
+                        },
+                      ]
+                    : [
+                        {
+                          key: "delete",
+                          danger: true,
+                          disabled: !can("tenants.delete"),
+                          label: "Удалить компанию",
+                          onClick: () => setDeleteOpen(true),
+                        },
+                      ]),
                 ],
               }}
             >
@@ -1520,6 +1545,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               />
             </div>
           </Modal>
+
+          <DeleteTenantModal
+            open={deleteOpen}
+            onClose={() => setDeleteOpen(false)}
+            tenantId={t.id}
+            slug={t.slug}
+            name={t.name}
+            isTest={t.isTest}
+          />
         </>
       )}
     </Modal>
