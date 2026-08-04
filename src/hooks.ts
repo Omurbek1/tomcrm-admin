@@ -87,6 +87,29 @@ export const useBillingInvoices = () =>
       (await api.get("/api/platform/billing/invoices")).data,
   });
 
+export interface BillingJournalRow {
+  id: string;
+  tenantId: string;
+  event: string;
+  title: string;
+  amount: string | null;
+  invoiceId: string | null;
+  createdAt: string;
+}
+
+/** Журнал биллинга компании (оплаты/продления/докупки/смена тарифа). */
+export const useBillingJournal = (tenantId: string | null) =>
+  useQuery<BillingJournalRow[]>({
+    queryKey: ["billing-journal", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () =>
+      (
+        await api.get("/api/platform/billing/journal", {
+          params: { tenantId },
+        })
+      ).data,
+  });
+
 export const useMarkManualPayment = () => {
   const qc = useQueryClient();
   return useMutation({

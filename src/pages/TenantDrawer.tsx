@@ -47,6 +47,7 @@ import {
   useSetTest,
   useTariffs,
   useTenant,
+  useBillingJournal,
 } from "../hooks";
 import type { TenantStatus } from "../types";
 import {
@@ -74,6 +75,7 @@ interface Props {
 export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { message, modal } = App.useApp();
   const { data, isLoading, isError, refetch } = useTenant(tenantId);
+  const { data: billingJournal } = useBillingJournal(tenantId);
   // п.6: активная вкладка синхронизируется с URL (?tab=…).
   const [activeTab, setActiveTab] = useState<string>(() => {
     const t0 = new URLSearchParams(window.location.search).get("tab") ?? "";
@@ -1290,6 +1292,34 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                     {p.adminLogin}
                     {p.receipt ? ` · чек ${p.receipt}` : ""}
                     {p.note ? ` · ${p.note}` : ""}
+                  </Text>
+                </Space>
+              </List.Item>
+            )}
+          />
+
+          {/* Журнал биллинга (авто): оплаты/продления/докупки/смена тарифа. */}
+          <Divider titlePlacement="start">Журнал биллинга</Divider>
+          <List
+            size="small"
+            locale={{ emptyText: "Событий биллинга ещё не было" }}
+            dataSource={billingJournal ?? []}
+            pagination={
+              (billingJournal?.length ?? 0) > 10
+                ? { pageSize: 10, size: "small" }
+                : false
+            }
+            renderItem={(j) => (
+              <List.Item>
+                <Space orientation="vertical" size={0} style={{ width: "100%" }}>
+                  <Text>
+                    {j.title}
+                    {j.amount
+                      ? ` · ${Number(j.amount).toLocaleString("ru-RU")} сом`
+                      : ""}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {new Date(j.createdAt).toLocaleString("ru-RU")}
                   </Text>
                 </Space>
               </List.Item>
