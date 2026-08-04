@@ -208,6 +208,19 @@ export const useTenantImpact = (id: string | null, enabled: boolean) =>
       (await api.get(`/api/platform/tenants/${id}/impact`)).data,
   });
 
+export interface TenantDataVolume {
+  totalRows: number;
+  top: Array<{ table: string; rows: number }>;
+}
+
+export const useTenantDataVolume = (id: string | null, enabled: boolean) =>
+  useQuery<TenantDataVolume>({
+    queryKey: ["tenant-data-volume", id],
+    enabled: enabled && !!id,
+    queryFn: async () =>
+      (await api.get(`/api/platform/tenants/${id}/data-volume`)).data,
+  });
+
 export const useSoftDeleteTenant = () => {
   const invalidate = useInvalidateTenant();
   return useMutation({

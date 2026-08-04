@@ -49,6 +49,7 @@ import {
   useTariffs,
   useTenant,
   useBillingJournal,
+  useTenantDataVolume,
 } from "../hooks";
 import type { TenantStatus } from "../types";
 import {
@@ -78,6 +79,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { message, modal } = App.useApp();
   const { data, isLoading, isError, refetch } = useTenant(tenantId);
   const { data: billingJournal } = useBillingJournal(tenantId);
+  const { data: dataVolume } = useTenantDataVolume(tenantId, !!tenantId);
   // п.6: активная вкладка синхронизируется с URL (?tab=…).
   const [activeTab, setActiveTab] = useState<string>(() => {
     const t0 = new URLSearchParams(window.location.search).get("tab") ?? "";
@@ -843,6 +845,25 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </Button>
           </Form>
 
+          {/* Объём данных (мониторинг: кто занимает место) */}
+          <Divider titlePlacement="start">Объём данных</Divider>
+          {dataVolume ? (
+            <div>
+              <Text>
+                Всего строк:{" "}
+                <b>{dataVolume.totalRows.toLocaleString("ru-RU")}</b>
+              </Text>
+              <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {dataVolume.top.slice(0, 8).map((r) => (
+                  <Tag key={r.table}>
+                    {r.table}: {r.rows.toLocaleString("ru-RU")}
+                  </Tag>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Text type="secondary">Считаем…</Text>
+          )}
 
                   </>
                 ),
