@@ -24,6 +24,7 @@ import { MoreOutlined } from "@ant-design/icons";
 import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
+import { StructureAuditTab } from "./StructureAuditTab";
 import {
   useAudit,
   useCancelPayment,
@@ -1472,6 +1473,13 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           />
                   </>
                 ),
+              },
+              {
+                // §6.1/§6.2 Изменения структуры воронок/этапов/правил компании —
+                // первое, куда смотрят при жалобе «у нас пропали сделки».
+                label: "Структура",
+                key: "structure",
+                children: <StructureAuditTab tenantId={tenantId} />,
               },
             ]}
           />

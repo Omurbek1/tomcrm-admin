@@ -627,6 +627,40 @@ export const useAudit = (
       ).data,
   });
 
+// §6.2 Изменения структуры воронок/этапов/правил КОМПАНИИ (employee_audit_log).
+export interface StructureAuditEntry {
+  id: string;
+  actorName: string | null;
+  actorRole: string | null;
+  action: string;
+  entity: string;
+  entityName: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  createdAt: string;
+}
+export interface StructureAuditPage {
+  items: StructureAuditEntry[];
+  total: number;
+}
+export const useTenantStructureAudit = (
+  tenantId: string | null,
+  opts?: { limit?: number; type?: string },
+) =>
+  useQuery<StructureAuditPage>({
+    queryKey: ["structure-audit", tenantId ?? "", opts?.limit ?? 20, opts?.type ?? ""],
+    enabled: !!tenantId,
+    queryFn: async () =>
+      (
+        await api.get(`/api/platform/tenants/${tenantId}/structure-audit`, {
+          params: {
+            limit: opts?.limit ?? 20,
+            ...(opts?.type ? { type: opts.type } : {}),
+          },
+        })
+      ).data,
+  });
+
 // ── Тарифы (редактирование) ─────────────────────────────────────────────────
 
 export interface TariffPatch {
