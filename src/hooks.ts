@@ -221,6 +221,21 @@ export const useTenantDataVolume = (id: string | null, enabled: boolean) =>
       (await api.get(`/api/platform/tenants/${id}/data-volume`)).data,
   });
 
+export interface TenantInventory {
+  totalQty: number;
+  totalValue: number; // деньги в товаре (себестоимость FIFO)
+  productsInStock: number;
+  top: Array<{ name: string; qty: number; value: number }>;
+}
+
+export const useTenantInventory = (id: string | null, enabled: boolean) =>
+  useQuery<TenantInventory>({
+    queryKey: ["tenant-inventory", id],
+    enabled: enabled && !!id,
+    queryFn: async () =>
+      (await api.get(`/api/platform/tenants/${id}/inventory`)).data,
+  });
+
 export const useSoftDeleteTenant = () => {
   const invalidate = useInvalidateTenant();
   return useMutation({

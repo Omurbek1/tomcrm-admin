@@ -15,6 +15,7 @@ import {
   Select,
   Skeleton,
   Space,
+  Statistic,
   Tabs,
   Tag,
   Tree,
@@ -52,6 +53,7 @@ import {
   useTenant,
   useBillingJournal,
   useTenantDataVolume,
+  useTenantInventory,
 } from "../hooks";
 import type { TenantStatus } from "../types";
 import {
@@ -82,6 +84,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { data, isLoading, isError, refetch } = useTenant(tenantId);
   const { data: billingJournal } = useBillingJournal(tenantId);
   const { data: dataVolume } = useTenantDataVolume(tenantId, !!tenantId);
+  const { data: inventory } = useTenantInventory(tenantId, !!tenantId);
   // п.6: активная вкладка синхронизируется с URL (?tab=…).
   const [activeTab, setActiveTab] = useState<string>(() => {
     const t0 = new URLSearchParams(window.location.search).get("tab") ?? "";
@@ -917,6 +920,68 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 );
               })()}
             </div>
+          ) : (
+            <Text type="secondary">Считаем…</Text>
+          )}
+
+          {/* Склад: остаток товаров и деньги в товаре (себестоимость FIFO). */}
+          <Divider titlePlacement="start">Склад и деньги в товаре</Divider>
+          {inventory ? (
+            inventory.productsInStock > 0 ? (
+              <div>
+                <Space size="large" wrap>
+                  <Statistic
+                    title="Позиций на складе"
+                    value={inventory.productsInStock}
+                  />
+                  <Statistic
+                    title="Единиц товара"
+                    value={inventory.totalQty.toLocaleString("ru-RU")}
+                  />
+                  <Statistic
+                    title="Деньги в товаре (себестоимость)"
+                    value={fmtMoney(inventory.totalValue)}
+                  />
+                </Space>
+                {inventory.top.length ? (
+                  <div style={{ marginTop: 10 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Крупнейшие по сумме:
+                    </Text>
+                    <div
+                      style={{
+                        marginTop: 6,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      {inventory.top.map((p) => (
+                        <div
+                          key={p.name}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 8,
+                            fontSize: 13,
+                          }}
+                        >
+                          <span>
+                            {p.name}{" "}
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              · {p.qty.toLocaleString("ru-RU")} шт.
+                            </Text>
+                          </span>
+                          <b>{fmtMoney(p.value)}</b>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Text type="secondary">Товаров на складе нет</Text>
+            )
           ) : (
             <Text type="secondary">Считаем…</Text>
           )}
