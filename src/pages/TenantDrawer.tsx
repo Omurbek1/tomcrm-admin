@@ -942,6 +942,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                     title="Деньги в товаре (себестоимость)"
                     value={fmtMoney(inventory.totalValue)}
                   />
+                  <Statistic
+                    title="Розничная стоимость (потенциал)"
+                    value={fmtMoney(inventory.totalRetail)}
+                  />
                 </Space>
                 {inventory.top.length ? (
                   <div style={{ marginTop: 10 }}>

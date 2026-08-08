@@ -224,6 +224,7 @@ export const useTenantDataVolume = (id: string | null, enabled: boolean) =>
 export interface TenantInventory {
   totalQty: number;
   totalValue: number; // деньги в товаре (себестоимость FIFO)
+  totalRetail: number; // потенциальная выручка (по цене продажи)
   productsInStock: number;
   top: Array<{ name: string; qty: number; value: number }>;
 }
