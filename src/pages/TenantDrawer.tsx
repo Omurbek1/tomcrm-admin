@@ -25,6 +25,7 @@ import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
 import { StructureAuditTab } from "./StructureAuditTab";
+import { tableLabel, isTechnicalTable } from "../lib/tableLabels";
 import {
   useAudit,
   useCancelPayment,
@@ -854,13 +855,67 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 Всего строк:{" "}
                 <b>{dataVolume.totalRows.toLocaleString("ru-RU")}</b>
               </Text>
-              <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {dataVolume.top.slice(0, 8).map((r) => (
-                  <Tag key={r.table}>
-                    {r.table}: {r.rows.toLocaleString("ru-RU")}
-                  </Tag>
-                ))}
-              </div>
+              {(() => {
+                const rows = dataVolume.top.slice(0, 10);
+                const max = rows.reduce((m, r) => Math.max(m, r.rows), 0) || 1;
+                const total = dataVolume.totalRows || 1;
+                return (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    {rows.map((r) => (
+                      <div
+                        key={r.table}
+                        style={{ display: "flex", alignItems: "center", gap: 8 }}
+                      >
+                        <div style={{ flex: "0 0 190px", fontSize: 13 }}>
+                          {tableLabel(r.table)}
+                          {isTechnicalTable(r.table) ? (
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              {" "}
+                              · служебное
+                            </Text>
+                          ) : null}
+                        </div>
+                        <div
+                          style={{
+                            flex: 1,
+                            height: 8,
+                            background: "rgba(120,120,120,0.15)",
+                            borderRadius: 999,
+                            overflow: "hidden",
+                          }}
+                          title={`${Math.round((r.rows / total) * 100)}% от всех строк`}
+                        >
+                          <div
+                            style={{
+                              width: `${Math.round((r.rows / max) * 100)}%`,
+                              height: "100%",
+                              background: isTechnicalTable(r.table)
+                                ? "#94a3b8"
+                                : "#3b82f6",
+                            }}
+                          />
+                        </div>
+                        <div
+                          style={{
+                            flex: "0 0 72px",
+                            textAlign: "right",
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          <b>{r.rows.toLocaleString("ru-RU")}</b>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <Text type="secondary">Считаем…</Text>
