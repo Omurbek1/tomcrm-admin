@@ -1,11 +1,14 @@
 import { MenuOutlined } from "@ant-design/icons";
-import { Button, Drawer, Grid, Layout, Menu, Typography } from "antd";
-import { useEffect, useState } from "react";
+import { Button, Drawer, Grid, Layout, Menu, Spin, Typography } from "antd";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { api, clearToken, getToken, setPermissions, UNAUTH_EVENT } from "./api/client";
 import { identify, resetIdentity } from "./lib/monitoring";
 import { AdminsPage } from "./pages/AdminsPage";
-import { AnalyticsPage } from "./pages/AnalyticsPage";
+// Аналитика тянет recharts — грузим лениво, чтобы не утяжелять остальные вкладки.
+const AnalyticsPage = lazy(() =>
+  import("./pages/AnalyticsPage").then((m) => ({ default: m.AnalyticsPage })),
+);
 import { AuditPage } from "./pages/AuditPage";
 import { BillingPage } from "./pages/BillingPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -164,7 +167,17 @@ export const App = () => {
 
       <Content style={{ background: "#f1f5f9" }}>
         {view === "tenants" && <TenantsPage />}
-        {view === "analytics" && <AnalyticsPage />}
+        {view === "analytics" && (
+          <Suspense
+            fallback={
+              <div style={{ textAlign: "center", padding: 80 }}>
+                <Spin />
+              </div>
+            }
+          >
+            <AnalyticsPage />
+          </Suspense>
+        )}
         {view === "tariffs" && <TariffsPage />}
         {view === "billing" && <BillingPage />}
         {view === "industries" && <IndustriesPage />}
