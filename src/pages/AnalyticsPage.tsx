@@ -78,7 +78,7 @@ export const AnalyticsPage = () => {
             <Statistic
               title="Отток (блок/удал.)"
               value={overview?.churned ?? 0}
-              valueStyle={{ color: "#ef4444" }}
+              styles={{ content: { color: "#ef4444" } }}
             />
           </Card>
         </Col>

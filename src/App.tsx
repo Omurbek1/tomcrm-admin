@@ -149,7 +149,7 @@ export const App = () => {
         open={navOpen}
         onClose={() => setNavOpen(false)}
         styles={{ body: { padding: 0 } }}
-        width={260}
+        size={260}
       >
         <Menu
           mode="inline"

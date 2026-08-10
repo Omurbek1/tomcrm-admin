@@ -454,7 +454,7 @@ export const TenantsPage = () => {
               <Statistic
                 title="Отток (блок/удал.)"
                 value={overview?.churned ?? 0}
-                valueStyle={{ color: "#ef4444" }}
+                styles={{ content: { color: "#ef4444" } }}
               />
             </Tooltip>
           </Card>
@@ -475,7 +475,7 @@ export const TenantsPage = () => {
             <Statistic
               title="Триал истекает ≤3 дн."
               value={overview?.trialsExpiringSoon ?? 0}
-              valueStyle={{ color: "#f59e0b" }}
+              styles={{ content: { color: "#f59e0b" } }}
             />
           </Card>
         </Col>
@@ -484,7 +484,7 @@ export const TenantsPage = () => {
             <Statistic
               title="Оплата просрочена"
               value={overview?.overdue ?? 0}
-              valueStyle={{ color: "#ef4444" }}
+              styles={{ content: { color: "#ef4444" } }}
             />
           </Card>
         </Col>
@@ -494,7 +494,7 @@ export const TenantsPage = () => {
               <Statistic
                 title="Удалённые"
                 value={overview?.deleted ?? 0}
-                valueStyle={{ color: "#94a3b8" }}
+                styles={{ content: { color: "#94a3b8" } }}
               />
             </Tooltip>
           </Card>

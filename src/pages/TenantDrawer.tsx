@@ -877,7 +877,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           <Divider titlePlacement="start" style={{ marginTop: 0 }}>
             Тариф и цена
           </Divider>
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <div>
               <Text strong>Тариф</Text>
               <br />
@@ -1235,7 +1235,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           {t.status !== "active" && t.status !== "deleted" && (
             <>
               <Divider titlePlacement="start">Триал</Divider>
-              <Space direction="vertical" style={{ marginBottom: 8 }}>
+              <Space orientation="vertical" style={{ marginBottom: 8 }}>
                 <Text type={t.trialDaysLeft <= 0 ? "danger" : undefined}>
                   {t.trialDaysLeft > 0
                     ? `Осталось ${t.trialDaysLeft} дн. (до ${fmtDate(t.trialEndsAt)})`
@@ -1292,7 +1292,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             }
             renderItem={(p) => (
               <List.Item>
-                <Space direction="vertical" size={0} style={{ width: "100%" }}>
+                <Space orientation="vertical" size={0} style={{ width: "100%" }}>
                   <Space style={{ width: "100%", justifyContent: "space-between" }}>
                     <Text delete={p.cancelled}>
                       {Number(p.amount).toLocaleString("ru-RU")} {p.currency}
@@ -1458,7 +1458,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             dataSource={audit?.rows ?? []}
             renderItem={(r) => (
               <List.Item>
-                <Space direction="vertical" size={0} style={{ width: "100%" }}>
+                <Space orientation="vertical" size={0} style={{ width: "100%" }}>
                   <Text>
                     {AUDIT_ACTION_LABEL[r.action] ?? r.action}{" "}
                     <Text type="secondary">· {r.adminLogin}</Text>
