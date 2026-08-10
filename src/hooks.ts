@@ -149,6 +149,20 @@ export const useMarkManualPayment = () => {
   });
 };
 
+/** Провести КОНКРЕТНЫЙ pending-счёт (оплата в Finik была, вебхук не зачислил). */
+export const useMarkInvoicePaid = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (invoiceId: string) =>
+      (await api.post(`/api/platform/billing/invoices/${invoiceId}/mark-paid`))
+        .data,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+};
+
 export interface ModuleGroup {
   key: string;
   label: string;

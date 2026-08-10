@@ -1,26 +1,34 @@
 import {
+  Alert,
   App,
   Button,
   Card,
   Form,
+  Input,
   InputNumber,
   Modal,
+  Popconfirm,
+  Segmented,
   Select,
   Space,
   Table,
   Tag,
   Tooltip,
+  Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { can } from "../api/client";
 import {
   useBillingInvoices,
+  useMarkInvoicePaid,
   useMarkManualPayment,
   useTenants,
   type BillingInvoiceRow,
 } from "../hooks";
+
+const { Text } = Typography;
 
 const money = (v: string | number, currency = "KGS") =>
   `${Number(v).toLocaleString("ru-RU")} ${currency}`;
@@ -42,16 +50,72 @@ const STATUS: Record<
 
 const PERIODS = [1, 3, 6, 12];
 
+/** Компактный блок «число + подпись» для сводки сверху. */
+const Stat = ({
+  value,
+  label,
+  color,
+}: {
+  value: number;
+  label: string;
+  color?: string;
+}) => (
+  <div style={{ minWidth: 92 }}>
+    <div style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.1, color }}>
+      {value}
+    </div>
+    <Text type="secondary" style={{ fontSize: 12 }}>
+      {label}
+    </Text>
+  </div>
+);
+
 export const BillingPage = () => {
   const { message } = App.useApp();
   const { data: invoices, isLoading } = useBillingInvoices();
   const markManual = useMarkManualPayment();
+  const markPaid = useMarkInvoicePaid();
   const [modalOpen, setModalOpen] = useState(false);
   const [tenantSearch, setTenantSearch] = useState("");
   const { data: tenants } = useTenants({ search: tenantSearch });
   const [form] = Form.useForm();
 
+  // Фильтры (клиентские — список небольшой, приходит целиком).
+  const [statusF, setStatusF] = useState<"all" | BillingInvoiceRow["status"]>(
+    "all",
+  );
+  const [providerF, setProviderF] = useState<"all" | "finik" | "manual">("all");
+  const [search, setSearch] = useState("");
+  const [payingId, setPayingId] = useState<string | null>(null);
+
   const editable = can("billing.edit");
+  const rows = useMemo(() => invoices || [], [invoices]);
+
+  const counts = useMemo(() => {
+    const c = { total: rows.length, paid: 0, pending: 0, failed: 0 };
+    for (const r of rows) {
+      if (r.status === "paid") c.paid += 1;
+      else if (r.status === "pending") c.pending += 1;
+      else if (r.status === "failed") c.failed += 1;
+    }
+    return c;
+  }, [rows]);
+
+  // Главный сигнал: оплата в Finik прошла, но вебхук не зачислил → ждут «Провести».
+  const pendingFinik = useMemo(
+    () => rows.filter((r) => r.status === "pending" && r.provider === "finik"),
+    [rows],
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter(
+      (r) =>
+        (statusF === "all" || r.status === statusF) &&
+        (providerF === "all" || r.provider === providerF) &&
+        (!q || (r.tenantName || "").toLowerCase().includes(q)),
+    );
+  }, [rows, statusF, providerF, search]);
 
   const submit = async () => {
     const v = await form.validateFields();
@@ -61,6 +125,7 @@ export const BillingPage = () => {
         periodMonths: v.periodMonths,
         amount: v.amount ?? null,
         method: v.method ?? null,
+        note: v.note ?? null,
       });
       message.success("Оплата отмечена, подписка продлена");
       setModalOpen(false);
@@ -73,29 +138,39 @@ export const BillingPage = () => {
     }
   };
 
+  const credit = async (r: BillingInvoiceRow) => {
+    setPayingId(r.id);
+    try {
+      await markPaid.mutateAsync(r.id);
+      message.success("Счёт проведён — подписка активирована");
+    } catch (e) {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Не удалось провести счёт";
+      message.error(msg);
+    } finally {
+      setPayingId(null);
+    }
+  };
+
   const columns: ColumnsType<BillingInvoiceRow> = [
-    {
-      title: "Дата",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      render: date,
-      width: 160,
-    },
+    { title: "Дата", dataIndex: "createdAt", key: "createdAt", render: date, width: 150 },
     {
       title: "Компания",
       dataIndex: "tenantName",
       key: "tenantName",
-      render: (v: string | null) => v || "—",
+      render: (v: string | null) => v || <Text type="secondary">—</Text>,
+      ellipsis: true,
     },
     {
       title: "Назначение",
       key: "kind",
-      width: 180,
+      width: 150,
       render: (_: unknown, r) =>
         r.kind === "addon" ? (
           <Tag color="purple">Докупка{r.addonQty ? ` ×${r.addonQty}` : ""}</Tag>
         ) : (
-          <span>Подписка</span>
+          <Text>Подписка</Text>
         ),
     },
     {
@@ -103,20 +178,20 @@ export const BillingPage = () => {
       dataIndex: "periodMonths",
       key: "periodMonths",
       render: (v: number) => `${v} мес.`,
-      width: 90,
+      width: 80,
     },
     {
       title: "Сумма",
       dataIndex: "amount",
       key: "amount",
       render: (v: string, r) => money(v, r.currency),
-      width: 130,
+      width: 120,
     },
     {
       title: "Способ",
       dataIndex: "provider",
       key: "provider",
-      width: 110,
+      width: 100,
       render: (v: string) =>
         v === "manual" ? (
           <Tag>Вручную</Tag>
@@ -128,50 +203,66 @@ export const BillingPage = () => {
       title: "Статус",
       dataIndex: "status",
       key: "status",
-      width: 120,
-      render: (v: BillingInvoiceRow["status"]) => {
+      width: 110,
+      render: (v: BillingInvoiceRow["status"], r) => {
         const m = STATUS[v] ?? STATUS.draft;
-        return <Tag color={m.color}>{m.label}</Tag>;
+        return (
+          <Space size={4}>
+            <Tag color={m.color}>{m.label}</Tag>
+            {v === "pending" && r.provider === "finik" && (
+              <Tooltip title="Оплата в Finik могла пройти, но вебхук ещё не зачислил. Проверьте и проведите вручную.">
+                <Tag color="warning">ждёт вебхук</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
       },
-    },
-    {
-      title: "Транзакция",
-      dataIndex: "providerTransactionId",
-      key: "txn",
-      render: (v: string | null, r) => (
-        <Space size={4}>
-          <span style={{ fontFamily: "monospace", fontSize: 12 }}>
-            {v || "—"}
-          </span>
-          {r.provider === "finik" && (
-            <Tooltip
-              title={
-                r.signatureValid
-                  ? "Подпись вебхука проверена"
-                  : "Нет подтверждённой подписи вебхука"
-              }
-            >
-              <Tag color={r.signatureValid ? "success" : "warning"}>
-                {r.signatureValid ? "подпись ✓" : "без подписи"}
-              </Tag>
-            </Tooltip>
-          )}
-        </Space>
-      ),
     },
     {
       title: "Оплачено до",
       dataIndex: "paidUntil",
       key: "paidUntil",
-      width: 130,
+      width: 120,
       render: (v: string | null) =>
         v ? new Date(v).toLocaleDateString("ru-RU") : "—",
     },
+    {
+      title: "Действие",
+      key: "action",
+      width: 130,
+      fixed: "right",
+      render: (_: unknown, r) =>
+        editable && r.status === "pending" ? (
+          <Popconfirm
+            title="Провести этот счёт?"
+            description="Подписка активируется, счёт станет «Оплачен». Задвоения не будет."
+            okText="Провести"
+            cancelText="Отмена"
+            onConfirm={() => credit(r)}
+          >
+            <Button
+              size="small"
+              type="primary"
+              ghost
+              loading={payingId === r.id}
+            >
+              Провести
+            </Button>
+          </Popconfirm>
+        ) : null,
+    },
+  ];
+
+  const statusOptions = [
+    { value: "all", label: `Все · ${counts.total}` },
+    { value: "pending", label: `Ожидают · ${counts.pending}` },
+    { value: "paid", label: `Оплачены · ${counts.paid}` },
+    { value: "failed", label: `Ошибки · ${counts.failed}` },
   ];
 
   return (
     <Card
-      title="Биллинг — все счета"
+      title="Биллинг"
       extra={
         editable && (
           <Button type="primary" onClick={() => setModalOpen(true)}>
@@ -180,14 +271,71 @@ export const BillingPage = () => {
         )
       }
     >
+      {/* Сводка */}
+      <Space size={32} style={{ marginBottom: 16 }} wrap>
+        <Stat value={counts.total} label="Всего счетов" />
+        <Stat value={counts.paid} label="Оплачено" color="#389e0d" />
+        <Stat value={counts.pending} label="Ожидают" color="#0958d9" />
+        <Stat value={counts.failed} label="Ошибки" color="#cf1322" />
+      </Space>
+
+      {/* Подсказка про застрявшие оплаты Finik */}
+      {pendingFinik.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`${pendingFinik.length} счёт(ов) Finik ожидают проведения`}
+          description="Оплата могла пройти, но вебхук ещё не зачислил её (например, не задан публичный ключ Finik). Проверьте оплату и нажмите «Провести» в строке счёта."
+          action={
+            statusF !== "pending" || providerF !== "finik" ? (
+              <Button
+                size="small"
+                onClick={() => {
+                  setStatusF("pending");
+                  setProviderF("finik");
+                }}
+              >
+                Показать их
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {/* Фильтры */}
+      <Space size={12} style={{ marginBottom: 12 }} wrap>
+        <Segmented
+          value={statusF}
+          onChange={(v) => setStatusF(v as typeof statusF)}
+          options={statusOptions}
+        />
+        <Select
+          value={providerF}
+          onChange={setProviderF}
+          style={{ width: 150 }}
+          options={[
+            { value: "all", label: "Все способы" },
+            { value: "finik", label: "Finik QR" },
+            { value: "manual", label: "Вручную" },
+          ]}
+        />
+        <Input.Search
+          allowClear
+          placeholder="Компания"
+          style={{ width: 220 }}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </Space>
+
       <Table<BillingInvoiceRow>
         rowKey="id"
         size="small"
         loading={isLoading}
-        dataSource={invoices || []}
+        dataSource={filtered}
         columns={columns}
-        pagination={{ pageSize: 25, showSizeChanger: false }}
-        scroll={{ x: 900 }}
+        pagination={{ pageSize: 25, showSizeChanger: false, hideOnSinglePage: true }}
+        scroll={{ x: 1040 }}
       />
 
       <Modal
@@ -199,6 +347,13 @@ export const BillingPage = () => {
         confirmLoading={markManual.isPending}
         destroyOnHidden
       >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Создаёт новый оплаченный счёт и продлевает подписку."
+          description="Для оплаты, которая уже прошла в Finik, лучше нажать «Провести» в строке нужного счёта — так не появится дубль."
+        />
         <Form form={form} layout="vertical" initialValues={{ periodMonths: 1 }}>
           <Form.Item
             name="tenantId"
@@ -206,9 +361,7 @@ export const BillingPage = () => {
             rules={[{ required: true, message: "Выберите компанию" }]}
           >
             <Select
-              showSearch={{
-                onSearch: setTenantSearch,
-              }}
+              showSearch={{ onSearch: setTenantSearch }}
               placeholder="Начните вводить название"
               options={(tenants || []).map((t) => ({
                 value: t.id,
@@ -246,6 +399,12 @@ export const BillingPage = () => {
                 { value: "card", label: "Карта (вручную)" },
                 { value: "other", label: "Другое" },
               ]}
+            />
+          </Form.Item>
+          <Form.Item name="note" label="Заметка (необязательно)">
+            <Input.TextArea
+              rows={2}
+              placeholder="Комментарий для истории (кто/за что)"
             />
           </Form.Item>
         </Form>
