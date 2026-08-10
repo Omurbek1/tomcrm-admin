@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Checkbox,
+  Col,
   Descriptions,
   Divider,
   Dropdown,
@@ -12,6 +13,7 @@ import {
   InputNumber,
   List,
   Modal,
+  Row,
   Select,
   Skeleton,
   Space,
@@ -24,6 +26,8 @@ import { MoreOutlined } from "@ant-design/icons";
 import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
+import { StatTile } from "../components/viz";
+import { SERIES } from "../lib/chartTheme";
 import {
   useAudit,
   useCancelPayment,
@@ -69,6 +73,19 @@ import {
 import { DeleteTenantModal } from "./DeleteTenantModal";
 
 const { Text } = Typography;
+
+/** Цвет AntD статус-бейджа → hex-акцент для KPI-плитки (единая палитра). */
+const STATUS_ACCENT: Record<string, string> = {
+  green: "#1baf7a",
+  red: "#e34948",
+  volcano: "#eb6834",
+  blue: "#2a78d6",
+  orange: "#eda100",
+  default: "#94a3b8",
+};
+
+const ruDate = (v: string | null | undefined): string =>
+  v ? new Date(v).toLocaleDateString("ru-RU") : "—";
 
 interface Props {
   tenantId: string | null;
@@ -817,6 +834,48 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 key: "overview",
                 children: (
                   <>
+          {/* KPI-сводка компании (единый стиль StatTile) */}
+          <Row gutter={[10, 10]} style={{ marginBottom: 8 }}>
+            <Col xs={12} sm={8}>
+              <StatTile
+                label="Статус"
+                value={statusBadge.label || "—"}
+                accent={STATUS_ACCENT[statusBadge.color] ?? "#94a3b8"}
+              />
+            </Col>
+            <Col xs={12} sm={8}>
+              <StatTile
+                label="Тариф"
+                value={t.tariffName || "—"}
+                accent={SERIES.blue}
+              />
+            </Col>
+            <Col xs={12} sm={8}>
+              <StatTile
+                label="Оплачено до"
+                value={ruDate(t.paidUntil)}
+                accent={SERIES.aqua}
+              />
+            </Col>
+            <Col xs={12} sm={8}>
+              <StatTile
+                label="Сотрудники"
+                value={t.employees ?? 0}
+                accent={SERIES.violet}
+              />
+            </Col>
+            <Col xs={12} sm={8}>
+              <StatTile
+                label="Сделки"
+                value={t.deals ?? 0}
+                accent={SERIES.orange}
+              />
+            </Col>
+            <Col xs={12} sm={8}>
+              <StatTile label="Создана" value={ruDate(t.createdAt)} accent="#94a3b8" />
+            </Col>
+          </Row>
+
           {/* Контакты (редактируемые) */}
           <Divider titlePlacement="start">Контакты</Divider>
           <Form
