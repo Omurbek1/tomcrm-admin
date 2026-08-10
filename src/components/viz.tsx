@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Tooltip } from "antd";
 
 import { TEXT_MUTED } from "../lib/chartTheme";
 
@@ -9,42 +10,66 @@ const CARD: React.CSSProperties = {
   padding: "16px 18px",
 };
 
-/** Минималистичная KPI-плитка: цветная точка-акцент + число + подпись. */
+/**
+ * Минималистичная KPI-плитка: цветная точка-акцент + число + подпись. Может быть
+ * кликабельной (фильтр) с активным состоянием и подсказкой.
+ */
 export const StatTile = ({
   label,
   value,
   suffix,
   accent = "#2a78d6",
   hint,
+  onClick,
+  active,
+  tip,
 }: {
   label: string;
   value: ReactNode;
   suffix?: string;
   accent?: string;
   hint?: string;
-}) => (
-  <div style={CARD}>
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span
-        style={{ width: 8, height: 8, borderRadius: 8, background: accent }}
-      />
-      <span style={{ fontSize: 12, color: TEXT_MUTED }}>{label}</span>
-    </div>
+  onClick?: () => void;
+  active?: boolean;
+  tip?: string;
+}) => {
+  const body = (
     <div
-      style={{ fontSize: 26, fontWeight: 600, marginTop: 6, lineHeight: 1.1 }}
+      onClick={onClick}
+      style={{
+        ...CARD,
+        height: "100%",
+        cursor: onClick ? "pointer" : "default",
+        borderColor: active ? accent : "#eef1f5",
+        boxShadow: active ? `0 0 0 1px ${accent}` : "none",
+        transition: "border-color .15s, box-shadow .15s",
+      }}
     >
-      {value}
-      {suffix && (
-        <span style={{ fontSize: 14, color: TEXT_MUTED, marginLeft: 4 }}>
-          {suffix}
-        </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
+          style={{ width: 8, height: 8, borderRadius: 8, background: accent }}
+        />
+        <span style={{ fontSize: 12, color: TEXT_MUTED }}>{label}</span>
+      </div>
+      <div
+        style={{ fontSize: 26, fontWeight: 600, marginTop: 6, lineHeight: 1.1 }}
+      >
+        {value}
+        {suffix && (
+          <span style={{ fontSize: 14, color: TEXT_MUTED, marginLeft: 4 }}>
+            {suffix}
+          </span>
+        )}
+      </div>
+      {hint && (
+        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+          {hint}
+        </div>
       )}
     </div>
-    {hint && (
-      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{hint}</div>
-    )}
-  </div>
-);
+  );
+  return tip ? <Tooltip title={tip}>{body}</Tooltip> : body;
+};
 
 /** Карточка графика: заголовок + подзаголовок + фиксированная высота под чарт. */
 export const ChartCard = ({

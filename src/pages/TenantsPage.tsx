@@ -9,7 +9,6 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Table,
   Tag,
   Tooltip,
@@ -29,6 +28,8 @@ import {
 import type { TenantFilter, TenantRow } from "../types";
 import { REMINDER_TYPES } from "../types";
 import { can } from "../api/client";
+import { StatTile } from "../components/viz";
+import { SERIES } from "../lib/chartTheme";
 import { CreateTenantModal } from "./CreateTenantModal";
 import { TenantDrawer } from "./TenantDrawer";
 
@@ -270,14 +271,6 @@ export const TenantsPage = () => {
     setStatus("");
     setFilter((cur) => (cur === f ? "" : f));
   };
-  const clickable = (f: TenantFilter) => ({
-    onClick: () => applyFilter(f),
-    style: {
-      cursor: "pointer",
-      outline: filter === f ? "2px solid #4f46e5" : undefined,
-    } as const,
-  });
-
   const resetAll = () => {
     setSearch("");
     setStatus("");
@@ -412,92 +405,78 @@ export const TenantsPage = () => {
         </Space>
       </div>
 
-      {/* Бизнес-метрики */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Сумма месячных цен компаний со статусом «активна» И действующей оплатой (paid_until ≥ сегодня). Без удалённых, замороженных, тестовых. Годовой тариф ÷ 12.">
-              <Statistic
-                title="MRR (мес. выручка)"
-                value={overview?.mrr ?? 0}
-                formatter={(v) => money(Number(v))}
-              />
-            </Tooltip>
-          </Card>
+      {/* Метрики — единый минималистичный стиль (кликабельные = фильтры) */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="MRR (мес. выручка)"
+            value={money(overview?.mrr ?? 0)}
+            accent={SERIES.aqua}
+            tip="Сумма месячных цен активных компаний с действующей оплатой (годовой ÷ 12). Без удалённых/замороженных/тестовых."
+          />
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Компании, зарегистрированные с 1-го числа текущего месяца (по created_at), без тестовых.">
-              <Statistic title="Новые за месяц" value={overview?.newThisMonth ?? 0} />
-            </Tooltip>
-          </Card>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="Всего компаний"
+            value={overview?.total ?? 0}
+            accent={SERIES.blue}
+            hint="активные + триал"
+            tip="Живые компании (активные + триал), без удалённых."
+          />
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Доля компаний, хоть раз оплативших (paid_until ≠ пусто), от всех неудалённых. Скрыта при малом числе компаний (шум).">
-              <Statistic
-                title="Конверсия триал→оплата"
-                value={overview?.conversionRate == null ? "—" : overview.conversionRate}
-                suffix={overview?.conversionRate == null ? "" : "%"}
-              />
-            </Tooltip>
-            {overview?.conversionRate == null && (
-              <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                мало компаний (шум)
-              </div>
-            )}
-          </Card>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="Новые за месяц"
+            value={overview?.newThisMonth ?? 0}
+            accent={SERIES.violet}
+            tip="Зарегистрированы с 1-го числа месяца, без тестовых."
+          />
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Заблокированные + удалённые (отток). Тестовые исключены.">
-              <Statistic
-                title="Отток (блок/удал.)"
-                value={overview?.churned ?? 0}
-                styles={{ content: { color: "#ef4444" } }}
-              />
-            </Tooltip>
-          </Card>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="Конверсия"
+            value={overview?.conversionRate == null ? "—" : overview.conversionRate}
+            suffix={overview?.conversionRate == null ? "" : "%"}
+            accent={SERIES.yellow}
+            hint={overview?.conversionRate == null ? "мало компаний" : "триал → оплата"}
+            tip="Доля хоть раз оплативших от всех неудалённых. Скрыта при малом числе (шум)."
+          />
         </Col>
-      </Row>
-
-      {/* Операционные (кликабельные фильтры) */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Живые компании: активные + триал. Удалённые сюда НЕ входят (см. отдельную метрику).">
-              <Statistic title="Всего компаний" value={overview?.total ?? 0} />
-            </Tooltip>
-          </Card>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="Триал ≤3 дн."
+            value={overview?.trialsExpiringSoon ?? 0}
+            accent={SERIES.orange}
+            onClick={() => applyFilter("trial_expiring")}
+            active={filter === "trial_expiring"}
+            tip="Кликните, чтобы отфильтровать список."
+          />
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card {...clickable("trial_expiring")}>
-            <Statistic
-              title="Триал истекает ≤3 дн."
-              value={overview?.trialsExpiringSoon ?? 0}
-              styles={{ content: { color: "#f59e0b" } }}
-            />
-          </Card>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="Оплата просрочена"
+            value={overview?.overdue ?? 0}
+            accent={SERIES.red}
+            onClick={() => applyFilter("overdue")}
+            active={filter === "overdue"}
+            tip="Кликните, чтобы отфильтровать список."
+          />
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card {...clickable("overdue")}>
-            <Statistic
-              title="Оплата просрочена"
-              value={overview?.overdue ?? 0}
-              styles={{ content: { color: "#ef4444" } }}
-            />
-          </Card>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="Отток (блок/удал.)"
+            value={overview?.churned ?? 0}
+            accent={SERIES.red}
+            tip="Заблокированные + удалённые. Тестовые исключены."
+          />
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Tooltip title="Удалённые компании — отдельно, чтобы не задваивать с оттоком.">
-              <Statistic
-                title="Удалённые"
-                value={overview?.deleted ?? 0}
-                styles={{ content: { color: "#94a3b8" } }}
-              />
-            </Tooltip>
-          </Card>
+        <Col xs={12} sm={8} lg={6}>
+          <StatTile
+            label="Удалённые"
+            value={overview?.deleted ?? 0}
+            accent="#94a3b8"
+            tip="Удалённые компании — отдельно, чтобы не задваивать отток."
+          />
         </Col>
       </Row>
 
