@@ -55,6 +55,7 @@ export const StatTile = ({
   onClick,
   active,
   tip,
+  small,
 }: {
   label: string;
   value: ReactNode;
@@ -64,6 +65,8 @@ export const StatTile = ({
   onClick?: () => void;
   active?: boolean;
   tip?: string;
+  /** Меньший кегль значения — для текстовых величин (статус, дата), не чисел. */
+  small?: boolean;
 }) => {
   const body = (
     <div
@@ -84,7 +87,12 @@ export const StatTile = ({
         <span style={{ fontSize: 12, color: TEXT_MUTED }}>{label}</span>
       </div>
       <div
-        style={{ fontSize: 26, fontWeight: 600, marginTop: 6, lineHeight: 1.1 }}
+        style={{
+          fontSize: small ? 16 : 26,
+          fontWeight: 600,
+          marginTop: 6,
+          lineHeight: 1.15,
+        }}
       >
         {value}
         {suffix && (

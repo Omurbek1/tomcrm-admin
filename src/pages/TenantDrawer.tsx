@@ -2,6 +2,7 @@ import {
   App,
   Alert,
   Button,
+  Card,
   Checkbox,
   Col,
   Descriptions,
@@ -627,7 +628,55 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
       onCancel={requestClose}
       width={900}
       centered
-      title={t ? t.name : "Компания"}
+      title={
+        t ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                flex: "none",
+                display: "grid",
+                placeItems: "center",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: 18,
+                background: "linear-gradient(135deg,#2a78d6,#4a3aa7)",
+              }}
+            >
+              {t.name?.trim()?.[0]?.toUpperCase() ?? "?"}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.15 }}>
+                {t.name}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  marginTop: 3,
+                }}
+              >
+                {statusBadge.label && (
+                  <Tag color={statusBadge.color} style={{ margin: 0 }}>
+                    {statusBadge.label}
+                  </Tag>
+                )}
+                <Text
+                  type="secondary"
+                  style={{ fontSize: 12, fontFamily: "monospace" }}
+                >
+                  {t.slug}
+                </Text>
+              </div>
+            </div>
+          </div>
+        ) : (
+          "Компания"
+        )
+      }
       footer={
         dirtyCount > 0 ? (
           <div
@@ -838,6 +887,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           <Row gutter={[10, 10]} style={{ marginBottom: 8 }}>
             <Col xs={12} sm={8}>
               <StatTile
+                small
                 label="Статус"
                 value={statusBadge.label || "—"}
                 accent={STATUS_ACCENT[statusBadge.color] ?? "#94a3b8"}
@@ -845,6 +895,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </Col>
             <Col xs={12} sm={8}>
               <StatTile
+                small
                 label="Тариф"
                 value={t.tariffName || "—"}
                 accent={SERIES.blue}
@@ -852,6 +903,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </Col>
             <Col xs={12} sm={8}>
               <StatTile
+                small
                 label="Оплачено до"
                 value={ruDate(t.paidUntil)}
                 accent={SERIES.aqua}
@@ -872,57 +924,95 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               />
             </Col>
             <Col xs={12} sm={8}>
-              <StatTile label="Создана" value={ruDate(t.createdAt)} accent="#94a3b8" />
+              <StatTile
+                small
+                label="Создана"
+                value={ruDate(t.createdAt)}
+                accent="#94a3b8"
+              />
             </Col>
           </Row>
 
-          {/* Контакты (редактируемые) */}
-          <Divider titlePlacement="start">Контакты</Divider>
-          <Form
-            form={contactForm}
-            layout="vertical"
-            onFinish={saveContacts}
-            initialValues={{
-              contactPhone: t.contactPhone ?? "",
-              contactEmail: t.contactEmail ?? "",
-            }}
+          {/* Секции обзора — карточки (единый стиль) */}
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}
           >
-            <div style={{ display: "flex", gap: 12 }}>
-              <Form.Item name="contactPhone" label="Телефон" style={{ flex: 1 }}>
-                <Input placeholder="+996 ..." />
-              </Form.Item>
-              <Form.Item name="contactEmail" label="Email" style={{ flex: 1 }}>
-                <Input placeholder="mail@company.kg" />
-              </Form.Item>
-            </div>
-            <Button
-              htmlType="submit"
-              loading={setContacts.isPending}
-              size="small"
-            >
-              Сохранить контакты
-            </Button>
-          </Form>
+            {/* Подписка */}
+            <Card size="small" title="Подписка">
+              <Descriptions column={1} size="small" colon={false}>
+                <Descriptions.Item label="Тариф">
+                  {t.tariffName || "—"}
+                  {t.priceOverride != null &&
+                    ` · ${Number(t.priceOverride).toLocaleString("ru-RU")} сом/мес (индивид.)`}
+                </Descriptions.Item>
+                <Descriptions.Item label="Оплачено до">
+                  {ruDate(t.paidUntil)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Следующее списание">
+                  {ruDate(t.nextChargeAt)}
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
 
-          {/* Объём данных (мониторинг: кто занимает место) */}
-          <Divider titlePlacement="start">Объём данных</Divider>
-          {dataVolume ? (
-            <div>
-              <Text>
-                Всего строк:{" "}
-                <b>{dataVolume.totalRows.toLocaleString("ru-RU")}</b>
-              </Text>
-              <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {dataVolume.top.slice(0, 8).map((r) => (
-                  <Tag key={r.table}>
-                    {r.table}: {r.rows.toLocaleString("ru-RU")}
-                  </Tag>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <Text type="secondary">Считаем…</Text>
-          )}
+            {/* Контакты (редактируемые) */}
+            <Card size="small" title="Контакты">
+              <Form
+                form={contactForm}
+                layout="vertical"
+                onFinish={saveContacts}
+                initialValues={{
+                  contactPhone: t.contactPhone ?? "",
+                  contactEmail: t.contactEmail ?? "",
+                }}
+              >
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <Form.Item
+                    name="contactPhone"
+                    label="Телефон"
+                    style={{ flex: 1, minWidth: 180 }}
+                  >
+                    <Input placeholder="+996 ..." />
+                  </Form.Item>
+                  <Form.Item
+                    name="contactEmail"
+                    label="Email"
+                    style={{ flex: 1, minWidth: 180 }}
+                  >
+                    <Input placeholder="mail@company.kg" />
+                  </Form.Item>
+                </div>
+                <Button
+                  htmlType="submit"
+                  loading={setContacts.isPending}
+                  size="small"
+                >
+                  Сохранить контакты
+                </Button>
+              </Form>
+            </Card>
+
+            {/* Объём данных (мониторинг: кто занимает место) */}
+            <Card
+              size="small"
+              title={
+                dataVolume
+                  ? `Объём данных · ${dataVolume.totalRows.toLocaleString("ru-RU")} строк`
+                  : "Объём данных"
+              }
+            >
+              {dataVolume ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {dataVolume.top.slice(0, 8).map((r) => (
+                    <Tag key={r.table}>
+                      {r.table}: {r.rows.toLocaleString("ru-RU")}
+                    </Tag>
+                  ))}
+                </div>
+              ) : (
+                <Text type="secondary">Считаем…</Text>
+              )}
+            </Card>
+          </div>
 
                   </>
                 ),
