@@ -28,7 +28,7 @@ import {
 import type { TenantFilter, TenantRow } from "../types";
 import { REMINDER_TYPES } from "../types";
 import { can } from "../api/client";
-import { StatTile } from "../components/viz";
+import { PageHeader, StatTile } from "../components/viz";
 import { SERIES } from "../lib/chartTheme";
 import { CreateTenantModal } from "./CreateTenantModal";
 import { TenantDrawer } from "./TenantDrawer";
@@ -384,28 +384,25 @@ export const TenantsPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1280, margin: "0 auto" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 16,
-        }}
-      >
-        <h2 style={{ margin: 0 }}>Компании</h2>
-        <Space>
-          <Button onClick={() => applyFilter("attention")} danger={filter === "attention"}>
-            ⚠ Требуют внимания
-          </Button>
-          {can("tenants.create") && (
-            <Button type="primary" onClick={() => setCreateOpen(true)}>
-              Создать компанию
+      <PageHeader
+        title="Компании"
+        subtitle="Все компании платформы"
+        extra={
+          <Space>
+            <Button
+              onClick={() => applyFilter("attention")}
+              danger={filter === "attention"}
+            >
+              ⚠ Требуют внимания
             </Button>
-          )}
-        </Space>
-      </div>
+            {can("tenants.create") && (
+              <Button type="primary" onClick={() => setCreateOpen(true)}>
+                Создать компанию
+              </Button>
+            )}
+          </Space>
+        }
+      />
 
       {/* Метрики — единый минималистичный стиль (кликабельные = фильтры) */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>

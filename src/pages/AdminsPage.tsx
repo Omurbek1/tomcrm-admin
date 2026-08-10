@@ -33,6 +33,7 @@ import {
 } from "../hooks";
 import type { AdminRow } from "../types";
 import { can } from "../api/client";
+import { PageHeader } from "../components/viz";
 
 const { Text, Paragraph } = Typography;
 
@@ -198,10 +199,9 @@ export const AdminsPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1050, margin: "0 auto" }}>
-      {me && <My2fa me={me} />}
-
-      <Card
-        title="Администраторы платформы"
+      <PageHeader
+        title="Администраторы"
+        subtitle="Доступы к платформенной панели"
         extra={
           can("admins.manage") && (
             <Button type="primary" onClick={() => setCreateOpen(true)}>
@@ -209,7 +209,10 @@ export const AdminsPage = () => {
             </Button>
           )
         }
-      >
+      />
+      {me && <My2fa me={me} />}
+
+      <Card>
         <Table<AdminRow>
           rowKey="id"
           loading={isLoading}

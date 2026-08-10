@@ -22,7 +22,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 
 import { can } from "../api/client";
-import { StatTile } from "../components/viz";
+import { PageHeader, StatTile } from "../components/viz";
 import { SERIES } from "../lib/chartTheme";
 import {
   useBillingHealth,
@@ -268,16 +268,18 @@ export const BillingPage = () => {
   ];
 
   return (
-    <Card
-      title="Биллинг"
-      extra={
-        editable && (
-          <Button type="primary" onClick={() => setModalOpen(true)}>
-            Отметить оплату
-          </Button>
-        )
-      }
-    >
+    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+      <PageHeader
+        title="Биллинг"
+        subtitle="Счета, оплаты и приём вебхуков Finik"
+        extra={
+          editable && (
+            <Button type="primary" onClick={() => setModalOpen(true)}>
+              Отметить оплату
+            </Button>
+          )
+        }
+      />
       {/* (4.2/4.3) Алерт здоровья вебхуков — виден в UI, не только в логах */}
       {health &&
         (health.invalidSignatureLastHour > 0 ||
@@ -553,6 +555,6 @@ export const BillingPage = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </Card>
+    </div>
   );
 };

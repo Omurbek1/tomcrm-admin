@@ -6,6 +6,7 @@ import { useTemplates, useUpdateTemplate } from "../hooks";
 import type { NotificationTemplate } from "../types";
 import { TEMPLATE_PLACEHOLDERS } from "../types";
 import { can } from "../api/client";
+import { PageHeader } from "../components/viz";
 
 export const TemplatesPage = () => {
   const editable = can("templates.edit");
@@ -67,7 +68,11 @@ export const TemplatesPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
-      <Card title="Шаблоны уведомлений клиентам (WhatsApp)">
+      <PageHeader
+        title="Уведомления"
+        subtitle="Шаблоны клиентских уведомлений (WhatsApp)"
+      />
+      <Card>
         <p style={{ color: "#64748b", marginTop: 0 }}>
           Автоматика: триал за 3/1/0 дней, напоминание об оплате, приглашение
           владельца при создании компании. Правки применяются без деплоя.

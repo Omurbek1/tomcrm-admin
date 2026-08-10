@@ -17,6 +17,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useState } from "react";
 
 import { can } from "../api/client";
+import { PageHeader } from "../components/viz";
 import {
   useConfig,
   useCreateTariff,
@@ -214,7 +215,10 @@ export const TariffsPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-      <h2 style={{ margin: "0 0 16px" }}>Тарифы и grace-период</h2>
+      <PageHeader
+        title="Тарифы и grace-период"
+        subtitle="Планы подписки, лимиты и grace-период при просрочке"
+      />
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap align="center">
           <span style={{ fontWeight: 600 }}>

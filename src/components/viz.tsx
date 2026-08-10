@@ -1,7 +1,39 @@
 import type { ReactNode } from "react";
-import { Tooltip } from "antd";
+import { Tooltip, Typography } from "antd";
 
 import { TEXT_MUTED } from "../lib/chartTheme";
+
+const { Title, Text } = Typography;
+
+/** Единая шапка страницы: заголовок + подзаголовок слева, действия справа. */
+export const PageHeader = ({
+  title,
+  subtitle,
+  extra,
+}: {
+  title: string;
+  subtitle?: string;
+  extra?: ReactNode;
+}) => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 12,
+      flexWrap: "wrap",
+      marginBottom: 20,
+    }}
+  >
+    <div>
+      <Title level={3} style={{ margin: 0 }}>
+        {title}
+      </Title>
+      {subtitle && <Text type="secondary">{subtitle}</Text>}
+    </div>
+    {extra}
+  </div>
+);
 
 const CARD: React.CSSProperties = {
   background: "#fff",

@@ -3,6 +3,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 
 import { useAudit, useTenants } from "../hooks";
+import { PageHeader } from "../components/viz";
 import type { AuditRow } from "../types";
 import { AUDIT_ACTION_LABEL, AUDIT_FILTERS } from "../types";
 
@@ -60,8 +61,9 @@ export const AuditPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-      <Card
-        title="Журнал действий администраторов"
+      <PageHeader
+        title="Журнал"
+        subtitle="Действия администраторов платформы"
         extra={
           <Space wrap>
             <Select
@@ -89,7 +91,8 @@ export const AuditPage = () => {
             />
           </Space>
         }
-      >
+      />
+      <Card>
         <Table<AuditRow>
           rowKey="id"
           loading={isLoading}

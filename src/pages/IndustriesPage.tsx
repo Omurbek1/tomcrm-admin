@@ -28,6 +28,7 @@ import {
   useUpdateIndustry,
 } from "../hooks";
 import { can } from "../api/client";
+import { PageHeader } from "../components/viz";
 import { MODULE_GROUPS_FALLBACK } from "../types";
 import type { Industry, IndustryInput } from "../types";
 
@@ -105,30 +106,24 @@ export function IndustriesPage() {
   };
 
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <Text strong style={{ fontSize: 18 }}>
-          Отрасли
-        </Text>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          disabled={!editable}
-          onClick={() => {
-            setEditing(null);
-            setModalOpen(true);
-          }}
-        >
-          Создать
-        </Button>
-      </div>
+    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
+      <PageHeader
+        title="Отрасли"
+        subtitle="Справочник отраслей компаний"
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            disabled={!editable}
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+          >
+            Создать
+          </Button>
+        }
+      />
 
       <Table<Industry>
         rowKey="id"
