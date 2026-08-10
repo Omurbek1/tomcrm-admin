@@ -141,6 +141,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const groups = moduleCatalog?.groups ?? MODULE_GROUPS_FALLBACK;
   const addonMeta = moduleCatalog?.addons ?? ADDON_META;
   const allSectionKeys = groups.flatMap((g) => g.sections.map((s) => s.key));
+  // Сколько модулей включено у компании (эффективный набор) — для бейджа вкладки.
+  const moduleOnCount = allSectionKeys.filter(
+    (k) => data?.modules?.[k] !== false,
+  ).length;
   // Override = эффективный набор компании ОТЛИЧАЕТСЯ от тарифа (сравниваем
   // effective vs plan, а не только явный override-словарь — он может быть пуст,
   // а отличие всё равно есть). Помечаем такие модули в дереве.
@@ -1018,7 +1022,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 ),
               },
               {
-                label: "Тариф и модули",
+                label: allSectionKeys.length
+                  ? `Тариф и модули · ${moduleOnCount}/${allSectionKeys.length}`
+                  : "Тариф и модули",
                 key: "tariff",
                 children: (
                   <>
