@@ -21,6 +21,7 @@ import { useMemo, useState } from "react";
 
 import { can } from "../api/client";
 import {
+  useBillingHealth,
   useBillingInvoices,
   useMarkInvoicePaid,
   useMarkManualPayment,
@@ -73,6 +74,7 @@ const Stat = ({
 export const BillingPage = () => {
   const { message } = App.useApp();
   const { data: invoices, isLoading } = useBillingInvoices();
+  const { data: health } = useBillingHealth();
   const markManual = useMarkManualPayment();
   const markPaid = useMarkInvoicePaid();
   const [modalOpen, setModalOpen] = useState(false);
@@ -271,6 +273,37 @@ export const BillingPage = () => {
         )
       }
     >
+      {/* (4.2/4.3) Алерт здоровья вебхуков — виден в UI, не только в логах */}
+      {health &&
+        (health.invalidSignatureLastHour > 0 ||
+          health.stuckPending.length > 0) && (
+          <Alert
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="Проблема с приёмом вебхуков Finik"
+            description={
+              <>
+                {health.invalidSignatureLastHour > 0 && (
+                  <div>
+                    Отклонено по подписи за час:{" "}
+                    <b>{health.invalidSignatureLastHour}</b> из{" "}
+                    {health.webhookLastHour}. Проверьте{" "}
+                    <code>FINIK_WEBHOOK_PUBLIC_PEM</code> (публичный ключ FINIK).
+                  </div>
+                )}
+                {health.stuckPending.length > 0 && (
+                  <div>
+                    Счетов с пришедшим вебхуком, но всё ещё «Ожидает» (&gt;30
+                    мин): <b>{health.stuckPending.length}</b>. Проведите их
+                    вручную кнопкой «Провести».
+                  </div>
+                )}
+              </>
+            }
+          />
+        )}
+
       {/* Сводка */}
       <Space size={32} style={{ marginBottom: 16 }} wrap>
         <Stat value={counts.total} label="Всего счетов" />

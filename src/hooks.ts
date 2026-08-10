@@ -149,6 +149,22 @@ export const useMarkManualPayment = () => {
   });
 };
 
+export interface BillingHealth {
+  invalidSignatureLastHour: number;
+  webhookLastHour: number;
+  stuckPending: Array<{ invoiceId: string; tenantId: string; createdAt: string }>;
+}
+
+/** (4.2/4.3) Здоровье приёма вебхуков — для баннера-алерта в админке. */
+export const useBillingHealth = () =>
+  useQuery<BillingHealth>({
+    queryKey: ["billing-health"],
+    queryFn: async () =>
+      (await api.get("/api/platform/billing/health")).data,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
 /** Провести КОНКРЕТНЫЙ pending-счёт (оплата в Finik была, вебхук не зачислил). */
 export const useMarkInvoicePaid = () => {
   const qc = useQueryClient();
