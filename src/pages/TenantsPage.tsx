@@ -399,9 +399,11 @@ export const TenantsPage = () => {
           <Button onClick={() => applyFilter("attention")} danger={filter === "attention"}>
             ⚠ Требуют внимания
           </Button>
-          <Button type="primary" onClick={() => setCreateOpen(true)}>
-            Создать компанию
-          </Button>
+          {can("tenants.create") && (
+            <Button type="primary" onClick={() => setCreateOpen(true)}>
+              Создать компанию
+            </Button>
+          )}
         </Space>
       </div>
 
@@ -597,7 +599,11 @@ export const TenantsPage = () => {
             >
               Продлить
             </Button>
-            <Button size="small" onClick={() => setBulkNotifyOpen(true)}>
+            <Button
+              size="small"
+              disabled={!can("tenants.notify")}
+              onClick={() => setBulkNotifyOpen(true)}
+            >
               Отправить уведомление
             </Button>
             <Button size="small" onClick={() => exportCsv(selectedRows)}>

@@ -32,6 +32,7 @@ import {
   useSetAdminPermissions,
 } from "../hooks";
 import type { AdminRow } from "../types";
+import { can } from "../api/client";
 
 const { Text, Paragraph } = Typography;
 
@@ -202,9 +203,11 @@ export const AdminsPage = () => {
       <Card
         title="Администраторы платформы"
         extra={
-          <Button type="primary" onClick={() => setCreateOpen(true)}>
-            Добавить админа
-          </Button>
+          can("admins.manage") && (
+            <Button type="primary" onClick={() => setCreateOpen(true)}>
+              Добавить админа
+            </Button>
+          )
         }
       >
         <Table<AdminRow>

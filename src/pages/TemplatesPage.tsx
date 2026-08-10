@@ -5,8 +5,10 @@ import { useState } from "react";
 import { useTemplates, useUpdateTemplate } from "../hooks";
 import type { NotificationTemplate } from "../types";
 import { TEMPLATE_PLACEHOLDERS } from "../types";
+import { can } from "../api/client";
 
 export const TemplatesPage = () => {
+  const editable = can("templates.edit");
   const { message } = App.useApp();
   const { data: templates, isLoading } = useTemplates();
   const update = useUpdateTemplate();
@@ -56,7 +58,7 @@ export const TemplatesPage = () => {
       title: "",
       width: 100,
       render: (_v, r) => (
-        <Button size="small" onClick={() => openEdit(r)}>
+        <Button size="small" disabled={!editable} onClick={() => openEdit(r)}>
           Изменить
         </Button>
       ),

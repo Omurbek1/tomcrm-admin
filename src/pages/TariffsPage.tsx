@@ -214,6 +214,7 @@ export const TariffsPage = () => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      <h2 style={{ margin: "0 0 16px" }}>Тарифы и grace-период</h2>
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap align="center">
           <span style={{ fontWeight: 600 }}>

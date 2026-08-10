@@ -706,7 +706,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   {
                     key: "freeze",
                     danger: true,
-                    disabled: t.status === "deleted",
+                    disabled: t.status === "deleted" || !can("tenants.block"),
                     label:
                       t.status === "blocked"
                         ? "Разморозить компанию"
@@ -1393,7 +1393,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               })),
             }}
           >
-            <Button size="small" loading={sendReminder.isPending}>
+            <Button
+              size="small"
+              disabled={!can("tenants.notify")}
+              loading={sendReminder.isPending}
+            >
               Отправить уведомление ▾
             </Button>
           </Dropdown>

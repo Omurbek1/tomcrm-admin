@@ -3,11 +3,13 @@ import {
   App,
   Button,
   Card,
+  Col,
   Form,
   Input,
   InputNumber,
   Modal,
   Popconfirm,
+  Row,
   Segmented,
   Select,
   Space,
@@ -20,6 +22,8 @@ import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 
 import { can } from "../api/client";
+import { StatTile } from "../components/viz";
+import { SERIES } from "../lib/chartTheme";
 import {
   useBillingHealth,
   useBillingInvoices,
@@ -53,26 +57,6 @@ const STATUS: Record<
 };
 
 const PERIODS = [1, 3, 6, 12];
-
-/** Компактный блок «число + подпись» для сводки сверху. */
-const Stat = ({
-  value,
-  label,
-  color,
-}: {
-  value: number;
-  label: string;
-  color?: string;
-}) => (
-  <div style={{ minWidth: 92 }}>
-    <div style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.1, color }}>
-      {value}
-    </div>
-    <Text type="secondary" style={{ fontSize: 12 }}>
-      {label}
-    </Text>
-  </div>
-);
 
 export const BillingPage = () => {
   const { message } = App.useApp();
@@ -423,13 +407,21 @@ export const BillingPage = () => {
         </Card>
       )}
 
-      {/* Сводка */}
-      <Space size={32} style={{ marginBottom: 16 }} wrap>
-        <Stat value={counts.total} label="Всего счетов" />
-        <Stat value={counts.paid} label="Оплачено" color="#389e0d" />
-        <Stat value={counts.pending} label="Ожидают" color="#0958d9" />
-        <Stat value={counts.failed} label="Ошибки" color="#cf1322" />
-      </Space>
+      {/* Сводка — единые KPI-плитки */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={6}>
+          <StatTile label="Всего счетов" value={counts.total} accent={SERIES.blue} />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatTile label="Оплачено" value={counts.paid} accent={SERIES.aqua} />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatTile label="Ожидают" value={counts.pending} accent={SERIES.orange} />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatTile label="Ошибки" value={counts.failed} accent={SERIES.red} />
+        </Col>
+      </Row>
 
       {/* Подсказка про застрявшие оплаты Finik */}
       {pendingFinik.length > 0 && (
