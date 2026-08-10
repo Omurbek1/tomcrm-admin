@@ -23,10 +23,13 @@ import { can } from "../api/client";
 import {
   useBillingHealth,
   useBillingInvoices,
+  useConfirmEvent,
   useMarkInvoicePaid,
   useMarkManualPayment,
   useTenants,
+  useUnverifiedEvents,
   type BillingInvoiceRow,
+  type UnverifiedEvent,
 } from "../hooks";
 
 const { Text } = Typography;
@@ -75,6 +78,9 @@ export const BillingPage = () => {
   const { message } = App.useApp();
   const { data: invoices, isLoading } = useBillingInvoices();
   const { data: health } = useBillingHealth();
+  const { data: unverified } = useUnverifiedEvents();
+  const confirmEvent = useConfirmEvent();
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const markManual = useMarkManualPayment();
   const markPaid = useMarkInvoicePaid();
   const [modalOpen, setModalOpen] = useState(false);
@@ -152,6 +158,21 @@ export const BillingPage = () => {
       message.error(msg);
     } finally {
       setPayingId(null);
+    }
+  };
+
+  const confirm = async (ev: UnverifiedEvent) => {
+    setConfirmingId(ev.eventId);
+    try {
+      await confirmEvent.mutateAsync(ev.eventId);
+      message.success("Подтверждено вручную — подписка активирована");
+    } catch (e) {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Не удалось подтвердить";
+      message.error(msg);
+    } finally {
+      setConfirmingId(null);
     }
   };
 
@@ -303,6 +324,104 @@ export const BillingPage = () => {
             }
           />
         )}
+
+      {/* (п.2) Платежи с непроверенной подписью (DEGRADED) — подтвердить вручную */}
+      {editable && unverified && unverified.length > 0 && (
+        <Card
+          size="small"
+          type="inner"
+          title={`Платежи без проверки подписи — подтвердить вручную (${unverified.length})`}
+          style={{ marginBottom: 16, borderColor: "#faad14" }}
+        >
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Ключ Finik ещё не задан, поэтому подпись не проверяется. Сверьте сумму
+            и транзакцию глазами, затем подтвердите — подписка активируется,
+            действие попадёт в аудит.
+          </Text>
+          <Table<UnverifiedEvent>
+            rowKey="eventId"
+            size="small"
+            style={{ marginTop: 12 }}
+            dataSource={unverified}
+            pagination={false}
+            scroll={{ x: 720 }}
+            columns={[
+              {
+                title: "Дата",
+                dataIndex: "receivedAt",
+                key: "receivedAt",
+                render: date,
+                width: 150,
+              },
+              {
+                title: "Компания",
+                dataIndex: "tenantName",
+                key: "tenantName",
+                render: (v: string | null) => v || <Text type="secondary">—</Text>,
+                ellipsis: true,
+              },
+              {
+                title: "Сумма (вебхук / счёт)",
+                key: "amount",
+                width: 190,
+                render: (_: unknown, r) => {
+                  const wa = r.webhookAmount;
+                  const ia = r.invoiceAmount;
+                  const mismatch = wa != null && ia != null && Number(wa) !== Number(ia);
+                  return (
+                    <span style={{ color: mismatch ? "#cf1322" : undefined }}>
+                      {wa != null ? money(wa) : "—"} / {ia != null ? money(ia) : "—"}
+                      {mismatch && " ⚠"}
+                    </span>
+                  );
+                },
+              },
+              {
+                title: "Транзакция",
+                dataIndex: "transactionId",
+                key: "txn",
+                render: (v: string | null) => (
+                  <span style={{ fontFamily: "monospace", fontSize: 12 }}>
+                    {v || "—"}
+                  </span>
+                ),
+              },
+              {
+                title: "Действие",
+                key: "action",
+                width: 180,
+                fixed: "right",
+                render: (_: unknown, r) => (
+                  <Popconfirm
+                    title="Подтвердить платёж вручную?"
+                    description={
+                      <div style={{ maxWidth: 260 }}>
+                        Сверьте: сумма{" "}
+                        <b>{r.webhookAmount != null ? money(r.webhookAmount) : "—"}</b>
+                        , транзакция <code>{r.transactionId || "—"}</code>. Подписка
+                        активируется, запишется в аудит.
+                      </div>
+                    }
+                    okText="Подтвердить"
+                    cancelText="Отмена"
+                    disabled={!r.invoiceId}
+                    onConfirm={() => confirm(r)}
+                  >
+                    <Button
+                      size="small"
+                      type="primary"
+                      loading={confirmingId === r.eventId}
+                      disabled={!r.invoiceId}
+                    >
+                      Подтвердить вручную
+                    </Button>
+                  </Popconfirm>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      )}
 
       {/* Сводка */}
       <Space size={32} style={{ marginBottom: 16 }} wrap>

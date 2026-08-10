@@ -165,6 +165,45 @@ export const useBillingHealth = () =>
     refetchOnWindowFocus: false,
   });
 
+export interface UnverifiedEvent {
+  eventId: string;
+  receivedAt: string;
+  paymentId: string | null;
+  transactionId: string | null;
+  webhookAmount: string | null;
+  invoiceId: string | null;
+  invoiceStatus: string | null;
+  invoiceAmount: string | null;
+  periodMonths: number | null;
+  tenantId: string | null;
+  tenantName: string | null;
+}
+
+/** (п.2) События вебхуков с непроверенной подписью — на ручное подтверждение. */
+export const useUnverifiedEvents = () =>
+  useQuery<UnverifiedEvent[]>({
+    queryKey: ["billing-unverified"],
+    queryFn: async () =>
+      (await api.get("/api/platform/billing/unverified-events")).data,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+/** (п.2) Подтвердить событие вручную → активировать подписку + аудит. */
+export const useConfirmEvent = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (eventId: string) =>
+      (await api.post(`/api/platform/billing/events/${eventId}/confirm`)).data,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["billing-unverified"] });
+      void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
+      void qc.invalidateQueries({ queryKey: ["billing-health"] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+};
+
 /** Провести КОНКРЕТНЫЙ pending-счёт (оплата в Finik была, вебхук не зачислил). */
 export const useMarkInvoicePaid = () => {
   const qc = useQueryClient();
