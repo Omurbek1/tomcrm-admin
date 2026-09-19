@@ -221,7 +221,7 @@ export const useMarkInvoicePaid = () => {
 export interface ModuleGroup {
   key: string;
   label: string;
-  sections: Array<{ key: string; label: string; alwaysOn?: boolean }>;
+  sections: Array<{ key: string; label: string; alwaysOn?: boolean; flag?: boolean }>;
 }
 export interface ModuleCatalog {
   groups: ModuleGroup[];
@@ -890,5 +890,84 @@ export const useReorderIndustries = () => {
     mutationFn: async (ids: string[]) =>
       (await api.post(`/api/platform/industries/reorder`, { ids })).data,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["industries"] }),
+  });
+};
+
+// ───────────────────────── Поддержка (обращения компаний) ─────────────────────────
+
+export type SupportTicketStatus =
+  | "open"
+  | "in_progress"
+  | "waiting_user"
+  | "resolved"
+  | "closed";
+
+export interface SupportTicketRow {
+  id: string;
+  number: number;
+  tenantId: string | null;
+  tenantName?: string | null;
+  tenantSlug?: string | null;
+  userId: string;
+  authorName?: string | null;
+  authorEmail?: string | null;
+  category: string;
+  subject: string;
+  description: string;
+  status: SupportTicketStatus;
+  priority: "low" | "normal" | "high";
+  route?: string | null;
+  appVersion?: string | null;
+  browser?: string | null;
+  lastErrorId?: string | null;
+  lastMessageAt?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
+export interface SupportTicketDetails extends SupportTicketRow {
+  messages: Array<{
+    id: string;
+    authorType: "user" | "support";
+    authorName?: string | null;
+    body: string;
+    createdAt: string;
+  }>;
+  attachments: Array<{
+    id: string;
+    messageId?: string | null;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    url: string;
+  }>;
+  author?: { id: string; name: string; email?: string | null; login?: string | null } | null;
+}
+
+export const useSupportTickets = (status?: string) =>
+  useQuery<SupportTicketRow[]>({
+    queryKey: ["support", "list", status ?? "all"],
+    queryFn: async () =>
+      (
+        await api.get("/api/platform/support/tickets", {
+          params: { status: status || undefined, limit: 200 },
+        })
+      ).data,
+    refetchInterval: 60_000,
+  });
+
+export const useSupportTicket = (id: string | null) =>
+  useQuery<SupportTicketDetails>({
+    queryKey: ["support", "one", id],
+    queryFn: async () => (await api.get(`/api/platform/support/tickets/${id}`)).data,
+    enabled: Boolean(id),
+  });
+
+export const useSupportReply = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { body?: string; status?: SupportTicketStatus }) =>
+      (await api.post(`/api/platform/support/tickets/${id}/reply`, body)).data,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["support"] }),
   });
 };

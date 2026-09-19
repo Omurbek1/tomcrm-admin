@@ -56,7 +56,11 @@ export const TariffsPage = () => {
       key: s.key,
       // Всегда-включённые разделы (Сотрудники/Безопасность/Настройки) показываем,
       // но отключить нельзя — disabled + всегда отмечены.
-      title: s.alwaysOn ? `${s.label} · всегда` : s.label,
+      title: s.alwaysOn
+        ? `${s.label} · всегда`
+        : s.flag
+          ? `${s.label} · платная опция (в тарифе бесплатно, если включить)`
+          : s.label,
       disabled: s.alwaysOn,
     })),
   }));
@@ -85,10 +89,17 @@ export const TariffsPage = () => {
       isPublic: true,
       archived: false,
       ...Object.fromEntries(LIMIT_META.map((l) => [`limit_${l.key}`, null])),
+      // WhatsApp в тарифы не входит — номера продаются аддоном (мигр.340).
+      limit_whatsappNumbers: 0,
       ...Object.fromEntries(DISCOUNT_PERIODS.map((m) => [`discount_${m}`, 0])),
       ...Object.fromEntries(addonMeta.map((a) => [`addon_${a.key}`, 0])),
     });
-    setModuleChecked([...allSectionKeys]); // всё включено по умолчанию
+    // Разделы включены по умолчанию; платные флаги (AI-менеджер) — выключены.
+    setModuleChecked(
+      allSectionKeys.filter(
+        (k) => !groups.some((g) => g.sections.some((s) => s.key === k && s.flag)),
+      ),
+    );
     setOpen(true);
   };
 
@@ -112,8 +123,16 @@ export const TariffsPage = () => {
         addonMeta.map((a) => [`addon_${a.key}`, t.addons?.[a.key] ?? 0]),
       ),
     });
-    // Раздел включён, если не выключен явно (modules[k] !== false).
-    setModuleChecked(allSectionKeys.filter((k) => t.modules?.[k] !== false));
+    // Раздел включён, если не выключен явно (modules[k] !== false). Платные
+    // флаги-пакеты (AI-менеджер) — наоборот: включены только явно (=== true).
+    const flagKeys = new Set(
+      groups.flatMap((g) => g.sections.filter((s) => s.flag).map((s) => s.key)),
+    );
+    setModuleChecked(
+      allSectionKeys.filter((k) =>
+        flagKeys.has(k) ? t.modules?.[k] === true : t.modules?.[k] !== false,
+      ),
+    );
     setOpen(true);
   };
 

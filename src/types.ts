@@ -227,7 +227,11 @@ const BLOCK_LABELS: Record<string, string> = {
 };
 
 /** Дерево «группа → разделы» — офлайн-фолбэк (онлайн берётся с бэка). */
-export const MODULE_GROUPS_FALLBACK = MODULE_BUNDLES.map((b) => ({
+export const MODULE_GROUPS_FALLBACK: Array<{
+  key: string;
+  label: string;
+  sections: Array<{ key: string; label: string; alwaysOn: boolean; flag?: boolean }>;
+}> = MODULE_BUNDLES.map((b) => ({
   key: b.key,
   label: b.label,
   sections: b.blocks.map((k) => ({
