@@ -63,6 +63,22 @@ export interface PlatformOverview {
   everPaid: number;
   conversionRate: number | null;
   churned: number;
+  /** Система ограничения подписки: состояния компаний + счётчики за сегодня. */
+  subscription: {
+    activeTenants: number;
+    trialTenants: number;
+    pastDueTenants: number;
+    graceTenants: number;
+    suspendedTenants: number;
+    canceledTenants: number;
+    today: {
+      blockedApiRequests: number;
+      blockedOutboundMessages: number;
+      heldInboundMessages: number;
+      skippedAutomations: number;
+      paymentReactivations: number;
+    };
+  } | null;
 }
 
 /** Именованные фильтры дашборда (кликабельные карточки). */
@@ -135,6 +151,8 @@ export interface TenantDetail {
   usage: Record<string, number>;
   /** Купленные компанией аддоны (количества) — прибавляются к лимитам. */
   addons: Record<string, number>;
+  /** Предоплата опций до даты (1/3/6/12 мес): { key: 'YYYY-MM-DD' }. */
+  addonsPaidUntil?: Record<string, string>;
   hasOverrides: boolean;
   limitPolicy: "hard" | "soft";
   industry: { slug: string; name: string } | null;
@@ -277,6 +295,15 @@ export const LIMIT_META: Array<{ key: string; label: string }> = [
   { key: "branches", label: "Филиалы" },
   { key: "storageMb", label: "Хранилище, МБ" },
 ];
+
+/**
+ * Лимиты, которые ТАРИФ не даёт: только докупка (аддон) или ручной оверрайд
+ * компании. WhatsApp-номера продаются отдельно — в редакторе тарифа их нет.
+ */
+export const ADDON_ONLY_LIMIT_KEYS = new Set(["whatsappNumbers"]);
+export const TARIFF_LIMIT_META = LIMIT_META.filter(
+  (l) => !ADDON_ONLY_LIMIT_KEYS.has(l.key),
+);
 
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.create": "Создание компании",

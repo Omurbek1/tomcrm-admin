@@ -29,7 +29,7 @@ import {
 import type { Tariff } from "../types";
 import {
   ADDON_META,
-  LIMIT_META,
+  TARIFF_LIMIT_META,
   MODULE_GROUPS_FALLBACK,
   PAYMENT_PERIODS,
 } from "../types";
@@ -67,6 +67,8 @@ export const TariffsPage = () => {
   const { data: config } = useConfig();
   const setConfig = useSetConfig();
   const [grace, setGrace] = useState<number>(3);
+  const [readOnlyDays, setReadOnlyDays] = useState<number>(0);
+  const [trialGraceDays, setTrialGraceDays] = useState<number>(0);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tariff | null>(null); // null = создание
   // Включённые разделы (листья дерева). Раздел вкл, если не выключен явно.
@@ -74,7 +76,10 @@ export const TariffsPage = () => {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    if (config) setGrace(config.graceDays);
+    if (!config) return;
+    setGrace(config.graceDays);
+    setReadOnlyDays(config.readOnlyDays ?? 0);
+    setTrialGraceDays(config.trialGraceDays ?? 0);
   }, [config]);
 
   const openCreate = () => {
@@ -88,9 +93,7 @@ export const TariffsPage = () => {
       period: "month",
       isPublic: true,
       archived: false,
-      ...Object.fromEntries(LIMIT_META.map((l) => [`limit_${l.key}`, null])),
-      // WhatsApp в тарифы не входит — номера продаются аддоном (мигр.340).
-      limit_whatsappNumbers: 0,
+      ...Object.fromEntries(TARIFF_LIMIT_META.map((l) => [`limit_${l.key}`, null])),
       ...Object.fromEntries(DISCOUNT_PERIODS.map((m) => [`discount_${m}`, 0])),
       ...Object.fromEntries(addonMeta.map((a) => [`addon_${a.key}`, 0])),
     });
@@ -114,7 +117,7 @@ export const TariffsPage = () => {
       isPublic: t.isPublic,
       archived: t.archived,
       ...Object.fromEntries(
-        LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
+        TARIFF_LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
       ),
       ...Object.fromEntries(
         DISCOUNT_PERIODS.map((m) => [`discount_${m}`, t.discounts?.[String(m)] ?? 0]),
@@ -138,7 +141,7 @@ export const TariffsPage = () => {
 
   const submit = (v: Record<string, unknown>) => {
     const limits: Record<string, number | null> = {};
-    for (const l of LIMIT_META) {
+    for (const l of TARIFF_LIMIT_META) {
       const raw = v[`limit_${l.key}`];
       limits[l.key] = raw === null || raw === undefined ? null : Number(raw);
     }
@@ -210,7 +213,7 @@ export const TariffsPage = () => {
           ? `${Number(v).toLocaleString("ru-RU")} ${r.currency}/${r.period === "year" ? "год" : "мес"}`
           : "—",
     },
-    ...LIMIT_META.slice(0, 3).map((l) => ({
+    ...TARIFF_LIMIT_META.slice(0, 3).map((l) => ({
       title: l.label,
       width: 100,
       render: (_v: unknown, r: Tariff) => fmtLimit(r.limits?.[l.key]),
@@ -235,36 +238,86 @@ export const TariffsPage = () => {
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       <PageHeader
-        title="Тарифы и grace-период"
-        subtitle="Планы подписки, лимиты и grace-период при просрочке"
+        title="Тарифы и ограничение подписки"
+        subtitle="Планы подписки, лимиты и периоды блокировки при просрочке"
       />
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Space wrap align="center">
-          <span style={{ fontWeight: 600 }}>
-            Grace-период (дней после «оплачено до»)
-          </span>
-          <InputNumber
-            min={0}
-            max={90}
-            value={grace}
-            onChange={(v) => setGrace(Number(v ?? 0))}
-            style={{ width: 90 }}
-          />
-          <Button
-            disabled={!can("tariffs.edit")}
-            onClick={() =>
-              setConfig.mutate(grace, {
-                onSuccess: () => message.success("Сохранено"),
-                onError: () => message.error("Не удалось сохранить"),
-              })
-            }
-            loading={setConfig.isPending}
-          >
-            Сохранить
-          </Button>
-          <span style={{ color: "#64748b", fontSize: 13 }}>
-            По истечении — компания автоматически переводится в «Заморожена».
-          </span>
+      <Card
+        size="small"
+        style={{ marginBottom: 16 }}
+        title="Периоды при неоплате (применяются ко всем компаниям сразу)"
+      >
+        <Space direction="vertical" size="small" style={{ width: "100%" }}>
+          <Space wrap align="center">
+            <span style={{ fontWeight: 600, minWidth: 260 }}>
+              Льготный период после «оплачено до»
+            </span>
+            <InputNumber
+              min={0}
+              max={90}
+              value={grace}
+              onChange={(v) => setGrace(Number(v ?? 0))}
+              style={{ width: 90 }}
+              suffix="дн."
+            />
+            <span style={{ color: "#64748b", fontSize: 13 }}>
+              Полный доступ + баннер «оплата просрочена».
+            </span>
+          </Space>
+          <Space wrap align="center">
+            <span style={{ fontWeight: 600, minWidth: 260 }}>
+              Режим «только чтение» после льготного
+            </span>
+            <InputNumber
+              min={0}
+              max={90}
+              value={readOnlyDays}
+              onChange={(v) => setReadOnlyDays(Number(v ?? 0))}
+              style={{ width: 90 }}
+              suffix="дн."
+            />
+            <span style={{ color: "#64748b", fontSize: 13 }}>
+              0 — сразу блокировка. Данные видны, изменения и отправка закрыты.
+            </span>
+          </Space>
+          <Space wrap align="center">
+            <span style={{ fontWeight: 600, minWidth: 260 }}>
+              Отсрочка после окончания триала
+            </span>
+            <InputNumber
+              min={0}
+              max={90}
+              value={trialGraceDays}
+              onChange={(v) => setTrialGraceDays(Number(v ?? 0))}
+              style={{ width: 90 }}
+              suffix="дн."
+            />
+            <span style={{ color: "#64748b", fontSize: 13 }}>
+              0 — экран оплаты сразу по истечении триала.
+            </span>
+          </Space>
+          <Space wrap align="center">
+            <Button
+              type="primary"
+              disabled={!can("tariffs.edit")}
+              onClick={() =>
+                setConfig.mutate(
+                  { graceDays: grace, readOnlyDays, trialGraceDays },
+                  {
+                    onSuccess: () => message.success("Сохранено"),
+                    onError: () => message.error("Не удалось сохранить"),
+                  },
+                )
+              }
+              loading={setConfig.isPending}
+            >
+              Сохранить
+            </Button>
+            <span style={{ color: "#64748b", fontSize: 13 }}>
+              После блокировки компания видит экран оплаты (вход сохраняется);
+              WhatsApp-сессии живут, входящие копятся, отправка/AI/автоматизации
+              остановлены. Оплата снимает блокировку автоматически.
+            </span>
+          </Space>
         </Space>
       </Card>
 
@@ -405,7 +458,7 @@ export const TariffsPage = () => {
               gap: "0 12px",
             }}
           >
-            {LIMIT_META.map((l) => (
+            {TARIFF_LIMIT_META.map((l) => (
               <Form.Item key={l.key} name={`limit_${l.key}`} label={l.label}>
                 <InputNumber min={0} placeholder="∞" style={{ width: "100%" }} />
               </Form.Item>

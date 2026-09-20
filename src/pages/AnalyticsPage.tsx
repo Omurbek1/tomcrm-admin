@@ -127,6 +127,63 @@ export const AnalyticsPage = () => {
         </Col>
       </Row>
 
+      {/* Подписки: состояния компаний и блокировки за сегодня */}
+      {overview?.subscription ? (
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          <Col xs={12} sm={8} lg={4}>
+            <StatTile
+              label="PAST_DUE"
+              value={num(overview.subscription.pastDueTenants)}
+              accent={SERIES.orange}
+              hint="просрочка, полный доступ"
+            />
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <StatTile
+              label="SUSPENDED"
+              value={num(
+                overview.subscription.suspendedTenants +
+                  overview.subscription.graceTenants,
+              )}
+              accent={SERIES.red}
+              hint="CRM заблокирована / только чтение"
+            />
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <StatTile
+              label="Реактивации"
+              value={num(overview.subscription.today.paymentReactivations)}
+              accent={SERIES.green}
+              hint="оплата → доступ, сегодня"
+            />
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <StatTile
+              label="402 запросов"
+              value={num(overview.subscription.today.blockedApiRequests)}
+              accent={SERIES.violet}
+              hint="отказов API сегодня"
+            />
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <StatTile
+              label="Исходящих заблок."
+              value={num(overview.subscription.today.blockedOutboundMessages)}
+              accent={SERIES.yellow}
+              hint="сообщений/автоматизаций"
+            />
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <StatTile
+              label="Входящих удержано"
+              value={num(overview.subscription.today.heldInboundMessages)}
+              accent={SERIES.blue}
+              hint="сохранены, без AI/автоответа"
+            />
+          </Col>
+        </Row>
+      ) : null}
+
       {/* Графики */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>

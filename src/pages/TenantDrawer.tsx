@@ -1280,7 +1280,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               <Text strong>Аддоны (докуплено)</Text>
               <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
                 Прибавляются к лимитам: доп. сотрудник → +сотрудники, WABA/доп.
-                WhatsApp → +номера WhatsApp.
+                WhatsApp → +номера WhatsApp; AI-менеджер (1) → модуль AI. «до
+                дата» — предоплата на срок (1/3/6/12 мес): пока не истекла, в
+                продление тарифа не входит; истекла — воркер снимает.
               </div>
               <div
                 style={{
@@ -1293,7 +1295,14 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   const cur = addonDraft ?? data.addons ?? {};
                   return (
                     <div key={a.key}>
-                      <div style={{ fontSize: 12 }}>{a.label}</div>
+                      <div style={{ fontSize: 12 }}>
+                        {a.label}
+                        {data.addonsPaidUntil?.[a.key] ? (
+                          <span style={{ color: "#64748b" }}>
+                            {" "}· до {new Date(data.addonsPaidUntil[a.key]).toLocaleDateString("ru-RU")}
+                          </span>
+                        ) : null}
+                      </div>
                       <InputNumber
                         min={0}
                         style={{ width: "100%" }}

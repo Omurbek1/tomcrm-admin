@@ -659,8 +659,15 @@ export const useCancelPayment = () => {
   });
 };
 
+/** Периоды ограничения подписки (platform_config) — единственный источник, не env. */
+export type SubscriptionPeriodsConfig = {
+  graceDays: number;
+  readOnlyDays: number;
+  trialGraceDays: number;
+};
+
 export const useConfig = () =>
-  useQuery<{ graceDays: number }>({
+  useQuery<SubscriptionPeriodsConfig>({
     queryKey: ["config"],
     queryFn: async () => (await api.get("/api/platform/config")).data,
   });
@@ -668,10 +675,8 @@ export const useConfig = () =>
 export const useSetConfig = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (graceDays: number) =>
-      (await api.patch("/api/platform/config", { graceDays })).data as {
-        graceDays: number;
-      },
+    mutationFn: async (input: Partial<SubscriptionPeriodsConfig>) =>
+      (await api.patch("/api/platform/config", input)).data as SubscriptionPeriodsConfig,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["config"] }),
   });
 };
