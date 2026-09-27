@@ -108,6 +108,25 @@ export const useBillingInvoices = () =>
       (await api.get("/api/platform/billing/invoices")).data,
   });
 
+/** 1.3 Оплачено ≠ используется: превышения лимитов (ежедневная сверка). */
+export interface LimitOverageRow {
+  tenantId: string;
+  tenantName: string | null;
+  optionKey: string;
+  paidQty: number | null;
+  usedQty: number;
+  overSince: string | null;
+  blockedAt: string | null;
+}
+
+export const useLimitOverages = () =>
+  useQuery<LimitOverageRow[]>({
+    queryKey: ["billing-limit-overages"],
+    queryFn: async () =>
+      (await api.get("/api/platform/billing/limit-overages")).data,
+    refetchInterval: 5 * 60_000,
+  });
+
 export interface BillingJournalRow {
   id: string;
   tenantId: string;

@@ -27,12 +27,14 @@ import { SERIES } from "../lib/chartTheme";
 import {
   useBillingHealth,
   useBillingInvoices,
+  useLimitOverages,
   useConfirmEvent,
   useMarkInvoicePaid,
   useMarkManualPayment,
   useTenants,
   useUnverifiedEvents,
   type BillingInvoiceRow,
+  type LimitOverageRow,
   type UnverifiedEvent,
 } from "../hooks";
 
@@ -61,6 +63,7 @@ const PERIODS = [1, 3, 6, 12];
 export const BillingPage = () => {
   const { message } = App.useApp();
   const { data: invoices, isLoading } = useBillingInvoices();
+  const { data: overages } = useLimitOverages();
   const { data: health } = useBillingHealth();
   const { data: unverified } = useUnverifiedEvents();
   const confirmEvent = useConfirmEvent();
@@ -310,6 +313,56 @@ export const BillingPage = () => {
             }
           />
         )}
+
+      {/* 1.3 Оплачено ≠ используется — видно как ошибку, блокировка через 3 дня */}
+      {overages && overages.length > 0 && (
+        <Card
+          size="small"
+          type="inner"
+          title={`Превышения оплаченных лимитов (${overages.length})`}
+          style={{ marginBottom: 16, borderColor: "#ff4d4f" }}
+        >
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Используется больше, чем оплачено. Компании уведомлены; по номерам
+            WhatsApp через 3 дня отправка с лишних номеров останавливается.
+          </Text>
+          <Table<LimitOverageRow>
+            rowKey={(r) => `${r.tenantId}:${r.optionKey}`}
+            size="small"
+            style={{ marginTop: 12 }}
+            pagination={false}
+            dataSource={overages}
+            columns={[
+              { title: "Компания", dataIndex: "tenantName", render: (v, r) => v || r.tenantId },
+              {
+                title: "Опция",
+                dataIndex: "optionKey",
+                render: (v: string) =>
+                  v === "whatsappNumbers" ? "Номера WhatsApp" : v === "users" ? "Сотрудники" : v,
+              },
+              {
+                title: "Используется / оплачено",
+                render: (_, r) => (
+                  <Text type="danger" strong>
+                    {r.usedQty} из {r.paidQty ?? "∞"}
+                  </Text>
+                ),
+              },
+              {
+                title: "С",
+                dataIndex: "overSince",
+                render: (v: string | null) => (v ? new Date(v).toLocaleDateString("ru-RU") : "—"),
+              },
+              {
+                title: "Статус",
+                dataIndex: "blockedAt",
+                render: (v: string | null) =>
+                  v ? <Tag color="red">Заблокировано</Tag> : <Tag color="orange">Предупреждение</Tag>,
+              },
+            ]}
+          />
+        </Card>
+      )}
 
       {/* (п.2) Платежи с непроверенной подписью (DEGRADED) — подтвердить вручную */}
       {editable && unverified && unverified.length > 0 && (
