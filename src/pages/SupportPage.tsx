@@ -131,7 +131,7 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
               </Space>
             </Card>
           ) : (
-            <Alert type="info" showIcon message="Нет права support.manage — только просмотр." />
+            <Alert type="info" showIcon title="Нет права support.manage — только просмотр." />
           )}
         </Space>
       ) : null}
@@ -147,7 +147,11 @@ export const SupportPage = () => {
   if (!can("support.manage") && !can("*")) {
     return (
       <div style={{ padding: 24 }}>
-        <Alert type="warning" showIcon message="Раздел доступен администраторам с правом «Обращения в поддержку»." />
+        <Alert
+          type="warning"
+          showIcon
+          title="Раздел доступен администраторам с правом «Обращения в поддержку»."
+        />
       </div>
     );
   }

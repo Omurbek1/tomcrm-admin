@@ -97,7 +97,7 @@ export const DeleteTenantModal = ({
         <Alert
           type="warning"
           showIcon
-          message="Последствия"
+          title="Последствия"
           description={
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               <li>Вход в компанию сразу закрыт, сессии отозваны.</li>

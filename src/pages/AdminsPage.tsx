@@ -278,7 +278,7 @@ export const AdminsPage = () => {
             type="info"
             showIcon
             style={{ marginBottom: 12 }}
-            message="Сейчас полный доступ (владелец). Снимите, чтобы задать точечные права."
+            title="Сейчас полный доступ (владелец). Снимите, чтобы задать точечные права."
           />
         )}
         <Checkbox

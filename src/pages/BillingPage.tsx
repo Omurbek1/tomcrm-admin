@@ -291,7 +291,7 @@ export const BillingPage = () => {
             type="error"
             showIcon
             style={{ marginBottom: 16 }}
-            message="Проблема с приёмом вебхуков Finik"
+            title="Проблема с приёмом вебхуков Finik"
             description={
               <>
                 {health.invalidSignatureLastHour > 0 && (
@@ -299,7 +299,8 @@ export const BillingPage = () => {
                     Отклонено по подписи за час:{" "}
                     <b>{health.invalidSignatureLastHour}</b> из{" "}
                     {health.webhookLastHour}. Проверьте{" "}
-                    <code>FINIK_WEBHOOK_PUBLIC_PEM</code> (публичный ключ FINIK).
+                    <code>FINIK_WEBHOOK_PUBLIC_PEM</code> (публичный ключ
+                    FINIK).
                   </div>
                 )}
                 {health.stuckPending.length > 0 && (
@@ -333,12 +334,20 @@ export const BillingPage = () => {
             pagination={false}
             dataSource={overages}
             columns={[
-              { title: "Компания", dataIndex: "tenantName", render: (v, r) => v || r.tenantId },
+              {
+                title: "Компания",
+                dataIndex: "tenantName",
+                render: (v, r) => v || r.tenantId,
+              },
               {
                 title: "Опция",
                 dataIndex: "optionKey",
                 render: (v: string) =>
-                  v === "whatsappNumbers" ? "Номера WhatsApp" : v === "users" ? "Сотрудники" : v,
+                  v === "whatsappNumbers"
+                    ? "Номера WhatsApp"
+                    : v === "users"
+                      ? "Сотрудники"
+                      : v,
               },
               {
                 title: "Используется / оплачено",
@@ -351,13 +360,18 @@ export const BillingPage = () => {
               {
                 title: "С",
                 dataIndex: "overSince",
-                render: (v: string | null) => (v ? new Date(v).toLocaleDateString("ru-RU") : "—"),
+                render: (v: string | null) =>
+                  v ? new Date(v).toLocaleDateString("ru-RU") : "—",
               },
               {
                 title: "Статус",
                 dataIndex: "blockedAt",
                 render: (v: string | null) =>
-                  v ? <Tag color="red">Заблокировано</Tag> : <Tag color="orange">Предупреждение</Tag>,
+                  v ? (
+                    <Tag color="red">Заблокировано</Tag>
+                  ) : (
+                    <Tag color="orange">Предупреждение</Tag>
+                  ),
               },
             ]}
           />
@@ -373,9 +387,9 @@ export const BillingPage = () => {
           style={{ marginBottom: 16, borderColor: "#faad14" }}
         >
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Ключ Finik ещё не задан, поэтому подпись не проверяется. Сверьте сумму
-            и транзакцию глазами, затем подтвердите — подписка активируется,
-            действие попадёт в аудит.
+            Ключ Finik ещё не задан, поэтому подпись не проверяется. Сверьте
+            сумму и транзакцию глазами, затем подтвердите — подписка
+            активируется, действие попадёт в аудит.
           </Text>
           <Table<UnverifiedEvent>
             rowKey="eventId"
@@ -396,7 +410,8 @@ export const BillingPage = () => {
                 title: "Компания",
                 dataIndex: "tenantName",
                 key: "tenantName",
-                render: (v: string | null) => v || <Text type="secondary">—</Text>,
+                render: (v: string | null) =>
+                  v || <Text type="secondary">—</Text>,
                 ellipsis: true,
               },
               {
@@ -406,10 +421,12 @@ export const BillingPage = () => {
                 render: (_: unknown, r) => {
                   const wa = r.webhookAmount;
                   const ia = r.invoiceAmount;
-                  const mismatch = wa != null && ia != null && Number(wa) !== Number(ia);
+                  const mismatch =
+                    wa != null && ia != null && Number(wa) !== Number(ia);
                   return (
                     <span style={{ color: mismatch ? "#cf1322" : undefined }}>
-                      {wa != null ? money(wa) : "—"} / {ia != null ? money(ia) : "—"}
+                      {wa != null ? money(wa) : "—"} /{" "}
+                      {ia != null ? money(ia) : "—"}
                       {mismatch && " ⚠"}
                     </span>
                   );
@@ -436,9 +453,13 @@ export const BillingPage = () => {
                     description={
                       <div style={{ maxWidth: 260 }}>
                         Сверьте: сумма{" "}
-                        <b>{r.webhookAmount != null ? money(r.webhookAmount) : "—"}</b>
-                        , транзакция <code>{r.transactionId || "—"}</code>. Подписка
-                        активируется, запишется в аудит.
+                        <b>
+                          {r.webhookAmount != null
+                            ? money(r.webhookAmount)
+                            : "—"}
+                        </b>
+                        , транзакция <code>{r.transactionId || "—"}</code>.
+                        Подписка активируется, запишется в аудит.
                       </div>
                     }
                     okText="Подтвердить"
@@ -465,13 +486,21 @@ export const BillingPage = () => {
       {/* Сводка — единые KPI-плитки */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={6}>
-          <StatTile label="Всего счетов" value={counts.total} accent={SERIES.blue} />
+          <StatTile
+            label="Всего счетов"
+            value={counts.total}
+            accent={SERIES.blue}
+          />
         </Col>
         <Col xs={12} sm={6}>
           <StatTile label="Оплачено" value={counts.paid} accent={SERIES.aqua} />
         </Col>
         <Col xs={12} sm={6}>
-          <StatTile label="Ожидают" value={counts.pending} accent={SERIES.orange} />
+          <StatTile
+            label="Ожидают"
+            value={counts.pending}
+            accent={SERIES.orange}
+          />
         </Col>
         <Col xs={12} sm={6}>
           <StatTile label="Ошибки" value={counts.failed} accent={SERIES.red} />
@@ -484,7 +513,7 @@ export const BillingPage = () => {
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          message={`${pendingFinik.length} счёт(ов) Finik ожидают проведения`}
+          title={`${pendingFinik.length} счёт(ов) Finik ожидают проведения`}
           description="Оплата могла пройти, но вебхук ещё не зачислил её (например, не задан публичный ключ Finik). Проверьте оплату и нажмите «Провести» в строке счёта."
           action={
             statusF !== "pending" || providerF !== "finik" ? (
@@ -533,7 +562,11 @@ export const BillingPage = () => {
         loading={isLoading}
         dataSource={filtered}
         columns={columns}
-        pagination={{ pageSize: 25, showSizeChanger: false, hideOnSinglePage: true }}
+        pagination={{
+          pageSize: 25,
+          showSizeChanger: false,
+          hideOnSinglePage: true,
+        }}
         scroll={{ x: 1040 }}
       />
 
@@ -550,7 +583,7 @@ export const BillingPage = () => {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Создаёт новый оплаченный счёт и продлевает подписку."
+          title="Создаёт новый оплаченный счёт и продлевает подписку."
           description="Для оплаты, которая уже прошла в Finik, лучше нажать «Провести» в строке нужного счёта — так не появится дубль."
         />
         <Form form={form} layout="vertical" initialValues={{ periodMonths: 1 }}>

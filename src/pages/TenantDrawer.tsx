@@ -873,7 +873,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               type="warning"
               showIcon
               style={{ margin: "8px 0" }}
-              message="Нет контактов — некому написать при истечении триала. Заполните телефон/email ниже."
+              title="Нет контактов — некому написать при истечении триала. Заполните телефон/email ниже."
             />
           )}
 
