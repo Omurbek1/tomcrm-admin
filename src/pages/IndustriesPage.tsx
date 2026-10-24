@@ -4,6 +4,7 @@ import {
   Button,
   Input,
   Modal,
+  Select,
   Space,
   Switch,
   Table,
@@ -30,7 +31,11 @@ import {
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
 import { MODULE_GROUPS_FALLBACK } from "../types";
-import type { Industry, IndustryInput } from "../types";
+import type {
+  Industry,
+  IndustryInput,
+  IndustryProductCatalog,
+} from "../types";
 
 const { Text } = Typography;
 
@@ -64,6 +69,12 @@ const emptyForm: IndustryInput = {
   clientTermKy: "Кардар",
   clientTermEn: "Client",
   warehouseEnabled: false,
+  productCatalog: {
+    serviceCategories: [],
+    defaultCategory: "Прочее",
+    requireCategory: false,
+    showScaleCode: false,
+  },
 };
 
 export function IndustriesPage() {
@@ -260,6 +271,19 @@ function IndustryModal({
 
   const set = <K extends keyof IndustryInput>(k: K, v: IndustryInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+  // Каталог меняем частично: остальные поля не трогаем.
+  const setCatalog = (patch: Partial<IndustryProductCatalog>) =>
+    setForm((f) => ({
+      ...f,
+      productCatalog: {
+        serviceCategories: [],
+        defaultCategory: "Прочее",
+        requireCategory: false,
+        showScaleCode: false,
+        ...f.productCatalog,
+        ...patch,
+      },
+    }));
 
   useEffect(() => {
     if (!slugTouched) set("slug", slugify(form.nameRu ?? ""));
@@ -469,6 +493,50 @@ function IndustryModal({
           />
           <span>Использовать склад</span>
         </Space>
+
+        <div>
+          <Text strong>Каталог товаров по умолчанию</Text>
+          <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+            Компания получает эти значения при регистрации и при применении пресета.
+          </Text>
+          <div style={{ display: "grid", gap: 8, marginTop: 6 }}>
+            <div>
+              <Text>Категории, которые считаются услугами (без остатка)</Text>
+              <Select
+                mode="tags"
+                style={{ width: "100%" }}
+                value={form.productCatalog?.serviceCategories ?? []}
+                onChange={(v: string[]) =>
+                  setCatalog({ serviceCategories: v })
+                }
+                placeholder="Например: Услуги"
+              />
+            </div>
+            <div>
+              <Text>Категория по умолчанию</Text>
+              <Input
+                value={form.productCatalog?.defaultCategory ?? ""}
+                onChange={(e) =>
+                  setCatalog({ defaultCategory: e.target.value })
+                }
+              />
+            </div>
+            <Space>
+              <Switch
+                checked={!!form.productCatalog?.requireCategory}
+                onChange={(v) => setCatalog({ requireCategory: v })}
+              />
+              <span>Категория обязательна</span>
+            </Space>
+            <Space>
+              <Switch
+                checked={!!form.productCatalog?.showScaleCode}
+                onChange={(v) => setCatalog({ showScaleCode: v })}
+              />
+              <span>Показывать «Код на весах»</span>
+            </Space>
+          </div>
+        </div>
       </div>
     </Modal>
   );

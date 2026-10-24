@@ -399,7 +399,16 @@ export interface Industry {
   clientTermKy: string;
   clientTermEn: string;
   warehouseEnabled: boolean;
+  productCatalog: IndustryProductCatalog;
   tenantsCount: number;
+}
+
+/** Каталог товаров отрасли: что считать услугами, категория по умолчанию и флаги. */
+export interface IndustryProductCatalog {
+  serviceCategories: string[];
+  defaultCategory: string;
+  requireCategory: boolean;
+  showScaleCode: boolean;
 }
 
 export type IndustryInput = Partial<
