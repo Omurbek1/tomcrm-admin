@@ -74,6 +74,7 @@ const emptyForm: IndustryInput = {
     defaultCategory: "Прочее",
     requireCategory: false,
     showScaleCode: false,
+    useBarcodes: true,
   },
 };
 
@@ -280,6 +281,7 @@ function IndustryModal({
         defaultCategory: "Прочее",
         requireCategory: false,
         showScaleCode: false,
+        useBarcodes: true,
         ...f.productCatalog,
         ...patch,
       },
@@ -534,6 +536,13 @@ function IndustryModal({
                 onChange={(v) => setCatalog({ showScaleCode: v })}
               />
               <span>Показывать «Код на весах»</span>
+            </Space>
+            <Space>
+              <Switch
+                checked={form.productCatalog?.useBarcodes !== false}
+                onChange={(v) => setCatalog({ useBarcodes: v })}
+              />
+              <span>Штрихкоды и сканер</span>
             </Space>
           </div>
         </div>
