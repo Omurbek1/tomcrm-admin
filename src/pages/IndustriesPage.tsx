@@ -75,6 +75,9 @@ const emptyForm: IndustryInput = {
     requireCategory: false,
     showScaleCode: false,
     useBarcodes: true,
+    onlyServices: false,
+    trackCost: true,
+    useWarehouse: true,
   },
 };
 
@@ -282,6 +285,9 @@ function IndustryModal({
         requireCategory: false,
         showScaleCode: false,
         useBarcodes: true,
+        onlyServices: false,
+        trackCost: true,
+        useWarehouse: true,
         ...f.productCatalog,
         ...patch,
       },
@@ -543,6 +549,27 @@ function IndustryModal({
                 onChange={(v) => setCatalog({ useBarcodes: v })}
               />
               <span>Штрихкоды и сканер</span>
+            </Space>
+            <Space>
+              <Switch
+                checked={!!form.productCatalog?.onlyServices}
+                onChange={(v) => setCatalog({ onlyServices: v })}
+              />
+              <span>Только услуги (без закупки и склада)</span>
+            </Space>
+            <Space>
+              <Switch
+                checked={form.productCatalog?.trackCost !== false}
+                onChange={(v) => setCatalog({ trackCost: v })}
+              />
+              <span>Закупочная цена</span>
+            </Space>
+            <Space>
+              <Switch
+                checked={form.productCatalog?.useWarehouse !== false}
+                onChange={(v) => setCatalog({ useWarehouse: v })}
+              />
+              <span>Склад и поступления</span>
             </Space>
           </div>
         </div>

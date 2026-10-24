@@ -411,6 +411,12 @@ export interface IndustryProductCatalog {
   showScaleCode: boolean;
   /** Штрихкоды и сканер; выключено — кнопки сканирования и поля штрихкода скрыты. */
   useBarcodes: boolean;
+  /** Только услуги: форма товара сразу как услуга, без закупки и склада. */
+  onlyServices: boolean;
+  /** Ведётся закупочная цена. */
+  trackCost: boolean;
+  /** Есть склад: поступление и остатки. */
+  useWarehouse: boolean;
 }
 
 export type IndustryInput = Partial<
