@@ -409,6 +409,8 @@ export interface IndustryProductCatalog {
   defaultCategory: string;
   requireCategory: boolean;
   showScaleCode: boolean;
+  /** Штрихкоды и сканер; выключено — кнопки сканирования и поля штрихкода скрыты. */
+  useBarcodes: boolean;
 }
 
 export type IndustryInput = Partial<
