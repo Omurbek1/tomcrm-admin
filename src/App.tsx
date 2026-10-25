@@ -14,6 +14,7 @@ import { BillingPage } from "./pages/BillingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { TariffsPage } from "./pages/TariffsPage";
 import { IndustriesPage } from "./pages/IndustriesPage";
+import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { SupportPage } from "./pages/SupportPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 import { TenantsPage } from "./pages/TenantsPage";
@@ -29,6 +30,7 @@ type View =
   | "billing"
   | "industries"
   | "templates"
+  | "integrations"
   | "audit"
   | "admins"
   | "support";
@@ -41,6 +43,7 @@ const NAV: { key: View; label: string }[] = [
   { key: "industries", label: "Отрасли" },
   { key: "templates", label: "Уведомления" },
   { key: "support", label: "Поддержка" },
+  { key: "integrations", label: "Интеграции" },
   { key: "audit", label: "Журнал" },
   { key: "admins", label: "Администраторы" },
 ];
@@ -186,6 +189,7 @@ export const App = () => {
         {view === "industries" && <IndustriesPage />}
         {view === "templates" && <TemplatesPage />}
         {view === "support" && <SupportPage />}
+        {view === "integrations" && <IntegrationsPage />}
         {view === "audit" && <AuditPage />}
         {view === "admins" && <AdminsPage />}
       </Content>

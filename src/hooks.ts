@@ -995,3 +995,50 @@ export const useSupportReply = (id: string) => {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["support"] }),
   });
 };
+
+/** Ключи Meta-приложения Instagram (platform_config; пусто — env сервера). */
+export type InstagramAppSource = "admin" | "env" | null;
+export type InstagramAppConfig = {
+  appId: string | null;
+  appIdSource: InstagramAppSource;
+  appSecretSet: boolean;
+  appSecretMask: string | null;
+  appSecretSource: InstagramAppSource;
+  verifyToken: string | null;
+  verifyTokenSource: InstagramAppSource;
+  redirectUri: string | null;
+  redirectUriSource: InstagramAppSource;
+  suggestedRedirectUri: string | null;
+  webhookUrl: string | null;
+  apiVersion: string;
+  apiVersionSource: InstagramAppSource;
+  tokenKey: "token_enc_key" | "server_secret" | null;
+  missing: string[];
+  accounts: { total: number; active: number };
+};
+
+export type InstagramAppConfigInput = {
+  appId?: string;
+  appSecret?: string;
+  verifyToken?: string;
+  regenerateVerifyToken?: boolean;
+  redirectUri?: string;
+  apiVersion?: string;
+};
+
+export const useInstagramAppConfig = () =>
+  useQuery<InstagramAppConfig>({
+    queryKey: ["instagram-app-config"],
+    queryFn: async () =>
+      (await api.get("/api/platform/integrations/instagram")).data,
+  });
+
+export const useSetInstagramAppConfig = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: InstagramAppConfigInput) =>
+      (await api.patch("/api/platform/integrations/instagram", input))
+        .data as InstagramAppConfig,
+    onSuccess: (data) => qc.setQueryData(["instagram-app-config"], data),
+  });
+};
