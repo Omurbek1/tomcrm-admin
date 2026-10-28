@@ -26,7 +26,8 @@ import {
   useTenants,
 } from "../hooks";
 import type { TenantFilter, TenantRow } from "../types";
-import { REMINDER_TYPES } from "../types";
+import { formatBytes, REMINDER_TYPES } from "../types";
+import { PlatformRecordingsBadge } from "./PlatformRecordingsBadge";
 import { can } from "../api/client";
 import { PageHeader, StatTile } from "../components/viz";
 import { SERIES } from "../lib/chartTheme";
@@ -375,6 +376,22 @@ export const TenantsPage = () => {
       render: (v: number) => v.toLocaleString("ru-RU"),
     },
     {
+      title: (
+        <Tooltip title="Сколько места занимают записи звонков компании">
+          Записи
+        </Tooltip>
+      ),
+      dataIndex: "recordingsBytes",
+      width: 100,
+      sorter: (a, b) => (a.recordingsBytes ?? 0) - (b.recordingsBytes ?? 0),
+      render: (v: number | null | undefined, r) =>
+        v ? (
+          <Tooltip title={`${r.recordingsCount ?? 0} шт.`}>{formatBytes(v)}</Tooltip>
+        ) : (
+          "—"
+        ),
+    },
+    {
       title: "Создана",
       dataIndex: "createdAt",
       width: 110,
@@ -389,6 +406,7 @@ export const TenantsPage = () => {
         subtitle="Все компании платформы"
         extra={
           <Space>
+            <PlatformRecordingsBadge />
             <Button
               onClick={() => applyFilter("attention")}
               danger={filter === "attention"}
@@ -559,6 +577,7 @@ export const TenantsPage = () => {
               { value: "", label: "Сортировка: дата" },
               { value: "mrr", label: "Сортировка: MRR" },
               { value: "activity", label: "Сортировка: активность" },
+              { value: "recordings", label: "Сортировка: объём записей" },
             ]}
           />
           <Checkbox

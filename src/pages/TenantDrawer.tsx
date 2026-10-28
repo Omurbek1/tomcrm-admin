@@ -27,6 +27,7 @@ import { MoreOutlined } from "@ant-design/icons";
 import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
+import { TenantRecordingsCard } from "./TenantRecordingsCard";
 import { StatTile } from "../components/viz";
 import { SERIES } from "../lib/chartTheme";
 import {
@@ -958,6 +959,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 </Descriptions.Item>
               </Descriptions>
             </Card>
+
+            {/* Записи звонков: объём и очистка */}
+            <TenantRecordingsCard tenantId={t.id} />
 
             {/* Контакты (редактируемые) */}
             <Card size="small" title="Контакты">

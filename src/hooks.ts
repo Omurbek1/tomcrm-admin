@@ -1042,3 +1042,65 @@ export const useSetInstagramAppConfig = () => {
     onSuccess: (data) => qc.setQueryData(["instagram-app-config"], data),
   });
 };
+
+// ── Записи звонков: объём и очистка (суперадмин) ────────────────────────────
+
+export interface RecordingsStorage {
+  count: number;
+  bytes: number;
+  unknownSizeCount: number;
+  oldestAt: string | null;
+  byMonth: Array<{ month: string; count: number; bytes: number }>;
+  retentionDays: number | null;
+  purge: { running: boolean; total: number; done: number; bytes: number } | null;
+}
+
+export type RecordingsPurgeScope =
+  | { olderThanDays: number }
+  | { olderThan: string }
+  | { all: true; confirm: "удалить" };
+
+export interface RecordingsPurgeResult {
+  count: number;
+  bytes: number;
+  deleted?: number;
+  failed?: number;
+  background?: boolean;
+}
+
+export const useTenantRecordingsStorage = (tenantId: string | null) =>
+  useQuery<RecordingsStorage>({
+    queryKey: ["tenant-recordings", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () =>
+      (await api.get(`/api/platform/tenants/${tenantId}/recordings/storage`))
+        .data,
+    refetchInterval: (q) => (q.state.data?.purge?.running ? 3_000 : false),
+  });
+
+export const purgeTenantRecordings = async (
+  tenantId: string,
+  scope: RecordingsPurgeScope,
+  dryRun: boolean,
+): Promise<RecordingsPurgeResult> =>
+  (
+    await api.post(
+      `/api/platform/tenants/${tenantId}/recordings/purge`,
+      { ...scope, dryRun },
+      { timeout: 60_000 },
+    )
+  ).data;
+
+export interface PlatformRecordingsStorage {
+  count: number;
+  bytes: number;
+  tenants: Array<{ tenantId: string; name: string; count: number; bytes: number }>;
+}
+
+export const usePlatformRecordingsStorage = () =>
+  useQuery<PlatformRecordingsStorage>({
+    queryKey: ["platform-recordings"],
+    queryFn: async () =>
+      (await api.get("/api/platform/recordings/storage")).data,
+    staleTime: 60_000,
+  });
