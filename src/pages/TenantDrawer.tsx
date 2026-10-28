@@ -59,6 +59,7 @@ import {
 import type { TenantStatus } from "../types";
 import {
   ADDON_META,
+  SINGLE_ADDON_KEYS,
   AUDIT_ACTION_LABEL,
   AUDIT_FILTERS,
   LIMIT_META,
@@ -1305,6 +1306,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                       </div>
                       <InputNumber
                         min={0}
+                        max={SINGLE_ADDON_KEYS.has(a.key) ? 1 : undefined}
                         style={{ width: "100%" }}
                         placeholder="0"
                         disabled={!can("billing.edit")}
