@@ -229,6 +229,9 @@ export const MODULE_BUNDLES: Array<{
   { key: "team", label: "Команда", blocks: ["4", "19", "17"] },
   { key: "finance", label: "Финансы", blocks: ["5", "12", "10", "14"] },
   { key: "system", label: "Система", blocks: ["8", "20", "9", "22", "21", "6"] },
+  // Флаги-пакеты без раздела CRM (платные, по умолчанию выключены).
+  { key: "ai", label: "AI-менеджер (автоответы в чатах)", blocks: [] },
+  { key: "callRecording", label: "Запись разговоров", blocks: [] },
 ];
 
 /** Всегда включённые разделы (нельзя отключить тарифом). */
@@ -252,11 +255,14 @@ export const MODULE_GROUPS_FALLBACK: Array<{
 }> = MODULE_BUNDLES.map((b) => ({
   key: b.key,
   label: b.label,
-  sections: b.blocks.map((k) => ({
-    key: k,
-    label: BLOCK_LABELS[k] ?? k,
-    alwaysOn: ALWAYS_ON_BLOCKS.has(k),
-  })),
+  sections: b.blocks.length
+    ? b.blocks.map((k) => ({
+        key: k,
+        label: BLOCK_LABELS[k] ?? k,
+        alwaysOn: ALWAYS_ON_BLOCKS.has(k),
+      }))
+    : // Флаг-пакет — один тумблер с ключом пакета (как в каталоге бэка).
+      [{ key: b.key, label: b.label, alwaysOn: false, flag: true }],
 }));
 
 /** Аддоны (докупаются поверх пакета) — цена за единицу/мес. */
@@ -264,7 +270,12 @@ export const ADDON_META: Array<{ key: string; label: string; unit: string }> = [
   { key: "wabaNumber", label: "WABA номер", unit: "за номер/мес" },
   { key: "extraSeat", label: "Доп. сотрудник", unit: "за место/мес" },
   { key: "extraWhatsapp", label: "Доп. WhatsApp номер", unit: "за номер/мес" },
+  { key: "aiManager", label: "AI-менеджер", unit: "за компанию/мес" },
+  { key: "callRecording", label: "Запись разговоров", unit: "за компанию/мес" },
 ];
+
+/** Опции «одна на компанию» (включено/выключено) — как SINGLE_ADDON_KEYS бэка. */
+export const SINGLE_ADDON_KEYS = new Set(["aiManager", "callRecording"]);
 
 export interface Analytics {
   mrrByTariff: Array<{
