@@ -28,6 +28,9 @@ export interface TenantRow {
   ownerPhone?: string | null;
   lastActivityAt?: string | null;
   mrr?: number | null;
+  /** Записи звонков компании: объём в хранилище и число. */
+  recordingsBytes?: number | null;
+  recordingsCount?: number | null;
 }
 
 export interface PaymentRow {
@@ -326,6 +329,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.payment_cancel": "Отмена платежа",
   "tenant.price_override": "Индивидуальная цена",
   "tenant.addons": "Аддоны компании",
+  "recordings.purge": "Удаление записей звонков",
   "tenant.bulk_tariff": "Массовая смена тарифа",
   "tenant.auto_freeze": "Автозаморозка (просрочка)",
   "config.grace": "Настройка grace-периода",
@@ -433,3 +437,13 @@ export interface IndustryProductCatalog {
 export type IndustryInput = Partial<
   Omit<Industry, "id" | "tenantsCount">
 >;
+
+/** Объём: «850 КБ», «12,4 МБ», «1,2 ГБ». */
+export const formatBytes = (bytes?: number | null): string => {
+  if (!bytes || bytes <= 0) return "0 МБ";
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.max(1, Math.round(kb))} КБ`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1).replace(".", ",")} МБ`;
+  return `${(mb / 1024).toFixed(1).replace(".", ",")} ГБ`;
+};
