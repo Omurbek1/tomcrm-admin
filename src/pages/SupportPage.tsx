@@ -17,6 +17,7 @@ import { PaperClipOutlined, ReloadOutlined, SendOutlined } from "@ant-design/ico
 
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
+import { openTenant } from "../lib/nav";
 import {
   useSupportReply,
   useSupportTicket,
@@ -54,10 +55,13 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
   const [text, setText] = useState("");
   const [status, setStatus] = useState<SupportTicketStatus | undefined>(undefined);
 
-  const send = async () => {
-    if (!text.trim() && !status) return;
+  // Ответ без выбранного статуса = «ждём клиента» (мяч на его стороне);
+  // «Ответить и решить» — сразу закрывает вопрос как решённый.
+  const send = async (next?: SupportTicketStatus) => {
+    const st = next ?? status ?? (text.trim() ? "waiting_user" : undefined);
+    if (!text.trim() && !st) return;
     try {
-      await reply.mutateAsync({ body: text.trim() || undefined, status });
+      await reply.mutateAsync({ body: text.trim() || undefined, status: st });
       setText("");
       setStatus(undefined);
       await refetch();
@@ -81,7 +85,12 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
             </Space>
             <Typography.Title level={4} style={{ margin: "8px 0 4px" }}>{data.subject}</Typography.Title>
             <Text type="secondary">
-              {data.tenantName ?? data.tenantId} · {data.author?.name ?? data.userId}
+              {data.tenantId ? (
+                <a onClick={() => openTenant(data.tenantId!)}>{data.tenantName ?? "Компания"}</a>
+              ) : (
+                "Без компании"
+              )}{" "}
+              · {data.author?.name ?? data.userId}
               {data.author?.email ? ` · ${data.author.email}` : ""} · {fmt(data.createdAt)}
             </Text>
           </div>
@@ -115,19 +124,46 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
           ))}
           {can("support.manage") ? (
             <Card size="small" title="Ответ">
-              <Input.TextArea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="Текст ответа клиенту (придёт уведомлением в CRM и письмом)" />
+              <Input.TextArea
+                rows={4}
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    void send();
+                  }
+                }}
+                placeholder="Ответ клиенту — придёт уведомлением в CRM и письмом. Ctrl+Enter — отправить"
+              />
               <Space style={{ marginTop: 8, width: "100%", justifyContent: "space-between" }} wrap>
                 <Select
                   allowClear
-                  placeholder="Сменить статус"
-                  style={{ width: 220 }}
+                  placeholder="Потом: ждём клиента"
+                  style={{ width: 260 }}
                   value={status}
                   onChange={(v) => setStatus(v)}
                   options={(Object.keys(STATUS) as SupportTicketStatus[]).map((k) => ({ value: k, label: STATUS[k].label }))}
                 />
-                <Button type="primary" icon={<SendOutlined />} loading={reply.isPending} onClick={() => void send()} disabled={!text.trim() && !status}>
-                  Отправить
-                </Button>
+                <Space wrap>
+                  <Button
+                    loading={reply.isPending}
+                    disabled={!text.trim()}
+                    onClick={() => void send("resolved")}
+                  >
+                    Ответить и решить
+                  </Button>
+                  <Button
+                    type="primary"
+                    icon={<SendOutlined />}
+                    loading={reply.isPending}
+                    onClick={() => void send()}
+                    disabled={!text.trim() && !status}
+                  >
+                    {text.trim() ? "Ответить" : "Сменить статус"}
+                  </Button>
+                </Space>
               </Space>
             </Card>
           ) : (
@@ -140,9 +176,28 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
 };
 
 export const SupportPage = () => {
-  const [status, setStatus] = useState<string>("");
-  const [openId, setOpenId] = useState<string | null>(null);
-  const { data, isLoading, refetch, isFetching } = useSupportTickets(status);
+  // Адрес: ?status= (по умолчанию «Новые») и ?ticket= (открытое обращение —
+  // ссылка с «Обзора» открывает его сразу).
+  const params = new URLSearchParams(window.location.search);
+  const [status, setStatusState] = useState<string>(params.get("status") ?? "open");
+  const [openId, setOpenIdState] = useState<string | null>(params.get("ticket"));
+  const syncUrl = (k: string, v: string | null) => {
+    const url = new URL(window.location.href);
+    if (v) url.searchParams.set(k, v);
+    else url.searchParams.delete(k);
+    window.history.replaceState(null, "", url.toString());
+  };
+  const setStatus = (v: string) => {
+    setStatusState(v);
+    syncUrl("status", v === "open" ? null : v || "all");
+  };
+  const setOpenId = (v: string | null) => {
+    setOpenIdState(v);
+    syncUrl("ticket", v);
+  };
+  const { data, isLoading, refetch, isFetching } = useSupportTickets(
+    status === "all" ? "" : status,
+  );
 
   if (!can("support.manage") && !can("*")) {
     return (
@@ -158,10 +213,16 @@ export const SupportPage = () => {
 
   const columns = [
     { title: "№", dataIndex: "number", width: 70, render: (n: number) => <b>#{n}</b> },
-    { title: "Компания", dataIndex: "tenantName", width: 180, render: (v: string | null, r: SupportTicketRow) => v ?? r.tenantId ?? "—" },
+    { title: "Компания", dataIndex: "tenantName", width: 180, render: (v: string | null, r: SupportTicketRow) =>
+      r.tenantId ? (
+        <a onClick={(e) => { e.stopPropagation(); openTenant(r.tenantId!); }}>{v ?? "Компания"}</a>
+      ) : "—" },
     { title: "Тема", dataIndex: "subject", ellipsis: true, render: (v: string, r: SupportTicketRow) => (
       <div>
-        <div>{v}</div>
+        <div>
+          {r.priority === "high" ? <Tag color="red" style={{ marginRight: 6 }}>срочно</Tag> : null}
+          {v}
+        </div>
         <Text type="secondary" style={{ fontSize: 12 }}>{CATEGORY[r.category] ?? r.category} · {r.authorName ?? ""}</Text>
       </div>
     ) },
@@ -170,7 +231,7 @@ export const SupportPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, maxWidth: 1280, margin: "0 auto" }}>
       <PageHeader
         title="Поддержка"
         subtitle="Обращения компаний из Help Center. Ответ уходит клиенту уведомлением в CRM и письмом."
@@ -181,12 +242,12 @@ export const SupportPage = () => {
         value={status}
         onChange={(v) => setStatus(String(v))}
         options={[
-          { value: "", label: "Все" },
           { value: "open", label: "Новые" },
           { value: "in_progress", label: "В работе" },
           { value: "waiting_user", label: "Ждём клиента" },
           { value: "resolved", label: "Решённые" },
           { value: "closed", label: "Закрытые" },
+          { value: "all", label: "Все" },
         ]}
       />
       <Table<SupportTicketRow>

@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -708,6 +709,8 @@ export const useAudit = (
   useQuery<AuditPage>({
     queryKey: ["audit", tenantId ?? "all", opts?.actions ?? [], opts?.limit ?? 20],
     enabled: tenantId !== undefined,
+    // «Показать ещё» меняет limit — прежние строки остаются, без мигания.
+    placeholderData: keepPreviousData,
     queryFn: async () =>
       (
         await api.get("/api/platform/audit", {

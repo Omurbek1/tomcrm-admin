@@ -260,7 +260,11 @@ export const HomePage = () => {
               <ul className="rows">
                 {recentTickets.map((t) => (
                   <li key={t.id}>
-                    <button type="button" className="row" onClick={to("support")}>
+                    <button
+                      type="button"
+                      className="row"
+                      onClick={() => navigate("support", { ticket: t.id })}
+                    >
                       <span className="row-main">
                         <span className="row-title">
                           №{t.number} · {t.subject}
