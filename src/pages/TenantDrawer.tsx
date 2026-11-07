@@ -162,8 +162,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   // п.6: активная вкладка синхронизируется с URL (?tab=…).
   const [activeTab, setActiveTab] = useState<string>(() => {
     const t0 = new URLSearchParams(window.location.search).get("tab") ?? "";
-    return ["overview", "tariff", "billing", "journal"].includes(t0)
-      ? t0
+    // Старые ссылки (?tab=tariff/billing/journal) ведут на новые вкладки.
+    const legacy: Record<string, string> = {
+      tariff: "subscription",
+      billing: "subscription",
+      journal: "history",
+    };
+    const k = legacy[t0] ?? t0;
+    return ["overview", "subscription", "modules", "history"].includes(k)
+      ? k
       : "overview";
   });
   const onTabChange = (k: string) => {
@@ -1094,10 +1101,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 ),
               },
               {
-                label: allSectionKeys.length
-                  ? `Тариф и модули · ${moduleOnCount}/${allSectionKeys.length}`
-                  : "Тариф и модули",
-                key: "tariff",
+                label: "Подписка",
+                key: "subscription",
                 children: (
                   <>
           {/* Секция 1: Тариф и цена */}
@@ -1227,184 +1232,12 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
             <CallLinesBlock tenantId={t.id} />
 
-            {/* Отрасль: привязка + применение пресета (перезапись override модулей). */}
-            <Divider titlePlacement="start">Отрасль</Divider>
-            {(() => {
-              const list = (industriesQ.data ?? []).filter((i) => i.isActive);
-              const currentId =
-                list.find((i) => i.slug === data.industry?.slug)?.id ?? null;
-              const selected = industryDraft ?? currentId;
-              const selectedName =
-                list.find((i) => i.id === selected)?.nameRu ?? "—";
-              const canEdit = can("tenants.tariff");
-              return (
-                <div>
-                  <Space.Compact style={{ width: "100%" }}>
-                    <Select
-                      style={{ width: "100%" }}
-                      loading={industriesQ.isLoading}
-                      placeholder="Не задана"
-                      value={selected ?? undefined}
-                      disabled={!canEdit}
-                      onChange={(v) => setIndustryDraft(v ?? null)}
-                      options={list.map((i) => ({
-                        value: i.id,
-                        label: i.nameRu,
-                      }))}
-                      allowClear
-                    />
-                    <Button
-                      disabled={!canEdit || selected === currentId}
-                      loading={setIndustry.isPending}
-                      onClick={() =>
-                        setIndustry.mutate(
-                          { id: t.id, industryId: selected },
-                          {
-                            onSuccess: () => {
-                              message.success("Отрасль обновлена");
-                              setIndustryDraft(null);
-                            },
-                            onError: () =>
-                              message.error("Не удалось сохранить отрасль"),
-                          },
-                        )
-                      }
-                    >
-                      Привязать
-                    </Button>
-                    <Button
-                      type="primary"
-                      ghost
-                      disabled={!canEdit || !selected}
-                      loading={applyPreset.isPending}
-                      onClick={() =>
-                        modal.confirm({
-                          title: "Применить пресет отрасли?",
-                          content: `Модули компании будут перезаписаны по пресету отрасли «${selectedName}» (термин клиента и склад — тоже). Воронка и данные не затрагиваются.`,
-                          okText: "Применить",
-                          cancelText: "Отмена",
-                          onOk: () =>
-                            applyPreset.mutate(
-                              { id: t.id, industryId: selected as string },
-                              {
-                                onSuccess: () => {
-                                  message.success("Пресет отрасли применён");
-                                  setIndustryDraft(null);
-                                  setModuleChecked(null);
-                                },
-                                onError: () =>
-                                  message.error("Не удалось применить пресет"),
-                              },
-                            ),
-                        })
-                      }
-                    >
-                      Применить пресет
-                    </Button>
-                  </Space.Compact>
-                  <div style={{ fontSize: 12, marginTop: 4 }}>
-                    <Text type="secondary">
-                      «Применить пресет» перезапишет набор модулей по отрасли.
-                      «Привязать» — только сменит отрасль, модули не трогает.
-                    </Text>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <Divider titlePlacement="start">Модули</Divider>
             <div>
-              <Space
-                style={{
-                  width: "100%",
-                  justifyContent: "space-between",
-                  marginBottom: 4,
-                }}
-              >
-                <Text strong>Модули компании</Text>
-                {overrideCount > 0 && (
-                  <Space size={8}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Изменено относительно тарифа: {overrideCount}
-                    </Text>
-                    <Button
-                      size="small"
-                      disabled={!can("tenants.tariff")}
-                      onClick={() =>
-                        modal.confirm({
-                          title: "Сбросить модули к тарифу?",
-                          content:
-                            "Индивидуальные правки модулей удалятся, останутся модули тарифа.",
-                          okText: "Сбросить",
-                          okButtonProps: { danger: true },
-                          cancelText: "Отмена",
-                          onOk: () =>
-                            setModules.mutate(
-                              { id: t.id, modules: {} },
-                              {
-                                onSuccess: () => {
-                                  message.success("Сброшено к тарифу");
-                                  setModuleChecked(null);
-                                },
-                                onError: () =>
-                                  message.error("Не удалось сбросить"),
-                              },
-                            ),
-                        })
-                      }
-                    >
-                      Сбросить к тарифу
-                    </Button>
-                  </Space>
-                )}
-              </Space>
+              <Text strong>Опции (докуплено)</Text>
               <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
-                Итоговый набор разделов = тариф + индивидуальные правки. Отличия
-                от тарифа помечены.
-              </div>
-              <Space style={{ width: "100%", marginBottom: 6 }}>
-                <Input.Search
-                  allowClear
-                  size="small"
-                  placeholder="Поиск модуля"
-                  value={moduleSearch}
-                  onChange={(e) => setModuleSearch(e.target.value)}
-                  style={{ width: 200 }}
-                />
-                <Button size="small" onClick={() => setModuleExpanded(groupTreeKeys)}>
-                  Развернуть всё
-                </Button>
-                <Button size="small" onClick={() => setModuleExpanded([])}>
-                  Свернуть всё
-                </Button>
-              </Space>
-              <Tree
-                checkable
-                selectable={false}
-                disabled={!can("tenants.tariff")}
-                treeData={moduleTreeData}
-                expandedKeys={moduleExpandedKeys}
-                onExpand={(keys) => setModuleExpanded(keys as string[])}
-                checkedKeys={
-                  moduleChecked ??
-                  allSectionKeys.filter((k) => data.modules[k] !== false)
-                }
-                onCheck={(keys) => {
-                  const arr = (Array.isArray(keys) ? keys : keys.checked).map(
-                    String,
-                  );
-                  setModuleChecked(arr.filter((k) => !k.startsWith("grp:")));
-                }}
-              />
-            </div>
-
-            <div>
-              <Text strong>Аддоны (докуплено)</Text>
-              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
-                Прибавляются к лимитам: доп. сотрудник → +сотрудники, WABA/доп.
-                WhatsApp → +номера WhatsApp; AI-менеджер (1) → модуль AI. «до
-                дата» — предоплата на срок (1/3/6/12 мес): пока не истекла, в
-                продление тарифа не входит; истекла — воркер снимает.
+                Добавляются к лимитам тарифа: доп. сотрудник — +1 место,
+                WABA или доп. WhatsApp — +1 номер, AI-менеджер включает модуль AI.
+                «до дата» — опция оплачена заранее до этого дня, потом снимается сама.
               </div>
               <div
                 style={{
@@ -1476,14 +1309,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             </div>
           </Space>
 
-                  </>
-                ),
-              },
-              {
-                label: "Биллинг",
-                key: "billing",
-                children: (
-                  <>
+
+          <Divider titlePlacement="start">Оплата</Divider>
           {/* Биллинг (ручной) */}
           <Space wrap style={{ marginBottom: 8 }}>
             <Tag color={PAYMENT_COLOR[t.paymentStatus]}>
@@ -1599,8 +1426,196 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             )}
           />
 
+                  </>
+                ),
+              },
+              {
+                label: allSectionKeys.length
+                  ? `Модули · ${moduleOnCount}/${allSectionKeys.length}`
+                  : "Модули",
+                key: "modules",
+                children: (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Отрасль: привязка + применение пресета (перезапись override модулей). */}
+            <Divider titlePlacement="start">Отрасль</Divider>
+            {(() => {
+              const list = (industriesQ.data ?? []).filter((i) => i.isActive);
+              const currentId =
+                list.find((i) => i.slug === data.industry?.slug)?.id ?? null;
+              const selected = industryDraft ?? currentId;
+              const selectedName =
+                list.find((i) => i.id === selected)?.nameRu ?? "—";
+              const canEdit = can("tenants.tariff");
+              return (
+                <div>
+                  <Space.Compact style={{ width: "100%" }}>
+                    <Select
+                      style={{ width: "100%" }}
+                      loading={industriesQ.isLoading}
+                      placeholder="Не задана"
+                      value={selected ?? undefined}
+                      disabled={!canEdit}
+                      onChange={(v) => setIndustryDraft(v ?? null)}
+                      options={list.map((i) => ({
+                        value: i.id,
+                        label: i.nameRu,
+                      }))}
+                      allowClear
+                    />
+                    <Button
+                      disabled={!canEdit || selected === currentId}
+                      loading={setIndustry.isPending}
+                      onClick={() =>
+                        setIndustry.mutate(
+                          { id: t.id, industryId: selected },
+                          {
+                            onSuccess: () => {
+                              message.success("Отрасль обновлена");
+                              setIndustryDraft(null);
+                            },
+                            onError: () =>
+                              message.error("Не удалось сохранить отрасль"),
+                          },
+                        )
+                      }
+                    >
+                      Привязать
+                    </Button>
+                    <Button
+                      type="primary"
+                      ghost
+                      disabled={!canEdit || !selected}
+                      loading={applyPreset.isPending}
+                      onClick={() =>
+                        modal.confirm({
+                          title: "Применить пресет отрасли?",
+                          content: `Модули компании будут перезаписаны по пресету отрасли «${selectedName}» (термин клиента и склад — тоже). Воронка и данные не затрагиваются.`,
+                          okText: "Применить",
+                          cancelText: "Отмена",
+                          onOk: () =>
+                            applyPreset.mutate(
+                              { id: t.id, industryId: selected as string },
+                              {
+                                onSuccess: () => {
+                                  message.success("Пресет отрасли применён");
+                                  setIndustryDraft(null);
+                                  setModuleChecked(null);
+                                },
+                                onError: () =>
+                                  message.error("Не удалось применить пресет"),
+                              },
+                            ),
+                        })
+                      }
+                    >
+                      Применить пресет
+                    </Button>
+                  </Space.Compact>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>
+                    <Text type="secondary">
+                      «Применить пресет» перезапишет набор модулей по отрасли.
+                      «Привязать» — только сменит отрасль, модули не трогает.
+                    </Text>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div>
+              <Space
+                style={{
+                  width: "100%",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                }}
+              >
+                <Text strong>Модули компании</Text>
+                {overrideCount > 0 && (
+                  <Space size={8}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Изменено относительно тарифа: {overrideCount}
+                    </Text>
+                    <Button
+                      size="small"
+                      disabled={!can("tenants.tariff")}
+                      onClick={() =>
+                        modal.confirm({
+                          title: "Сбросить модули к тарифу?",
+                          content:
+                            "Индивидуальные правки модулей удалятся, останутся модули тарифа.",
+                          okText: "Сбросить",
+                          okButtonProps: { danger: true },
+                          cancelText: "Отмена",
+                          onOk: () =>
+                            setModules.mutate(
+                              { id: t.id, modules: {} },
+                              {
+                                onSuccess: () => {
+                                  message.success("Сброшено к тарифу");
+                                  setModuleChecked(null);
+                                },
+                                onError: () =>
+                                  message.error("Не удалось сбросить"),
+                              },
+                            ),
+                        })
+                      }
+                    >
+                      Сбросить к тарифу
+                    </Button>
+                  </Space>
+                )}
+              </Space>
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+                Итоговый набор разделов = тариф + индивидуальные правки. Отличия
+                от тарифа помечены.
+              </div>
+              <Space style={{ width: "100%", marginBottom: 6 }}>
+                <Input.Search
+                  allowClear
+                  size="small"
+                  placeholder="Поиск модуля"
+                  value={moduleSearch}
+                  onChange={(e) => setModuleSearch(e.target.value)}
+                  style={{ width: 200 }}
+                />
+                <Button size="small" onClick={() => setModuleExpanded(groupTreeKeys)}>
+                  Развернуть всё
+                </Button>
+                <Button size="small" onClick={() => setModuleExpanded([])}>
+                  Свернуть всё
+                </Button>
+              </Space>
+              <Tree
+                checkable
+                selectable={false}
+                disabled={!can("tenants.tariff")}
+                treeData={moduleTreeData}
+                expandedKeys={moduleExpandedKeys}
+                onExpand={(keys) => setModuleExpanded(keys as string[])}
+                checkedKeys={
+                  moduleChecked ??
+                  allSectionKeys.filter((k) => data.modules[k] !== false)
+                }
+                onCheck={(keys) => {
+                  const arr = (Array.isArray(keys) ? keys : keys.checked).map(
+                    String,
+                  );
+                  setModuleChecked(arr.filter((k) => !k.startsWith("grp:")));
+                }}
+              />
+            </div>
+
+                  </div>
+                ),
+              },
+              {
+                label: "История",
+                key: "history",
+                children: (
+                  <>
           {/* Журнал биллинга (авто): оплаты/продления/докупки/смена тарифа. */}
-          <Divider titlePlacement="start">Журнал биллинга</Divider>
+          <Divider titlePlacement="start">Оплаты и продления</Divider>
           <List
             size="small"
             locale={{ emptyText: "Событий биллинга ещё не было" }}
@@ -1680,14 +1695,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             )}
           />
 
-                  </>
-                ),
-              },
-              {
-                label: "Журнал",
-                key: "journal",
-                children: (
-                  <>
+
+          <Divider titlePlacement="start">Действия администраторов</Divider>
           {/* Журнал действий админа */}
           <Select
             size="small"
