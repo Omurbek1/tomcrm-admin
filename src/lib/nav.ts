@@ -7,6 +7,7 @@
 export type View =
   | "home"
   | "tenants"
+  | "subscriptions"
   | "analytics"
   | "tariffs"
   | "billing"
@@ -32,6 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Деньги",
     items: [
+      { key: "subscriptions", label: "Подписки", hint: "Сроки, продление, смена тарифа" },
       { key: "billing", label: "Биллинг", hint: "Счета, оплаты, вебхуки" },
       { key: "tariffs", label: "Тарифы", hint: "Цены, лимиты, опции" },
       { key: "analytics", label: "Аналитика", hint: "MRR, рост, отток" },

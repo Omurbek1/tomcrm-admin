@@ -54,6 +54,8 @@ import {
   useTenant,
   useBillingJournal,
   useTenantDataVolume,
+  useSetTenantCallLines,
+  useTenantCallLines,
 } from "../hooks";
 import type { TenantStatus } from "../types";
 import {
@@ -82,6 +84,74 @@ interface Props {
   tenantId: string | null;
   onClose: () => void;
 }
+
+
+/** Линии звонков компании: сколько звонков одновременно (часть подписки). */
+const CallLinesBlock = ({ tenantId }: { tenantId: string }) => {
+  const { message } = App.useApp();
+  const q = useTenantCallLines(tenantId);
+  const save = useSetTenantCallLines();
+  const [draft, setDraft] = useState<number | null | undefined>(undefined);
+  if (q.isError || !q.data) return null;
+  const d = q.data;
+  const value = draft === undefined ? d.limit : draft;
+  const editable = can("calls.manage");
+  const submit = (limit: number | null) =>
+    save.mutate(
+      { id: tenantId, limit },
+      {
+        onSuccess: () => {
+          setDraft(undefined);
+          message.success("Линии звонков сохранены");
+        },
+        onError: (e: unknown) =>
+          message.error(
+            (e as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message ?? "Не удалось сохранить",
+          ),
+      },
+    );
+  return (
+    <div>
+      <Text strong>Линии звонков</Text>
+      <div style={{ fontSize: 12, color: "var(--text-3)", margin: "2px 0 6px" }}>
+        Сколько звонков компания может вести одновременно. Сейчас:{" "}
+        <b>{d.effective}</b>
+        {d.limit == null ? " (по умолчанию платформы)" : ""}
+        {d.used != null ? ` · занято ${d.used}` : ""} · максимум платформы{" "}
+        {d.platformCap}.
+      </div>
+      <Space.Compact style={{ maxWidth: 360, width: "100%" }}>
+        <InputNumber<number>
+          min={1}
+          max={100}
+          style={{ width: "100%" }}
+          placeholder={`по умолчанию: ${d.defaultLimit}`}
+          disabled={!editable}
+          value={value ?? undefined}
+          onChange={(v) => setDraft(v ?? null)}
+        />
+        <Button
+          type="primary"
+          disabled={!editable || draft === undefined}
+          loading={save.isPending}
+          onClick={() => submit(draft ?? null)}
+        >
+          Сохранить
+        </Button>
+        {d.limit != null ? (
+          <Button
+            disabled={!editable}
+            onClick={() => submit(null)}
+            loading={save.isPending}
+          >
+            По умолчанию
+          </Button>
+        ) : null}
+      </Space.Compact>
+    </div>
+  );
+};
 
 export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { message, modal } = App.useApp();
@@ -1154,6 +1224,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   : "При превышении — только предупреждение, создавать можно."}
               </Text>
             </div>
+
+            <CallLinesBlock tenantId={t.id} />
 
             {/* Отрасль: привязка + применение пресета (перезапись override модулей). */}
             <Divider titlePlacement="start">Отрасль</Divider>
