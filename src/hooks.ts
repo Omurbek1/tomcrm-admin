@@ -608,6 +608,7 @@ export const useBulkExtend = () => {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tenants"] });
       void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
     },
   });
 };
@@ -1107,3 +1108,59 @@ export const usePlatformRecordingsStorage = () =>
       (await api.get("/api/platform/recordings/storage")).data,
     staleTime: 60_000,
   });
+
+// ── Звонки: общий выключатель платформы и линии компании ───────────────────
+
+export interface CallsSwitchView {
+  /** Итог: звонки выключены (переменная окружения ИЛИ админка). */
+  disabled: boolean;
+  adminDisabled: boolean;
+  /** Выключено переменной окружения — из админки не включить. */
+  envDisabled: boolean;
+}
+
+export const useCallsSwitch = () =>
+  useQuery<CallsSwitchView>({
+    queryKey: ["calls-switch"],
+    queryFn: async () => (await api.get("/api/platform/calls/switch")).data,
+    retry: false,
+  });
+
+export const useSetCallsSwitch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (disabled: boolean) =>
+      (await api.put("/api/platform/calls/switch", { disabled }))
+        .data as CallsSwitchView,
+    onSuccess: (d) => qc.setQueryData(["calls-switch"], d),
+  });
+};
+
+export interface TenantCallLines {
+  /** Своё значение компании; null — по умолчанию платформы. */
+  limit: number | null;
+  effective: number;
+  defaultLimit: number;
+  platformCap: number;
+  /** Сколько линий занято прямо сейчас (null — нет данных). */
+  used: number | null;
+}
+
+export const useTenantCallLines = (tenantId: string | null) =>
+  useQuery<TenantCallLines>({
+    queryKey: ["tenant-call-lines", tenantId],
+    enabled: !!tenantId,
+    retry: false,
+    queryFn: async () =>
+      (await api.get(`/api/platform/tenants/${tenantId}/call-lines`)).data,
+  });
+
+export const useSetTenantCallLines = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { id: string; limit: number | null }) =>
+      (await api.put(`/api/platform/tenants/${v.id}/call-lines`, { limit: v.limit }))
+        .data as TenantCallLines,
+    onSuccess: (d, v) => qc.setQueryData(["tenant-call-lines", v.id], d),
+  });
+};

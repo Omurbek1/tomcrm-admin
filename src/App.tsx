@@ -20,6 +20,7 @@ const page = <K extends string>(
 
 const PAGES: Record<Exclude<View, "home">, ReturnType<typeof page>> = {
   tenants: page(() => import("./pages/TenantsPage"), "TenantsPage"),
+  subscriptions: page(() => import("./pages/SubscriptionsPage"), "SubscriptionsPage"),
   analytics: page(() => import("./pages/AnalyticsPage"), "AnalyticsPage"),
   tariffs: page(() => import("./pages/TariffsPage"), "TariffsPage"),
   billing: page(() => import("./pages/BillingPage"), "BillingPage"),

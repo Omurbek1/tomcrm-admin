@@ -27,6 +27,8 @@ import {
   useSetConfig,
   useTariffs,
   useTenants,
+  useCallsSwitch,
+  useSetCallsSwitch,
 } from "../hooks";
 import type { Tariff } from "../types";
 import {
@@ -41,6 +43,54 @@ const DISCOUNT_PERIODS = PAYMENT_PERIODS.filter((m) => m > 1); // 3/6/12
 
 const fmtLimit = (v: number | null | undefined): string =>
   v === null || v === undefined ? "∞" : String(v);
+
+
+/** Общий выключатель звонков платформы — для всех компаний сразу. */
+const CallsSwitchCard = () => {
+  const { message, modal } = App.useApp();
+  const q = useCallsSwitch();
+  const set = useSetCallsSwitch();
+  if (q.isError || !q.data) return null;
+  const d = q.data;
+  const editable = can("calls.manage") && !d.envDisabled;
+  const toggle = (on: boolean) => {
+    const run = () =>
+      set.mutateAsync(!on).then(
+        () => void message.success(on ? "Звонки включены" : "Звонки выключены"),
+        () => void message.error("Не удалось переключить"),
+      );
+    if (on) return void run();
+    modal.confirm({
+      title: "Выключить звонки у всех компаний?",
+      content:
+        "Звонить и принимать звонки через CRM перестанут все компании сразу. Включить обратно можно здесь же.",
+      okText: "Выключить",
+      okButtonProps: { danger: true },
+      cancelText: "Отмена",
+      onOk: run,
+    });
+  };
+  return (
+    <Card size="small" style={{ marginBottom: 16 }} title="Звонки WhatsApp на платформе">
+      <Space wrap align="center">
+        <Switch
+          checked={!d.disabled}
+          disabled={!editable}
+          loading={set.isPending}
+          onChange={toggle}
+        />
+        <span style={{ fontWeight: 500 }}>
+          {d.disabled ? "Выключены у всех компаний" : "Включены"}
+        </span>
+        <span style={{ color: "var(--text-3)", fontSize: 13 }}>
+          {d.envDisabled
+            ? "Выключены настройкой сервера (WA_CALLS_DISABLED) — из админки не включить."
+            : "Аварийный выключатель: на случай сбоя или жалоб. Линии каждой компании — в её карточке → «Тариф и модули»."}
+        </span>
+      </Space>
+    </Card>
+  );
+};
 
 export const TariffsPage = () => {
   const { message } = App.useApp();
@@ -307,6 +357,8 @@ export const TariffsPage = () => {
           pagination={false}
         />
       </Card>
+      <CallsSwitchCard />
+
       <Card
         size="small"
         style={{ marginBottom: 16 }}

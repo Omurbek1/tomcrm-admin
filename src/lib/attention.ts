@@ -44,7 +44,7 @@ export const useAttention = () => {
     overageCount,
     /** Бейджи меню: сколько дел в разделе. */
     badges: {
-      tenants: (o?.overdue ?? 0) + (o?.trialsExpiringSoon ?? 0),
+      subscriptions: (o?.overdue ?? 0) + (o?.trialsExpiringSoon ?? 0),
       support: supportOpen,
       billing: unverifiedCount + stuckCount + overageCount,
     } as Partial<Record<string, number>>,
