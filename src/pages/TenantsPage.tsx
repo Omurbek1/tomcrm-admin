@@ -7,6 +7,7 @@ import {
   Input,
   Modal,
   Row,
+  Segmented,
   Select,
   Space,
   Table,
@@ -131,6 +132,35 @@ const readUrl = () => {
     includeDeleted: p.get("deleted") === "1",
   };
 };
+
+const companiesWord = (n: number) => {
+  const d = n % 10;
+  const h = n % 100;
+  return d === 1 && h !== 11
+    ? "компании"
+    : "компаниям";
+};
+
+/** Кого коснётся массовое действие — видно до нажатия. */
+const AffectedList = ({ rows }: { rows: TenantRow[] }) => (
+  <div className="affected">
+    <div className="affected-title">Затронет ({rows.length}):</div>
+    <ul>
+      {rows.slice(0, 50).map((r) => (
+        <li key={r.id}>
+          {r.name}
+          <span className="affected-sub">
+            {r.tariffName ?? "без тарифа"}
+            {r.paidUntil
+              ? ` · до ${new Date(r.paidUntil).toLocaleDateString("ru-RU")}`
+              : ""}
+          </span>
+        </li>
+      ))}
+      {rows.length > 50 ? <li className="affected-sub">…и ещё {rows.length - 50}</li> : null}
+    </ul>
+  </div>
+);
 
 export const TenantsPage = () => {
   const init = readUrl();
@@ -661,10 +691,12 @@ export const TenantsPage = () => {
 
       <Modal
         open={bulkTariffOpen}
-        title={`Сменить тариф у ${selected.length} компаний`}
+        title={`Сменить тариф: ${selected.length}`}
         onCancel={() => setBulkTariffOpen(false)}
         onOk={runBulkTariff}
-        okText="Применить"
+        okText="Сменить тариф"
+        okButtonProps={{ disabled: !bulkTariffId }}
+        destroyOnHidden
         cancelText="Отмена"
         confirmLoading={bulkTariff.isPending}
       >
@@ -677,40 +709,45 @@ export const TenantsPage = () => {
             .filter((t) => !t.archived)
             .map((t) => ({ value: t.id, label: `${t.name} (${t.code})` }))}
         />
+        <AffectedList rows={selectedRows} />
       </Modal>
 
       <Modal
         open={bulkExtendOpen}
-        title={`Продлить подписку ${selected.length} компаниям`}
+        title={`Продлить подписку ${selected.length} ${companiesWord(selected.length)}`}
         onCancel={() => setBulkExtendOpen(false)}
         onOk={runBulkExtend}
-        okText="Продлить"
+        okText={`Продлить на ${bulkExtendMonths} мес.`}
         cancelText="Отмена"
         confirmLoading={bulkExtend.isPending}
+        destroyOnHidden
       >
         <div style={{ marginBottom: 8 }}>
           Каждой выбранной компании продлим «оплачено до» на выбранный период
           (ручная отметка оплаты, статус станет «активна»).
         </div>
-        <Select
-          style={{ width: "100%" }}
+        <Segmented
+          block
           value={bulkExtendMonths}
-          onChange={setBulkExtendMonths}
+          onChange={(v) => setBulkExtendMonths(Number(v))}
           options={[1, 3, 6, 12].map((m) => ({
             value: m,
             label: `${m} мес.`,
           }))}
         />
+        <AffectedList rows={selectedRows} />
       </Modal>
 
       <Modal
         open={bulkNotifyOpen}
-        title={`Отправить уведомление ${selected.length} компаниям`}
+        title={`Отправить уведомление ${selected.length} ${companiesWord(selected.length)}`}
         onCancel={() => setBulkNotifyOpen(false)}
         onOk={runBulkNotify}
         okText="Отправить"
+        okButtonProps={{ disabled: !bulkType }}
         cancelText="Отмена"
         confirmLoading={bulkNotify.isPending}
+        destroyOnHidden
       >
         <Select
           style={{ width: "100%" }}
@@ -719,6 +756,7 @@ export const TenantsPage = () => {
           onChange={setBulkType}
           options={REMINDER_TYPES}
         />
+        <AffectedList rows={selectedRows} />
       </Modal>
 
       <TenantDrawer tenantId={openId} onClose={() => setOpenId(null)} />

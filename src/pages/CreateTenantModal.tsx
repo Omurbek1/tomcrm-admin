@@ -1,5 +1,6 @@
 import {
   App,
+  Button,
   Checkbox,
   Form,
   Input,
@@ -12,6 +13,8 @@ import { useRef, useState } from "react";
 
 import { checkSlug, useCreateTenant, useTariffs } from "../hooks";
 import type { CreateTenantResult } from "../hooks";
+import { CRM_URL } from "../api/client";
+import { openTenant } from "../lib/nav";
 
 const { Text, Paragraph } = Typography;
 
@@ -80,6 +83,25 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
     onClose();
   };
 
+  // Всё, что нужно владельцу, — одним сообщением (вставить в WhatsApp).
+  const ownerText = (r: CreateTenantResult) =>
+    [
+      `Доступ в TomStore CRM для «${r.tenant.name}»`,
+      `Вход: ${CRM_URL}`,
+      `Логин: ${r.login}`,
+      `Временный пароль: ${r.tempPassword}`,
+      `Пробный период до ${new Date(r.trialEndsAt).toLocaleDateString("ru-RU")}`,
+      "После входа смените пароль.",
+    ].join("\n");
+  const copyForOwner = async (r: CreateTenantResult) => {
+    try {
+      await navigator.clipboard.writeText(ownerText(r));
+      message.success("Скопировано — отправьте владельцу");
+    } catch {
+      message.error("Не удалось скопировать — выделите текст вручную");
+    }
+  };
+
   const slugHelp =
     slugState === "checking"
       ? "Проверяем…"
@@ -96,8 +118,10 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
       onCancel={close}
       onOk={result ? close : () => form.submit()}
       okText={result ? "Готово" : "Создать"}
+      okButtonProps={{ disabled: !result && slugState === "taken" }}
       cancelButtonProps={result ? { style: { display: "none" } } : undefined}
       confirmLoading={createTenant.isPending}
+      destroyOnHidden
       width={560}
     >
       {result ? (
@@ -119,8 +143,23 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
             <Text strong>Триал до:</Text>{" "}
             {new Date(result.trialEndsAt).toLocaleDateString("ru-RU")}
           </Paragraph>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <Button type="primary" onClick={() => void copyForOwner(result)}>
+              Скопировать для владельца
+            </Button>
+            <Button
+              onClick={() => {
+                const slug = result.tenant.slug;
+                close();
+                openTenant(slug);
+              }}
+            >
+              Открыть карточку
+            </Button>
+          </div>
           <Text type="secondary">
-            Попросите владельца сменить пароль после первого входа.
+            Пароль показывается один раз. Владелец сменит его после первого
+            входа.
           </Text>
         </div>
       ) : (
@@ -135,9 +174,14 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
             label="Название компании"
             rules={[{ required: true, min: 2, message: "Минимум 2 символа" }]}
           >
-            <Input placeholder="ОсОО «Ромашка»" />
+            <Input autoFocus placeholder="ОсОО «Ромашка»" />
           </Form.Item>
-          <Form.Item name="slug" label="Slug (адрес)" help={slugHelp}>
+          <Form.Item
+            name="slug"
+            label="Адрес компании"
+            help={slugHelp}
+            validateStatus={slugState === "taken" ? "error" : slugState === "ok" ? "success" : undefined}
+          >
             <Input
               placeholder="romashka"
               onChange={(e) => onSlugChange(e.target.value)}
@@ -165,11 +209,11 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
           >
             <Input />
           </Form.Item>
-          <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ display: "flex", gap: "0 12px", flexWrap: "wrap" }}>
             <Form.Item
               name="ownerPhone"
               label="Телефон"
-              style={{ flex: 1 }}
+              style={{ flex: "1 1 200px" }}
               rules={[{ required: true, message: "Укажите телефон" }]}
             >
               <Input placeholder="+996 ..." />
@@ -177,7 +221,7 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
             <Form.Item
               name="ownerEmail"
               label="Email"
-              style={{ flex: 1 }}
+              style={{ flex: "1 1 200px" }}
               rules={[
                 { required: true, type: "email", message: "Корректный email" },
               ]}
