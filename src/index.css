@@ -1261,3 +1261,15 @@ kbd {
     display: none;
   }
 }
+.form-section {
+  margin: 4px 0 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.ant-form .form-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}

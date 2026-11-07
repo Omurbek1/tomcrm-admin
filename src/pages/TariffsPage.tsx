@@ -1,7 +1,9 @@
 import {
   App,
+  Alert,
   Button,
   Card,
+  Dropdown,
   Form,
   Input,
   InputNumber,
@@ -38,6 +40,18 @@ import {
   PAYMENT_PERIODS,
 } from "../types";
 import { ResponsiveTable } from "../components/MobileCards";
+
+/** Код тарифа из названия: латиница, цифры, дефис («Бизнес Плюс» → biznes-plyus). */
+const TR: Record<string, string> = { а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"h",ц:"c",ч:"ch",ш:"sh",щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya",ү:"u",ө:"o",ң:"n" };
+const slugify = (v: string) =>
+  v
+    .toLowerCase()
+    .split("")
+    .map((c) => TR[c] ?? c)
+    .join("")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
 
 const DISCOUNT_PERIODS = PAYMENT_PERIODS.filter((m) => m > 1); // 3/6/12
 
@@ -126,6 +140,8 @@ export const TariffsPage = () => {
   const [editing, setEditing] = useState<Tariff | null>(null); // null = создание
   // Включённые разделы (листья дерева). Раздел вкл, если не выключен явно.
   const [moduleChecked, setModuleChecked] = useState<string[]>([]);
+  // Код при создании заполняется из названия, пока его не правили руками.
+  const [codeTouched, setCodeTouched] = useState(false);
   const [form] = Form.useForm();
   const priceW: number | undefined = Form.useWatch("price", form);
   const periodW: string | undefined = Form.useWatch("period", form);
@@ -143,9 +159,15 @@ export const TariffsPage = () => {
     setTrialGraceDays(config.trialGraceDays ?? 0);
   }, [config]);
 
-  const openCreate = () => {
+  const openCreate = (from?: Tariff) => {
     setEditing(null);
+    setCodeTouched(false);
     form.resetFields();
+    if (from) {
+      fillFrom(from, true);
+      setOpen(true);
+      return;
+    }
     form.setFieldsValue({
       code: "",
       name: "",
@@ -167,16 +189,16 @@ export const TariffsPage = () => {
     setOpen(true);
   };
 
-  const openEdit = (t: Tariff) => {
-    setEditing(t);
+  // Заполнить форму значениями тарифа (правка или «копия»).
+  const fillFrom = (t: Tariff, asCopy: boolean) => {
     form.setFieldsValue({
-      code: t.code,
-      name: t.name,
+      code: asCopy ? "" : t.code,
+      name: asCopy ? `${t.name} (копия)` : t.name,
       price: Number(t.price),
       currency: t.currency,
       period: t.period,
       isPublic: t.isPublic,
-      archived: t.archived,
+      archived: asCopy ? false : t.archived,
       ...Object.fromEntries(
         TARIFF_LIMIT_META.map((l) => [`limit_${l.key}`, t.limits?.[l.key] ?? null]),
       ),
@@ -197,6 +219,12 @@ export const TariffsPage = () => {
         flagKeys.has(k) ? t.modules?.[k] === true : t.modules?.[k] !== false,
       ),
     );
+  };
+
+  const openEdit = (t: Tariff) => {
+    setEditing(t);
+    setCodeTouched(true);
+    fillFrom(t, false);
     setOpen(true);
   };
 
@@ -335,13 +363,22 @@ export const TariffsPage = () => {
         title="Тарифы"
         style={{ marginBottom: 16 }}
         extra={
-          <Button
+          <Dropdown.Button
             type="primary"
             disabled={!can("tariffs.edit")}
-            onClick={openCreate}
+            onClick={() => openCreate()}
+            menu={{
+              items: (tariffs ?? [])
+                .filter((t) => !t.archived)
+                .map((t) => ({
+                  key: t.id,
+                  label: `Копия «${t.name}»`,
+                  onClick: () => openCreate(t),
+                })),
+            }}
           >
             Создать тариф
-          </Button>
+          </Dropdown.Button>
         }
       >
         <div style={{ color: "#64748b", fontSize: 13, marginBottom: 10 }}>
@@ -355,6 +392,11 @@ export const TariffsPage = () => {
           columns={columns}
           scroll={{ x: "max-content" }}
           pagination={false}
+          onRow={(t) =>
+            can("tariffs.edit")
+              ? { onClick: () => openEdit(t), style: { cursor: "pointer" } }
+              : {}
+          }
         />
       </Card>
       <CallsSwitchCard />
@@ -468,6 +510,14 @@ export const TariffsPage = () => {
         <Form form={form} layout="vertical" onFinish={submit}>
           {/* forceRender: поля всех вкладок зарегистрированы — сохраняются,
               даже если вкладку не открывали. */}
+          {editing && (tenantsByTariff.get(editing.id) ?? 0) > 0 ? (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 12 }}
+              title={`На тарифе ${tenantsByTariff.get(editing.id)} комп. — цена, лимиты и модули изменятся у них сразу после сохранения.`}
+            />
+          ) : null}
           <Tabs
             items={[
               {
@@ -488,7 +538,10 @@ export const TariffsPage = () => {
                             { pattern: /^[a-z0-9_-]+$/, message: "a-z, 0-9, - _" },
                           ]}
                         >
-                          <Input placeholder="team" autoFocus />
+                          <Input
+                            placeholder="team"
+                            onChange={() => setCodeTouched(true)}
+                          />
                         </Form.Item>
                       )}
                       <Form.Item
@@ -497,7 +550,13 @@ export const TariffsPage = () => {
                         style={{ flex: "1 1 220px" }}
                         rules={[{ required: true, message: "Укажите название" }]}
                       >
-                        <Input autoFocus={!!editing} />
+                        <Input
+                          autoFocus
+                          onChange={(e) => {
+                            if (!editing && !codeTouched)
+                              form.setFieldValue("code", slugify(e.target.value));
+                          }}
+                        />
                       </Form.Item>
                     </div>
                     <div className="form-row">

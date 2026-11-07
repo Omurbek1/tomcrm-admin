@@ -6,12 +6,19 @@ import {
   Input,
   InputNumber,
   Modal,
+  Segmented,
   Select,
   Typography,
 } from "antd";
 import { useRef, useState } from "react";
 
-import { checkSlug, useCreateTenant, useTariffs } from "../hooks";
+import {
+  checkSlug,
+  useApplyIndustryPreset,
+  useCreateTenant,
+  useIndustries,
+  useTariffs,
+} from "../hooks";
 import type { CreateTenantResult } from "../hooks";
 import { CRM_URL } from "../api/client";
 import { openTenant } from "../lib/nav";
@@ -29,7 +36,10 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
   const { message } = App.useApp();
   const { data: tariffs } = useTariffs();
   const createTenant = useCreateTenant();
+  const { data: industries } = useIndustries();
+  const applyIndustry = useApplyIndustryPreset();
   const [form] = Form.useForm();
+  const trialPreset = Form.useWatch("trialPreset", form) as string | undefined;
   const [slugState, setSlugState] = useState<SlugState>("");
   const [result, setResult] = useState<CreateTenantResult | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -56,16 +66,32 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
     ownerPhone: string;
     ownerEmail: string;
     trialDays?: number;
+    trialPreset?: string;
+    industryId?: string;
     isTest?: boolean;
   }) => {
     if (v.slug && slugState === "taken") {
-      message.error("Slug занят — выберите другой");
+      message.error("Адрес занят — выберите другой");
       return;
     }
-    createTenant.mutate(v, {
+    const { industryId, trialPreset: tp, ...rest } = v;
+    const trialDays = tp === "custom" || tp == null ? v.trialDays : Number(tp);
+    createTenant.mutate({ ...rest, trialDays }, {
       onSuccess: (r) => {
         setResult(r);
         message.success("Компания создана");
+        // Отрасль: сервер при создании её не принимает — привязываем сразу
+        // после и ставим набор модулей отрасли (для новой компании — то, что нужно).
+        if (industryId)
+          applyIndustry.mutate(
+            { id: r.tenant.id, industryId },
+            {
+              onError: () =>
+                message.warning(
+                  "Компания создана, но отрасль не применилась — задайте в карточке → «Модули»",
+                ),
+            },
+          );
       },
       onError: (e: unknown) => {
         const msg =
@@ -106,10 +132,10 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
     slugState === "checking"
       ? "Проверяем…"
       : slugState === "ok"
-        ? "Свободен ✓"
+        ? "Свободен"
         : slugState === "taken"
-          ? "Занят ✗"
-          : "Оставьте пустым — сгенерируем из названия";
+          ? "Занят — выберите другой"
+          : "Можно не заполнять — сделаем из названия";
 
   return (
     <Modal
@@ -167,11 +193,13 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
           form={form}
           layout="vertical"
           onFinish={submit}
-          initialValues={{ trialDays: 14 }}
+          initialValues={{ trialPreset: "14", trialDays: 14 }}
+          requiredMark={false}
         >
+          <div className="form-section">Компания</div>
           <Form.Item
             name="companyName"
-            label="Название компании"
+            label="Название"
             rules={[{ required: true, min: 2, message: "Минимум 2 символа" }]}
           >
             <Input autoFocus placeholder="ОсОО «Ромашка»" />
@@ -180,60 +208,91 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
             name="slug"
             label="Адрес компании"
             help={slugHelp}
-            validateStatus={slugState === "taken" ? "error" : slugState === "ok" ? "success" : undefined}
+            validateStatus={
+              slugState === "taken" ? "error" : slugState === "ok" ? "success" : undefined
+            }
           >
             <Input
               placeholder="romashka"
+              autoComplete="off"
               onChange={(e) => onSlugChange(e.target.value)}
-              status={slugState === "taken" ? "error" : undefined}
             />
           </Form.Item>
-          <Form.Item name="tariffId" label="Тариф">
-            <Select
-              allowClear
-              placeholder="Триальный по умолчанию"
-              options={(tariffs ?? [])
-                .filter((tf) => !tf.archived)
-                .map((tf) => ({
-                  value: tf.id,
-                  label: `${tf.name} (${tf.code})`,
-                }))}
-            />
-          </Form.Item>
+          <div className="form-row">
+            <Form.Item name="industryId" label="Отрасль" style={{ flex: "1 1 200px" }}>
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder="Без отрасли"
+                options={(industries ?? [])
+                  .filter((i) => i.isActive)
+                  .map((i) => ({ value: i.id, label: i.nameRu }))}
+              />
+            </Form.Item>
+            <Form.Item name="tariffId" label="Тариф" style={{ flex: "1 1 200px" }}>
+              <Select
+                allowClear
+                placeholder="Триальный по умолчанию"
+                options={(tariffs ?? [])
+                  .filter((tf) => !tf.archived)
+                  .map((tf) => ({
+                    value: tf.id,
+                    label: `${tf.name} · ${Number(tf.price).toLocaleString("ru-RU")} ${tf.currency === "KGS" ? "сом" : tf.currency}/${tf.period === "year" ? "год" : "мес"}`,
+                  }))}
+              />
+            </Form.Item>
+          </div>
 
-          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>Владелец</div>
+          <div className="form-section">Владелец</div>
           <Form.Item
             name="ownerName"
             label="Имя"
             rules={[{ required: true, message: "Укажите имя владельца" }]}
           >
-            <Input />
+            <Input autoComplete="off" />
           </Form.Item>
-          <div style={{ display: "flex", gap: "0 12px", flexWrap: "wrap" }}>
+          <div className="form-row">
             <Form.Item
               name="ownerPhone"
               label="Телефон"
               style={{ flex: "1 1 200px" }}
               rules={[{ required: true, message: "Укажите телефон" }]}
             >
-              <Input placeholder="+996 ..." />
+              <Input placeholder="+996 ..." inputMode="tel" autoComplete="off" />
             </Form.Item>
             <Form.Item
               name="ownerEmail"
-              label="Email"
+              label="Email (логин для входа)"
               style={{ flex: "1 1 200px" }}
-              rules={[
-                { required: true, type: "email", message: "Корректный email" },
-              ]}
+              rules={[{ required: true, type: "email", message: "Корректный email" }]}
             >
-              <Input placeholder="owner@company.kg" />
+              <Input placeholder="owner@company.kg" inputMode="email" autoComplete="off" />
             </Form.Item>
           </div>
-          <Form.Item name="trialDays" label="Длина триала (дней)">
-            <InputNumber min={0} max={3650} style={{ width: "100%" }} />
+
+          <div className="form-section">Пробный период</div>
+          <Form.Item name="trialPreset" style={{ marginBottom: 8 }}>
+            <Segmented
+              block
+              options={[
+                { value: "7", label: "7 дн." },
+                { value: "14", label: "14 дн." },
+                { value: "30", label: "30 дн." },
+                { value: "custom", label: "Свой срок" },
+              ]}
+            />
           </Form.Item>
-          <Form.Item name="isTest" valuePropName="checked">
-            <Checkbox>Тестовая компания (не в MRR/конверсии/аналитике)</Checkbox>
+          {trialPreset === "custom" ? (
+            <Form.Item
+              name="trialDays"
+              rules={[{ required: true, message: "Сколько дней" }]}
+            >
+              <InputNumber min={0} max={3650} style={{ width: "100%" }} suffix="дн." />
+            </Form.Item>
+          ) : null}
+          <Form.Item name="isTest" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>Тестовая — не попадёт в выручку, конверсию и аналитику</Checkbox>
           </Form.Item>
         </Form>
       )}
