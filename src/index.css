@@ -613,3 +613,73 @@ kbd {
   background: #fdecec;
   color: #b42318;
 }
+
+/* ── Полосы с подписями (Аналитика) ──────────────────────────────────────── */
+.bars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 100%;
+  overflow-y: auto;
+}
+.bars li + li {
+  margin-top: 6px;
+}
+.bars-row {
+  display: block;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.bars-row:not(:disabled) {
+  cursor: pointer;
+}
+.bars-row:not(:disabled):hover {
+  background: #f6f9fd;
+}
+.bars-row:focus-visible {
+  outline: 2px solid #2a78d6;
+}
+.bars-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.bars-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #334155;
+}
+.bars-value {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.bars-note {
+  display: inline-block;
+  min-width: 56px;
+  margin-left: 8px;
+  text-align: right;
+  font-weight: 400;
+  color: #64748b;
+}
+.bars-track {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: #eef1f5;
+}
+.bars-fill {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+}
