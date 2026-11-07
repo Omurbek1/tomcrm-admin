@@ -23,6 +23,7 @@ import { useMemo, useState } from "react";
 
 import { can } from "../api/client";
 import { PageHeader, StatTile } from "../components/viz";
+import { openTenant } from "../lib/nav";
 import { SERIES } from "../lib/chartTheme";
 import {
   useBillingHealth,
@@ -41,10 +42,20 @@ import {
 const { Text } = Typography;
 
 const money = (v: string | number, currency = "KGS") =>
-  `${Number(v).toLocaleString("ru-RU")} ${currency}`;
+  `${Number(v).toLocaleString("ru-RU")} ${currency === "KGS" ? "сом" : currency}`;
+
+const som = (v: number) => `${Math.round(v).toLocaleString("ru-RU")} сом`;
 
 const date = (v: string | null) =>
-  v ? new Date(v).toLocaleString("ru-RU") : "—";
+  v
+    ? new Date(v).toLocaleString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
 
 const STATUS: Record<
   BillingInvoiceRow["status"],
@@ -59,6 +70,28 @@ const STATUS: Record<
 };
 
 const PERIODS = [1, 3, 6, 12];
+
+/** Название компании — ссылкой в её карточку. */
+const TenantLink = ({ id, name }: { id: string; name: string | null }) => (
+  <Button
+    type="link"
+    size="small"
+    style={{ padding: 0, height: "auto" }}
+    onClick={() => openTenant(id)}
+  >
+    {name || "Без названия"}
+  </Button>
+);
+
+const plural = (n: number, one: string, few: string, many: string) => {
+  const d = n % 10;
+  const h = n % 100;
+  return d === 1 && h !== 11
+    ? one
+    : d >= 2 && d <= 4 && (h < 12 || h > 14)
+      ? few
+      : many;
+};
 
 export const BillingPage = () => {
   const { message } = App.useApp();
@@ -86,6 +119,27 @@ export const BillingPage = () => {
   const editable = can("billing.edit");
   const rows = useMemo(() => invoices || [], [invoices]);
 
+  // Деньги по месяцу оплаты (paidAt), только KGS.
+  const received = useMemo(() => {
+    const now = new Date();
+    const cur = `${now.getFullYear()}-${now.getMonth()}`;
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prev = `${prevDate.getFullYear()}-${prevDate.getMonth()}`;
+    const r = { cur: 0, curN: 0, prev: 0, prevN: 0 };
+    for (const i of rows) {
+      if (i.status !== "paid" || !i.paidAt || i.currency !== "KGS") continue;
+      const d = new Date(i.paidAt);
+      const k = `${d.getFullYear()}-${d.getMonth()}`;
+      if (k === cur) {
+        r.cur += Number(i.amount) || 0;
+        r.curN += 1;
+      } else if (k === prev) {
+        r.prev += Number(i.amount) || 0;
+        r.prevN += 1;
+      }
+    }
+    return r;
+  }, [rows]);
   const counts = useMemo(() => {
     const c = { total: rows.length, paid: 0, pending: 0, failed: 0 };
     for (const r of rows) {
@@ -164,12 +218,12 @@ export const BillingPage = () => {
   };
 
   const columns: ColumnsType<BillingInvoiceRow> = [
-    { title: "Дата", dataIndex: "createdAt", key: "createdAt", render: date, width: 150 },
+    { title: "Дата", dataIndex: "createdAt", key: "createdAt", render: date, width: 130 },
     {
       title: "Компания",
       dataIndex: "tenantName",
       key: "tenantName",
-      render: (v: string | null) => v || <Text type="secondary">—</Text>,
+      render: (v: string | null, r) => <TenantLink id={r.tenantId} name={v} />,
       ellipsis: true,
     },
     {
@@ -213,7 +267,7 @@ export const BillingPage = () => {
       title: "Статус",
       dataIndex: "status",
       key: "status",
-      width: 110,
+      width: 190,
       render: (v: BillingInvoiceRow["status"], r) => {
         const m = STATUS[v] ?? STATUS.draft;
         return (
@@ -337,7 +391,7 @@ export const BillingPage = () => {
               {
                 title: "Компания",
                 dataIndex: "tenantName",
-                render: (v, r) => v || r.tenantId,
+                render: (v: string | null, r) => <TenantLink id={r.tenantId} name={v} />,
               },
               {
                 title: "Опция",
@@ -410,8 +464,12 @@ export const BillingPage = () => {
                 title: "Компания",
                 dataIndex: "tenantName",
                 key: "tenantName",
-                render: (v: string | null) =>
-                  v || <Text type="secondary">—</Text>,
+                render: (v: string | null, r) =>
+                  r.tenantId ? (
+                    <TenantLink id={r.tenantId} name={v} />
+                  ) : (
+                    v || <Text type="secondary">—</Text>
+                  ),
                 ellipsis: true,
               },
               {
@@ -483,27 +541,43 @@ export const BillingPage = () => {
         </Card>
       )}
 
-      {/* Сводка — единые KPI-плитки */}
+      {/* Сводка: деньги, а не число счетов. */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={6}>
           <StatTile
-            label="Всего счетов"
-            value={counts.total}
+            label="Получено в этом месяце"
+            value={som(received.cur)}
+            hint={`${received.curN} ${plural(received.curN, "оплата", "оплаты", "оплат")}`}
+            accent={SERIES.aqua}
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatTile
+            label="За прошлый месяц"
+            value={som(received.prev)}
+            hint={`${received.prevN} ${plural(received.prevN, "оплата", "оплаты", "оплат")}`}
             accent={SERIES.blue}
           />
         </Col>
         <Col xs={12} sm={6}>
-          <StatTile label="Оплачено" value={counts.paid} accent={SERIES.aqua} />
-        </Col>
-        <Col xs={12} sm={6}>
           <StatTile
-            label="Ожидают"
+            label="Ждут оплаты"
             value={counts.pending}
+            hint="счёт выставлен, денег нет"
             accent={SERIES.orange}
+            onClick={() => setStatusF("pending")}
+            active={statusF === "pending"}
           />
         </Col>
         <Col xs={12} sm={6}>
-          <StatTile label="Ошибки" value={counts.failed} accent={SERIES.red} />
+          <StatTile
+            label="Ошибки оплаты"
+            value={counts.failed}
+            hint="нажмите — показать"
+            accent={SERIES.red}
+            onClick={() => setStatusF("failed")}
+            active={statusF === "failed"}
+          />
         </Col>
       </Row>
 
@@ -513,7 +587,7 @@ export const BillingPage = () => {
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          title={`${pendingFinik.length} счёт(ов) Finik ожидают проведения`}
+          title={`${pendingFinik.length} ${plural(pendingFinik.length, "счёт", "счёта", "счетов")} Finik ${pendingFinik.length === 1 ? "ожидает" : "ожидают"} проведения`}
           description="Оплата могла пройти, но вебхук ещё не зачислил её (например, не задан публичный ключ Finik). Проверьте оплату и нажмите «Провести» в строке счёта."
           action={
             statusF !== "pending" || providerF !== "finik" ? (

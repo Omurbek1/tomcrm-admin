@@ -82,3 +82,7 @@ export const navigate = (view: View, params?: Record<string, string>): void => {
     window.history.pushState(null, "", next);
   window.dispatchEvent(new Event(NAV_EVENT));
 };
+
+/** Открыть карточку компании (по slug или id) — из любого раздела. */
+export const openTenant = (slugOrId: string): void =>
+  navigate("tenants", { id: slugOrId });
