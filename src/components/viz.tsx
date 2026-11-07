@@ -36,8 +36,8 @@ export const PageHeader = ({
 );
 
 const CARD: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #eef1f5",
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
   borderRadius: 12,
   padding: "16px 18px",
 };
@@ -75,7 +75,7 @@ export const StatTile = ({
         ...CARD,
         height: "100%",
         cursor: onClick ? "pointer" : "default",
-        borderColor: active ? accent : "#eef1f5",
+        borderColor: active ? accent : "var(--border)",
         boxShadow: active ? `0 0 0 1px ${accent}` : "none",
         transition: "border-color .15s, box-shadow .15s",
       }}

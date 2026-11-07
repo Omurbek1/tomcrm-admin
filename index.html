@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <title>TomStore — Панель платформы</title>
+    <script>
+      // Тема до загрузки приложения — без вспышки белого экрана.
+      (function () {
+        try {
+          var m = localStorage.getItem("tomstore_platform_theme") || "light";
+          if (m === "system")
+            m = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          document.documentElement.dataset.theme = m;
+          document.documentElement.style.colorScheme = m === "light" ? "light" : "dark";
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -18,6 +18,7 @@ import { Badge, Button, Drawer, Grid, Tooltip } from "antd";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useAttention } from "../lib/attention";
+import { setMode, useTheme, type ThemeMode } from "../lib/theme";
 import { NAV_GROUPS, navigate, viewLabel, type View } from "../lib/nav";
 import { CommandPalette } from "./CommandPalette";
 
@@ -33,6 +34,35 @@ const ICON: Record<View, ReactNode> = {
   integrations: <ApiOutlined />,
   audit: <AuditOutlined />,
   admins: <SafetyOutlined />,
+};
+
+const THEMES: Array<{ key: ThemeMode; label: string; title: string }> = [
+  { key: "light", label: "Светлая", title: "Светлая тема" },
+  { key: "dark", label: "Тёмная", title: "Тёмная тема (графит)" },
+  { key: "black", label: "Чёрная", title: "Чёрная тема — бережёт заряд на OLED-экранах" },
+  { key: "system", label: "Авто", title: "Как в системе телефона или компьютера" },
+];
+
+/** Переключатель темы — внизу меню (и на телефоне в выезжающем меню). */
+const ThemeSwitch = () => {
+  const { mode } = useTheme();
+  return (
+    <div className="theme-switch" role="radiogroup" aria-label="Тема">
+      {THEMES.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          role="radio"
+          aria-checked={mode === t.key}
+          title={t.title}
+          className={`theme-opt${mode === t.key ? " is-on" : ""}`}
+          onClick={() => setMode(t.key)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
 };
 
 const isMac =
@@ -104,6 +134,10 @@ export const AppShell = ({
           })}
         </div>
       ))}
+      <div className="shell-group">
+        <div className="shell-group-title">Тема</div>
+        <ThemeSwitch />
+      </div>
     </nav>
   );
 

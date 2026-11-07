@@ -45,7 +45,7 @@ export const STATUS_LABEL: Record<string, string> = {
 
 /** Рецессивные оси/сетка (не спорят с данными) и чернильные токены текста. */
 export const AXIS_INK = "#94a3b8";
-export const GRID_INK = "#eef1f5";
+export const GRID_INK = "var(--chart-grid)";
 export const TEXT_MUTED = "#64748b";
 
 /** Число с разделением тысяч ПРОБЕЛАМИ (2 500 000) — обязательное правило проекта. */
