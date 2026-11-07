@@ -110,6 +110,10 @@ export const AdminsPage = () => {
     );
   };
 
+  const manage = can("admins.manage");
+  // Активные админы без 2FA — главный риск доступа к панели всех компаний.
+  const no2fa = (admins ?? []).filter((a) => a.isActive && !a.totpEnabled);
+
   const columns: ColumnsType<AdminRow> = [
     {
       title: "Логин",
@@ -117,6 +121,11 @@ export const AdminsPage = () => {
       render: (v: string, r) => (
         <span>
           <b>{v}</b>
+          {me?.id === r.id && (
+            <Tag color="blue" style={{ marginLeft: 8 }}>
+              вы
+            </Tag>
+          )}
           {r.mustChangePassword && (
             <Tag color="orange" style={{ marginLeft: 8 }}>
               сменить пароль
@@ -144,12 +153,28 @@ export const AdminsPage = () => {
         v ? <Tag color="green">вкл</Tag> : <Tag>выкл</Tag>,
     },
     {
+      title: "Последний вход",
+      dataIndex: "lastLoginAt",
+      width: 140,
+      render: (v: string | null) => {
+        if (!v) return <Text type="secondary">не входил</Text>;
+        const days = Math.floor((Date.now() - new Date(v).getTime()) / 86_400_000);
+        return (
+          <Text type={days > 30 ? "danger" : undefined}>
+            {new Date(v).toLocaleDateString("ru-RU")}
+            {days > 30 ? ` · ${days} дн. назад` : ""}
+          </Text>
+        );
+      },
+    },
+    {
       title: "Активен",
       dataIndex: "isActive",
       width: 90,
       render: (v: boolean, r) => (
         <Switch
           checked={v}
+          disabled={!manage || me?.id === r.id}
           onChange={(checked) =>
             setActive.mutate(
               { id: r.id, isActive: checked },
@@ -163,7 +188,8 @@ export const AdminsPage = () => {
     {
       title: "",
       width: 260,
-      render: (_v, r) => (
+      render: (_v, r) =>
+        !manage ? null : (
         <Space>
           <Button
             size="small"
@@ -178,6 +204,7 @@ export const AdminsPage = () => {
             Пароль
           </Button>
           <Popconfirm
+            disabled={me?.id === r.id}
             title="Удалить админа?"
             okText="Удалить"
             cancelText="Отмена"
@@ -188,7 +215,7 @@ export const AdminsPage = () => {
               })
             }
           >
-            <Button size="small" danger>
+            <Button size="small" danger disabled={me?.id === r.id}>
               Удалить
             </Button>
           </Popconfirm>
@@ -211,6 +238,15 @@ export const AdminsPage = () => {
         }
       />
       {me && <My2fa me={me} />}
+      {no2fa.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          title={`Без 2FA: ${no2fa.map((a) => a.login).join(", ")}`}
+          description="У панели доступ ко всем компаниям. Попросите включить 2FA — это делается здесь же, в блоке «Двухфакторная защита» под своим логином."
+        />
+      )}
 
       <Card>
         <Table<AdminRow>

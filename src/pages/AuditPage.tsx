@@ -4,8 +4,33 @@ import { useMemo, useState } from "react";
 
 import { useAudit, useTenants } from "../hooks";
 import { PageHeader } from "../components/viz";
+import { openTenant } from "../lib/nav";
 import type { AuditRow } from "../types";
 import { AUDIT_ACTION_LABEL, AUDIT_FILTERS } from "../types";
+
+/** Действия, после которых стоит присмотреться: доступ, удаление, деньги. */
+const SENSITIVE = new Set([
+  "tenant.impersonate",
+  "recordings.purge",
+  "tenant.payment_cancel",
+  "admin.delete",
+  "admin.permissions",
+  "admin.2fa_disable",
+  "admin.password",
+]);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+const SECRET = /password|token|secret|key/i;
+
+/** Детали записи: без паролей/ключей и без голых id, значения — коротко. */
+const detailsText = (d: Record<string, unknown> | null | undefined): string =>
+  Object.entries(d ?? {})
+    .filter(([k, v]) => !SECRET.test(k) && !(typeof v === "string" && UUID.test(v)))
+    .map(([k, v]) => {
+      const val =
+        v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "—");
+      return `${k}: ${val.length > 80 ? `${val.slice(0, 79)}…` : val}`;
+    })
+    .join(" · ");
 
 export const AuditPage = () => {
   const [tenantId, setTenantId] = useState<string>("");
@@ -26,15 +51,24 @@ export const AuditPage = () => {
     {
       title: "Дата",
       dataIndex: "createdAt",
-      width: 170,
-      render: (v: string) => new Date(v).toLocaleString("ru-RU"),
+      width: 130,
+      render: (v: string) =>
+        new Date(v).toLocaleString("ru-RU", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
     },
     {
       title: "Действие",
       dataIndex: "action",
       width: 200,
       render: (a: string) => (
-        <Tag>{AUDIT_ACTION_LABEL[a] ?? a}</Tag>
+        <Tag color={SENSITIVE.has(a) ? "red" : undefined}>
+          {AUDIT_ACTION_LABEL[a] ?? a}
+        </Tag>
       ),
     },
     { title: "Админ", dataIndex: "adminLogin", width: 140 },
@@ -43,17 +77,18 @@ export const AuditPage = () => {
       dataIndex: "tenantId",
       width: 200,
       render: (id: string | null) =>
-        id ? (nameById.get(id) ?? id.slice(0, 8)) : "—",
+        id ? (
+          <a onClick={() => openTenant(id)}>{nameById.get(id) ?? "Компания"}</a>
+        ) : (
+          "—"
+        ),
     },
     {
       title: "Детали",
       dataIndex: "details",
       render: (d: Record<string, unknown>) => (
         <span style={{ fontSize: 12, color: "#64748b" }}>
-          {Object.entries(d ?? {})
-            .filter(([k]) => k !== "password")
-            .map(([k, v]) => `${k}: ${String(v)}`)
-            .join(", ")}
+          {detailsText(d)}
         </span>
       ),
     },
