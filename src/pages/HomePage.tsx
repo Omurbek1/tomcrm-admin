@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { PageHeader, StatTile } from "../components/viz";
 import { useAttention } from "../lib/attention";
+import { useSupportTickets } from "../hooks";
 import { SERIES } from "../lib/chartTheme";
 import { navigate, type View } from "../lib/nav";
 
@@ -73,6 +74,8 @@ const Section = ({
  */
 export const HomePage = () => {
   const a = useAttention();
+  // Лента свежих обращений — список нужен только здесь (меню берёт числа).
+  const tickets = useSupportTickets("open");
   const o = a.overview.data;
   const tenants = (filter: string) => () => navigate("tenants", { filter });
   const to = (v: View) => () => navigate(v);
@@ -156,7 +159,7 @@ export const HomePage = () => {
   const tasks = all.filter((t) => t.count > 0);
 
   const loading = a.overview.isLoading;
-  const recentTickets = (a.support.data ?? []).slice(0, 5);
+  const recentTickets = (tickets.data ?? []).slice(0, 5);
   const sub = o?.subscription;
 
   return (
@@ -254,7 +257,7 @@ export const HomePage = () => {
               </Button>
             }
           >
-            {a.support.isLoading ? (
+            {tickets.isLoading ? (
               <Skeleton active paragraph={{ rows: 3 }} title={false} />
             ) : recentTickets.length ? (
               <ul className="rows">

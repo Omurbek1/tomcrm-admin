@@ -1,14 +1,51 @@
 import { Button, Checkbox, Empty, Grid, Skeleton, Table } from "antd";
 import type { TableProps } from "antd";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /** Телефон: < 768 px — таблицы показываем карточками. */
 export const useIsMobile = (): boolean => !Grid.useBreakpoint().md;
 
 /**
+ * Высота области прокрутки для виртуальной таблицы: от верха таблицы до
+ * низа окна (bottomGap — отступ снизу), не меньше 360. Меряем по месту,
+ * поэтому таблица под карточками/фильтрами не даёт двойной прокрутки.
+ * Виртуальная таблица рисует только видимые строки — тысячи компаний
+ * листаются без тормозов и без постраничной навигации.
+ */
+export const useListHeight = (
+  bottomGap = 52,
+): [(el: HTMLElement | null) => void, number] => {
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  const [h, setH] = useState(480);
+  useEffect(() => {
+    if (!el) return;
+    const measure = () => {
+      // Высота задаётся телу таблицы — меряем от него (под заголовком).
+      const body =
+        el.querySelector<HTMLElement>(".ant-table-tbody-virtual-holder, .ant-table-body") ?? el;
+      const top = body.getBoundingClientRect().top + window.scrollY;
+      const next = Math.max(360, Math.round(window.innerHeight - top - bottomGap));
+      setH((prev) => (Math.abs(prev - next) > 4 ? next : prev));
+    };
+    measure();
+    // Высота шапки над таблицей меняется (загрузились карточки, фильтры
+    // перенеслись) — пересчитываем, когда меняется размер страницы.
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.body);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [el, bottomGap]);
+  return [setEl, h];
+};
+
+/**
  * Список карточек вместо таблицы на телефоне: каждая строка — карточка,
  * вся карточка нажимается (если есть onOpen). Без горизонтальной прокрутки;
- * длинный список — «Показать ещё» по 20.
+ * длинный список — «Показать ещё» по 50 (карточки вне экрана браузер не
+ * отрисовывает — content-visibility в index.css).
  */
 export function MobileCards<T>({
   rows,
@@ -17,7 +54,7 @@ export function MobileCards<T>({
   onOpen,
   loading,
   emptyText = "Ничего нет",
-  pageSize = 20,
+  pageSize = 50,
 }: {
   rows: T[];
   rowKey: (r: T) => string;
@@ -113,11 +150,34 @@ const isEmptyNode = (n: ReactNode) =>
  * заголовка (кнопки действий) — внизу карточки. onRow.onClick — нажатие
  * на карточку, rowSelection — галочка. Пустые значения не показываем.
  */
-export function ResponsiveTable<T extends object>(
-  props: TableProps<T> & { mobileEmptyText?: string },
-) {
+export function ResponsiveTable<T extends object>({
+  virtualList,
+  ...props
+}: TableProps<T> & {
+  mobileEmptyText?: string;
+  /**
+   * Длинный список на компьютере: виртуальная прокрутка вместо страниц.
+   * x — общая ширина столбцов (виртуальной таблице нужна точная).
+   */
+  virtualList?: { x: number };
+}) {
   const isMobile = useIsMobile();
-  if (!isMobile) return <Table<T> {...props} />;
+  const [listRef, listHeight] = useListHeight();
+  if (!isMobile) {
+    const { mobileEmptyText: _m, ...tableProps } = props;
+    void _m;
+    if (!virtualList) return <Table<T> {...tableProps} />;
+    return (
+      <div ref={listRef}>
+        <Table<T>
+          {...tableProps}
+          virtual
+          pagination={false}
+          scroll={{ x: virtualList.x, y: listHeight }}
+        />
+      </div>
+    );
+  }
   const cols = ((props.columns ?? []) as AnyCol<T>[]).filter((c) => !c.hidden);
   const rows = [...((props.dataSource ?? []) as readonly T[])];
   const keyOf = (r: T, i: number): string => {

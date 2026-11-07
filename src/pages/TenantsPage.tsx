@@ -1,5 +1,6 @@
 import { SearchOutlined } from "@ant-design/icons";
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -31,8 +32,11 @@ import { PlatformRecordingsBadge } from "./PlatformRecordingsBadge";
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
 import { CreateTenantModal } from "./CreateTenantModal";
-import { MobileCards, MRow, useIsMobile } from "../components/MobileCards";
+import { MobileCards, MRow, useIsMobile, useListHeight } from "../components/MobileCards";
 import { TenantDrawer } from "./TenantDrawer";
+
+/** Сервер отдаёт не больше стольких компаний (TENANTS_LIST_CAP на бэкенде). */
+const TENANTS_LIST_CAP = 3000;
 
 const money = (n: number | null | undefined): string =>
   `${Math.round(Number(n || 0)).toLocaleString("ru-RU")} сом`;
@@ -189,6 +193,7 @@ export const TenantsPage = () => {
 
   const { message } = App.useApp();
   const isMobile = useIsMobile();
+  const [listRef, listHeight] = useListHeight();
   const { data: overview } = useOverview();
   const { data: tenants, isLoading } = useTenants({
     search,
@@ -324,6 +329,7 @@ export const TenantsPage = () => {
   const columns: ColumnsType<TenantRow> = [
     {
       title: "Компания",
+      width: 240,
       dataIndex: "name",
       render: (_v, r) => (
         <div>
@@ -493,6 +499,14 @@ export const TenantsPage = () => {
         ))}
       </div>
 
+      {(tenants?.length ?? 0) >= TENANTS_LIST_CAP ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          title={`Показаны первые ${TENANTS_LIST_CAP.toLocaleString("ru-RU")} компаний — уточните поиск или фильтр`}
+        />
+      ) : null}
       <Card className="m-flat">
         <div
           className="filter-bar"
@@ -673,26 +687,28 @@ export const TenantsPage = () => {
             }}
           />
         ) : (
+          <div ref={listRef}>
           <Table<TenantRow>
           rowKey="id"
           loading={isLoading}
           dataSource={tenants ?? []}
           columns={columns}
-          scroll={{ x: "max-content" }}
+          // Виртуальная прокрутка: рисуются только видимые строки, поэтому
+          // тысячи компаний листаются без страниц и без тормозов.
+          virtual
+          scroll={{ x: 1300, y: listHeight }}
           rowSelection={{
+            columnWidth: 48,
             selectedRowKeys: selected,
             onChange: (keys) => setSelected(keys as string[]),
           }}
-          pagination={{
-            pageSize: 20,
-            showSizeChanger: false,
-            hideOnSinglePage: true,
-          }}
+          pagination={false}
           onRow={(r) => ({
             onClick: () => setOpenId(r.id),
             style: { cursor: "pointer" },
           })}
         />
+          </div>
         )}
       </Card>
 

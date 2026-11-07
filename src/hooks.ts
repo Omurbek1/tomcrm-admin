@@ -163,6 +163,7 @@ export const useMarkManualPayment = () => {
     }) => (await api.post("/api/platform/billing/manual-payment", body)).data,
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
       void qc.invalidateQueries({ queryKey: ["tenant", v.tenantId] });
       void qc.invalidateQueries({ queryKey: ["tenants"] });
     },
@@ -217,7 +218,9 @@ export const useConfirmEvent = () => {
       (await api.post(`/api/platform/billing/events/${eventId}/confirm`)).data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["billing-unverified"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
       void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
       void qc.invalidateQueries({ queryKey: ["billing-health"] });
       void qc.invalidateQueries({ queryKey: ["tenants"] });
     },
@@ -233,6 +236,7 @@ export const useMarkInvoicePaid = () => {
         .data,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
       void qc.invalidateQueries({ queryKey: ["tenants"] });
     },
   });
@@ -264,6 +268,7 @@ const useInvalidateTenant = () => {
     void qc.invalidateQueries({ queryKey: ["tenant", id] });
     void qc.invalidateQueries({ queryKey: ["tenants"] });
     void qc.invalidateQueries({ queryKey: ["overview"] });
+    void qc.invalidateQueries({ queryKey: ["attention"] });
   };
 };
 
@@ -386,6 +391,7 @@ export const useSetTest = () => {
       void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
       void qc.invalidateQueries({ queryKey: ["tenants"] });
       void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
       void qc.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
@@ -439,6 +445,7 @@ export const useCreateTenant = () => {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tenants"] });
       void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
     },
   });
 };
@@ -505,6 +512,7 @@ export const useSetPriceOverride = () => {
       void qc.invalidateQueries({ queryKey: ["tenant", v.id] });
       void qc.invalidateQueries({ queryKey: ["tenants"] });
       void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
     },
   });
 };
@@ -583,6 +591,7 @@ export const useBulkTariff = () => {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tenants"] });
       void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
     },
   });
 };
@@ -608,7 +617,9 @@ export const useBulkExtend = () => {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tenants"] });
       void qc.invalidateQueries({ queryKey: ["overview"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
       void qc.invalidateQueries({ queryKey: ["billing-invoices"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
     },
   });
 };
@@ -640,6 +651,7 @@ const invalidatePayments = (qc: ReturnType<typeof useQueryClient>, id: string) =
   void qc.invalidateQueries({ queryKey: ["payments", id] });
   void qc.invalidateQueries({ queryKey: ["tenants"] });
   void qc.invalidateQueries({ queryKey: ["overview"] });
+  void qc.invalidateQueries({ queryKey: ["attention"] });
   void qc.invalidateQueries({ queryKey: ["audit", id] });
 };
 
@@ -996,7 +1008,10 @@ export const useSupportReply = (id: string) => {
   return useMutation({
     mutationFn: async (body: { body?: string; status?: SupportTicketStatus }) =>
       (await api.post(`/api/platform/support/tickets/${id}/reply`, body)).data,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["support"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["support"] });
+      void qc.invalidateQueries({ queryKey: ["attention"] });
+    },
   });
 };
 

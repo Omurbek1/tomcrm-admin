@@ -1273,3 +1273,10 @@ kbd {
   padding-top: 0;
   border-top: 0;
 }
+
+/* Длинные списки карточек на телефоне: карточки вне экрана браузер не
+   рисует, пока до них не долистали — прокрутка остаётся плавной. */
+.m-cards > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 110px;
+}

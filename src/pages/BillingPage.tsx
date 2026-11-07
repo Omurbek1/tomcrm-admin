@@ -221,6 +221,7 @@ export const BillingPage = () => {
     { title: "Дата", dataIndex: "createdAt", key: "createdAt", render: date, width: 130 },
     {
       title: "Компания",
+      width: 240,
       dataIndex: "tenantName",
       key: "tenantName",
       render: (v: string | null, r) => <TenantLink id={r.tenantId} name={v} />,
@@ -636,12 +637,7 @@ export const BillingPage = () => {
         loading={isLoading}
         dataSource={filtered}
         columns={columns}
-        pagination={{
-          pageSize: 25,
-          showSizeChanger: false,
-          hideOnSinglePage: true,
-        }}
-        scroll={{ x: 1040 }}
+        virtualList={{ x: 1260 }}
       />
 
       <Modal

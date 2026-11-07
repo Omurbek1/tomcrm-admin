@@ -169,6 +169,7 @@ export const SubscriptionsPage = () => {
   const columns: ColumnsType<TenantRow> = [
     {
       title: "Компания",
+      width: 240,
       dataIndex: "name",
       render: (_v, t) => {
         const g = groupOf(t, now);
@@ -340,8 +341,7 @@ export const SubscriptionsPage = () => {
         loading={isLoading}
         dataSource={rows}
         columns={columns}
-        scroll={{ x: "max-content" }}
-        pagination={{ pageSize: 50, hideOnSinglePage: true, showSizeChanger: false }}
+        virtualList={{ x: 990 }}
         onRow={(t) => ({
           onClick: () => openTenant(t.id),
           style: { cursor: "pointer" },
