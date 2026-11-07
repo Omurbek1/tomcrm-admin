@@ -829,3 +829,56 @@ kbd {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 6px 12px;
 }
+
+/* ── Быстрые фильтры списка компаний ─────────────────────────────────────── */
+.chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar {
+  display: none;
+}
+.chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #dde3ec;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.chip:hover {
+  border-color: #b9c4d4;
+}
+.chip:focus-visible {
+  outline: 2px solid #2a78d6;
+  outline-offset: 1px;
+}
+.chip.is-on {
+  border-color: #2a78d6;
+  background: #eef4fc;
+  color: #1d5fae;
+  font-weight: 500;
+}
+.chip-n {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #eef1f5;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.chip.is-on .chip-n {
+  background: #d6e6fb;
+}
