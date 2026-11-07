@@ -6,7 +6,8 @@ import { useAudit, useTenants } from "../hooks";
 import { PageHeader } from "../components/viz";
 import { openTenant } from "../lib/nav";
 import type { AuditRow } from "../types";
-import { AUDIT_ACTION_LABEL, AUDIT_FILTERS } from "../types";
+import { AUDIT_FILTERS } from "../types";
+import { actionLabel, auditDetails } from "../lib/auditText";
 import { ResponsiveTable } from "../components/MobileCards";
 
 /** Действия, после которых стоит присмотреться: доступ, удаление, деньги. */
@@ -19,20 +20,6 @@ const SENSITIVE = new Set([
   "admin.2fa_disable",
   "admin.password",
 ]);
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
-const SECRET = /password|token|secret|key/i;
-
-/** Детали записи: без паролей/ключей и без голых id, значения — коротко. */
-const detailsText = (d: Record<string, unknown> | null | undefined): string =>
-  Object.entries(d ?? {})
-    .filter(([k, v]) => !SECRET.test(k) && !(typeof v === "string" && UUID.test(v)))
-    .map(([k, v]) => {
-      const val =
-        v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "—");
-      return `${k}: ${val.length > 80 ? `${val.slice(0, 79)}…` : val}`;
-    })
-    .join(" · ");
-
 export const AuditPage = () => {
   const [tenantId, setTenantId] = useState<string>("");
   const [filterIdx, setFilterIdx] = useState<number>(0);
@@ -67,12 +54,15 @@ export const AuditPage = () => {
       dataIndex: "action",
       width: 200,
       render: (a: string) => (
-        <Tag color={SENSITIVE.has(a) ? "red" : undefined}>
-          {AUDIT_ACTION_LABEL[a] ?? a}
-        </Tag>
+        <Tag color={SENSITIVE.has(a) ? "red" : undefined}>{actionLabel(a)}</Tag>
       ),
     },
-    { title: "Админ", dataIndex: "adminLogin", width: 140 },
+    {
+      title: "Кто",
+      dataIndex: "adminLogin",
+      width: 140,
+      render: (v: string | null) => v || <span style={{ color: "var(--text-3)" }}>система</span>,
+    },
     {
       title: "Компания",
       dataIndex: "tenantId",
@@ -87,9 +77,9 @@ export const AuditPage = () => {
     {
       title: "Детали",
       dataIndex: "details",
-      render: (d: Record<string, unknown>) => (
-        <span style={{ fontSize: 12, color: "#64748b" }}>
-          {detailsText(d)}
+      render: (d: Record<string, unknown>, r) => (
+        <span style={{ fontSize: 13, color: "var(--text-2)" }}>
+          {auditDetails(r.action, d) || "—"}
         </span>
       ),
     },
@@ -99,7 +89,7 @@ export const AuditPage = () => {
     <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
       <PageHeader
         title="Журнал"
-        subtitle="Действия администраторов платформы"
+        subtitle="Кто и что менял: оплаты, тарифы, доступ, админы — и автоматические действия системы"
         extra={
           <Space wrap>
             <Select

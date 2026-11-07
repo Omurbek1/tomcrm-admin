@@ -42,7 +42,7 @@ export interface PaymentRow {
   note: string | null;
   receipt: string | null;
   cancelled: boolean;
-  adminLogin: string;
+  adminLogin: string | null;
   createdAt: string;
 }
 
@@ -293,7 +293,7 @@ export interface Analytics {
 
 export interface AuditRow {
   id: string;
-  adminLogin: string;
+  adminLogin: string | null;
   action: string;
   tenantId: string | null;
   details: Record<string, unknown>;
@@ -328,14 +328,14 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "tenant.payment": "Отметка оплаты",
   "tenant.payment_cancel": "Отмена платежа",
   "tenant.price_override": "Индивидуальная цена",
-  "tenant.addons": "Аддоны компании",
+  "tenant.addons": "Доп. опции компании",
   "recordings.purge": "Удаление записей звонков",
   "tenant.bulk_tariff": "Массовая смена тарифа",
-  "tenant.auto_freeze": "Автозаморозка (просрочка)",
-  "config.grace": "Настройка grace-периода",
+  "tenant.auto_freeze": "Автозаморозка за неоплату",
+  "config.grace": "Настройка льготного периода",
   "tenant.impersonate": "Вход под владельцем",
   "tenant.test_flag": "Пометка «тест»",
-  "tenant.trial_expired": "Триал истёк → заморозка",
+  "tenant.trial_expired": "Триал закончился — заморозка",
   "tariff.edit": "Редактирование тарифа",
   "tariff.create": "Создание тарифа",
   "template.edit": "Правка шаблона",
@@ -345,8 +345,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "admin.password": "Смена пароля админа",
   "admin.delete": "Удаление админа",
   "admin.permissions": "Изменение прав админа",
-  "admin.2fa_enable": "Включение 2FA",
-  "admin.2fa_disable": "Отключение 2FA",
+  "admin.2fa_enable": "Включён вход по коду (2FA)",
+  "admin.2fa_disable": "Отключён вход по коду (2FA)",
 };
 
 /** Типы уведомлений для ручной отправки. */

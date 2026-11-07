@@ -28,6 +28,7 @@ import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
 import { tableLabel } from "../lib/dataTables";
+import { actionLabel, auditDetails } from "../lib/auditText";
 import { TenantRecordingsCard } from "./TenantRecordingsCard";
 import {
   useAudit,
@@ -62,7 +63,6 @@ import type { TenantStatus } from "../types";
 import {
   ADDON_META,
   SINGLE_ADDON_KEYS,
-  AUDIT_ACTION_LABEL,
   AUDIT_FILTERS,
   LIMIT_META,
   MODULE_GROUPS_FALLBACK,
@@ -1748,11 +1748,20 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               <List.Item>
                 <Space orientation="vertical" size={0} style={{ width: "100%" }}>
                   <Text>
-                    {AUDIT_ACTION_LABEL[r.action] ?? r.action}{" "}
-                    <Text type="secondary">· {r.adminLogin}</Text>
+                    {actionLabel(r.action)}{" "}
+                    <Text type="secondary">· {r.adminLogin || "система"}</Text>
                   </Text>
+                  {auditDetails(r.action, r.details) ? (
+                    <Text style={{ fontSize: 13 }}>{auditDetails(r.action, r.details)}</Text>
+                  ) : null}
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {new Date(r.createdAt).toLocaleString("ru-RU")}
+                    {new Date(r.createdAt).toLocaleString("ru-RU", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </Text>
                 </Space>
               </List.Item>
