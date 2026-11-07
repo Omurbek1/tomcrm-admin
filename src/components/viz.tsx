@@ -164,6 +164,7 @@ export const VizTooltip = ({
       style={{
         background: "#0b0b0b",
         color: "#fff",
+        border: "1px solid rgba(255,255,255,0.12)",
         borderRadius: 8,
         padding: "8px 10px",
         fontSize: 12,

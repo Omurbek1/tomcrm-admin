@@ -268,7 +268,7 @@ export const AdminsPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1050, margin: "0 auto" }}>
+    <div style={{ padding: 24, maxWidth: 1240, margin: "0 auto" }}>
       <PageHeader
         title="Администраторы"
         subtitle="Доступы к платформенной панели"
