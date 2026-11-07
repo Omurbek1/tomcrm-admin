@@ -13,7 +13,6 @@ import {
   Segmented,
   Select,
   Space,
-  Table,
   Tag,
   Tooltip,
   Typography,
@@ -38,6 +37,7 @@ import {
   type LimitOverageRow,
   type UnverifiedEvent,
 } from "../hooks";
+import { ResponsiveTable } from "../components/MobileCards";
 
 const { Text } = Typography;
 
@@ -381,7 +381,7 @@ export const BillingPage = () => {
             Используется больше, чем оплачено. Компании уведомлены; по номерам
             WhatsApp через 3 дня отправка с лишних номеров останавливается.
           </Text>
-          <Table<LimitOverageRow>
+          <ResponsiveTable<LimitOverageRow>
             rowKey={(r) => `${r.tenantId}:${r.optionKey}`}
             size="small"
             style={{ marginTop: 12 }}
@@ -445,7 +445,7 @@ export const BillingPage = () => {
             сумму и транзакцию глазами, затем подтвердите — подписка
             активируется, действие попадёт в аудит.
           </Text>
-          <Table<UnverifiedEvent>
+          <ResponsiveTable<UnverifiedEvent>
             rowKey="eventId"
             size="small"
             style={{ marginTop: 12 }}
@@ -630,7 +630,7 @@ export const BillingPage = () => {
         />
       </Space>
 
-      <Table<BillingInvoiceRow>
+      <ResponsiveTable<BillingInvoiceRow>
         rowKey="id"
         size="small"
         loading={isLoading}

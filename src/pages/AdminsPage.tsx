@@ -11,7 +11,6 @@ import {
   QRCode,
   Space,
   Switch,
-  Table,
   Tag,
   Typography,
 } from "antd";
@@ -34,6 +33,7 @@ import {
 import type { AdminRow } from "../types";
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
+import { ResponsiveTable } from "../components/MobileCards";
 
 const { Text, Paragraph } = Typography;
 
@@ -292,7 +292,7 @@ export const AdminsPage = () => {
       )}
 
       <Card>
-        <Table<AdminRow>
+        <ResponsiveTable<AdminRow>
           rowKey="id"
           loading={isLoading}
           dataSource={admins ?? []}

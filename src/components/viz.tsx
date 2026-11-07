@@ -16,6 +16,7 @@ export const PageHeader = ({
   extra?: ReactNode;
 }) => (
   <div
+    className="page-header"
     style={{
       display: "flex",
       justifyContent: "space-between",
@@ -25,7 +26,7 @@ export const PageHeader = ({
       marginBottom: 20,
     }}
   >
-    <div>
+    <div className="page-header-text">
       <Title level={3} style={{ margin: 0 }}>
         {title}
       </Title>

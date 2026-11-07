@@ -31,6 +31,7 @@ import { PlatformRecordingsBadge } from "./PlatformRecordingsBadge";
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
 import { CreateTenantModal } from "./CreateTenantModal";
+import { MobileCards, MRow, useIsMobile } from "../components/MobileCards";
 import { TenantDrawer } from "./TenantDrawer";
 
 const money = (n: number | null | undefined): string =>
@@ -187,6 +188,7 @@ export const TenantsPage = () => {
   const [bulkType, setBulkType] = useState<string>();
 
   const { message } = App.useApp();
+  const isMobile = useIsMobile();
   const { data: overview } = useOverview();
   const { data: tenants, isLoading } = useTenants({
     search,
@@ -491,8 +493,9 @@ export const TenantsPage = () => {
         ))}
       </div>
 
-      <Card>
+      <Card className="m-flat">
         <div
+          className="filter-bar"
           style={{
             display: "flex",
             gap: 12,
@@ -569,6 +572,7 @@ export const TenantsPage = () => {
             Сбросить
           </Button>
           <Button
+            className="m-hide"
             style={{ marginLeft: "auto" }}
             onClick={() => exportCsv(tenants ?? [])}
             disabled={!tenants?.length}
@@ -610,7 +614,66 @@ export const TenantsPage = () => {
           </Space>
         )}
 
-        <Table<TenantRow>
+        {isMobile ? (
+          <MobileCards<TenantRow>
+            rows={tenants ?? []}
+            rowKey={(r) => r.id}
+            loading={isLoading}
+            emptyText="Компаний не найдено"
+            onOpen={(r) => setOpenId(r.id)}
+            render={(r) => {
+              const st = stateOf(r);
+              const d = daysAgo(r.lastActivityAt);
+              return (
+                <div className="m-tenant">
+                  <Checkbox
+                    checked={selected.includes(r.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setSelected((cur) =>
+                        e.target.checked
+                          ? [...cur, r.id]
+                          : cur.filter((x) => x !== r.id),
+                      )
+                    }
+                    aria-label={`Выбрать ${r.name}`}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <MRow
+                      main={
+                        <>
+                          {r.name}
+                          {r.isTest ? (
+                            <Tag color="purple" style={{ marginLeft: 6 }}>
+                              тест
+                            </Tag>
+                          ) : null}
+                        </>
+                      }
+                      sub={`/${r.slug}${r.industryName ? ` · ${r.industryName}` : ""}`}
+                      side={
+                        <Tag color={st.color} style={{ marginInlineEnd: 0 }}>
+                          {st.label}
+                        </Tag>
+                      }
+                    />
+                    <div className="m-meta">
+                      <span>{r.tariffName ?? "без тарифа"}</span>
+                      {r.status === "active" && Number(r.mrr) > 0 ? (
+                        <span>{money(r.mrr)}/мес</span>
+                      ) : null}
+                      {st.sub ? <span>{st.sub}</span> : null}
+                      <span className={d != null && d > 14 ? "is-bad" : undefined}>
+                        {d == null ? "нет входов" : d === 0 ? "заходили сегодня" : `заходили ${d} дн. назад`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }}
+          />
+        ) : (
+          <Table<TenantRow>
           rowKey="id"
           loading={isLoading}
           dataSource={tenants ?? []}
@@ -630,6 +693,7 @@ export const TenantsPage = () => {
             style: { cursor: "pointer" },
           })}
         />
+        )}
       </Card>
 
       <Modal

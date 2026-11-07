@@ -10,7 +10,6 @@ import {
   Segmented,
   Select,
   Space,
-  Table,
   Tag,
   Typography,
 } from "antd";
@@ -26,6 +25,7 @@ import {
   type SupportTicketRow,
   type SupportTicketStatus,
 } from "../hooks";
+import { MobileCards, MRow, ResponsiveTable, useIsMobile } from "../components/MobileCards";
 
 const { Text } = Typography;
 
@@ -178,6 +178,7 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
 };
 
 export const SupportPage = () => {
+  const isMobile = useIsMobile();
   // Адрес: ?status= (по умолчанию «Новые») и ?ticket= (открытое обращение —
   // ссылка с «Обзора» открывает его сразу).
   const params = new URLSearchParams(window.location.search);
@@ -252,7 +253,36 @@ export const SupportPage = () => {
           { value: "all", label: "Все" },
         ]}
       />
-      <Table<SupportTicketRow>
+      {isMobile ? (
+        <MobileCards<SupportTicketRow>
+          rows={data ?? []}
+          rowKey={(r) => r.id}
+          loading={isLoading}
+          emptyText="Обращений нет"
+          onOpen={(r) => setOpenId(r.id)}
+          render={(r) => (
+            <MRow
+              main={
+                <>
+                  {r.priority === "high" ? (
+                    <Tag color="red" style={{ marginRight: 6 }}>срочно</Tag>
+                  ) : null}
+                  №{r.number} · {r.subject}
+                </>
+              }
+              sub={[r.tenantName, r.authorName, CATEGORY[r.category] ?? r.category, fmt(r.lastMessageAt ?? r.createdAt)]
+                .filter(Boolean)
+                .join(" · ")}
+              side={
+                <Tag color={STATUS[r.status]?.color} style={{ marginInlineEnd: 0 }}>
+                  {STATUS[r.status]?.label ?? r.status}
+                </Tag>
+              }
+            />
+          )}
+        />
+      ) : (
+      <ResponsiveTable<SupportTicketRow>
         rowKey="id"
         size="middle"
         loading={isLoading}
@@ -262,6 +292,7 @@ export const SupportPage = () => {
         onRow={(r) => ({ onClick: () => setOpenId(r.id), style: { cursor: "pointer" } })}
         scroll={{ x: 760 }}
       />
+      )}
       <TicketDrawer id={openId} onClose={() => setOpenId(null)} />
     </div>
   );
