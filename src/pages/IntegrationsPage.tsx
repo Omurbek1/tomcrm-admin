@@ -47,7 +47,7 @@ const CopyRow = ({
   const { message } = App.useApp();
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 13, color: "#475569", marginBottom: 4 }}>
+      <div style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 4 }}>
         {label}
       </div>
       <Space.Compact style={{ width: "100%", maxWidth: 640 }}>

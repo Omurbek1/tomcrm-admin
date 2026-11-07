@@ -27,7 +27,7 @@ const axisProps = {
   tickLine: false,
   axisLine: false,
 } as const;
-const GRID = { vertical: false, stroke: "#eef1f5" } as const;
+const GRID = { vertical: false, stroke: "var(--chart-grid)" } as const;
 
 /** Полоса с подписью: читается без наведения и на телефоне. */
 const Bars = ({
@@ -235,7 +235,7 @@ export const AnalyticsPage = () => {
                   <CartesianGrid {...GRID} />
                   <XAxis dataKey="month" {...axisProps} />
                   <YAxis {...axisProps} width={36} allowDecimals={false} />
-                  <Tooltip cursor={{ fill: "#f1f5f9" }} content={<VizTooltip />} />
+                  <Tooltip cursor={{ fill: "var(--chart-cursor)" }} content={<VizTooltip />} />
                   <Bar
                     dataKey="Новые компании"
                     fill={SERIES.blue}
@@ -298,7 +298,7 @@ export const AnalyticsPage = () => {
                       v >= 1000 ? `${num(Math.round(v / 1000))} тыс` : num(v)
                     }
                   />
-                  <Tooltip cursor={{ fill: "#f1f5f9" }} content={<VizTooltip fmt={som} />} />
+                  <Tooltip cursor={{ fill: "var(--chart-cursor)" }} content={<VizTooltip fmt={som} />} />
                   <Bar
                     dataKey="Выручка"
                     fill={SERIES.aqua}

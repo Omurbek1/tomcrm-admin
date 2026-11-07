@@ -110,7 +110,7 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
             </div>
           </Card>
           {data.messages.map((m) => (
-            <Card key={m.id} size="small" style={{ background: m.authorType === "support" ? "#eff6ff" : "#f8fafc", marginLeft: m.authorType === "support" ? 32 : 0, marginRight: m.authorType === "support" ? 0 : 32 }}>
+            <Card key={m.id} size="small" style={{ background: m.authorType === "support" ? "var(--accent-soft)" : "var(--surface-2)", marginLeft: m.authorType === "support" ? 32 : 0, marginRight: m.authorType === "support" ? 0 : 32 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {m.authorType === "support" ? (m.authorName || "Поддержка") : (m.authorName || "Клиент")} · {fmt(m.createdAt)}
               </Text>

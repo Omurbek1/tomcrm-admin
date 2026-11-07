@@ -1392,7 +1392,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 };
                 return (
                   <div
-                    style={{ fontSize: 12, color: "#475569", margin: "8px 0 4px" }}
+                    style={{ fontSize: 12, color: "var(--text-2)", margin: "8px 0 4px" }}
                   >
                     <div>{line("Лимит сотрудников", data.limits?.users, seat)}</div>
                     <div>
