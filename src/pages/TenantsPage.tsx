@@ -1,12 +1,11 @@
+import { SearchOutlined } from "@ant-design/icons";
 import {
   App,
   Button,
   Card,
   Checkbox,
-  Col,
   Input,
   Modal,
-  Row,
   Segmented,
   Select,
   Space,
@@ -30,8 +29,7 @@ import type { TenantFilter, TenantRow } from "../types";
 import { formatBytes, REMINDER_TYPES } from "../types";
 import { PlatformRecordingsBadge } from "./PlatformRecordingsBadge";
 import { can } from "../api/client";
-import { PageHeader, StatTile } from "../components/viz";
-import { SERIES } from "../lib/chartTheme";
+import { PageHeader } from "../components/viz";
 import { CreateTenantModal } from "./CreateTenantModal";
 import { TenantDrawer } from "./TenantDrawer";
 
@@ -165,6 +163,12 @@ const AffectedList = ({ rows }: { rows: TenantRow[] }) => (
 export const TenantsPage = () => {
   const init = readUrl();
   const [search, setSearch] = useState(init.search);
+  // Поиск без Enter: запрос через 300 мс после последней буквы.
+  const [searchInput, setSearchInput] = useState(init.search);
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const [status, setStatus] = useState(init.status);
   const [filter, setFilter] = useState<TenantFilter>(init.filter);
   const [industryId, setIndustryId] = useState(init.industryId);
@@ -304,12 +308,9 @@ export const TenantsPage = () => {
     );
   };
 
-  const applyFilter = (f: TenantFilter) => {
-    setStatus("");
-    setFilter((cur) => (cur === f ? "" : f));
-  };
   const resetAll = () => {
     setSearch("");
+    setSearchInput("");
     setStatus("");
     setFilter("");
     setIndustryId("");
@@ -332,7 +333,10 @@ export const TenantsPage = () => {
               </Tag>
             )}
           </div>
-          <div style={{ fontSize: 12, color: "#94a3b8" }}>/{r.slug}</div>
+          <div style={{ fontSize: 12, color: "#94a3b8" }}>
+            /{r.slug}
+            {r.industryName ? ` · ${r.industryName}` : ""}
+          </div>
         </div>
       ),
     },
@@ -359,6 +363,19 @@ export const TenantsPage = () => {
       render: (v) => v ?? "—",
     },
     {
+      title: "В месяц",
+      dataIndex: "mrr",
+      width: 120,
+      align: "right",
+      sorter: (a, b) => Number(a.mrr ?? 0) - Number(b.mrr ?? 0),
+      render: (v: number | null, r) =>
+        r.status === "active" && Number(v) > 0 ? (
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(v)}</span>
+        ) : (
+          <span style={{ color: "#94a3b8" }}>—</span>
+        ),
+    },
+    {
       title: "Последняя активность",
       key: "activity",
       width: 150,
@@ -375,12 +392,6 @@ export const TenantsPage = () => {
           </span>
         );
       },
-    },
-    {
-      title: "Отрасль",
-      dataIndex: "industryName",
-      width: 130,
-      render: (v: string | null) => v ?? "—",
     },
     {
       title: "Владелец",
@@ -443,12 +454,6 @@ export const TenantsPage = () => {
         extra={
           <Space>
             <PlatformRecordingsBadge />
-            <Button
-              onClick={() => applyFilter("attention")}
-              danger={filter === "attention"}
-            >
-              ⚠ Требуют внимания
-            </Button>
             {can("tenants.create") && (
               <Button type="primary" onClick={() => setCreateOpen(true)}>
                 Создать компанию
@@ -458,80 +463,33 @@ export const TenantsPage = () => {
         }
       />
 
-      {/* Метрики — единый минималистичный стиль (кликабельные = фильтры) */}
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="MRR (мес. выручка)"
-            value={money(overview?.mrr ?? 0)}
-            accent={SERIES.aqua}
-            tip="Сумма месячных цен активных компаний с действующей оплатой (годовой ÷ 12). Без удалённых/замороженных/тестовых."
-          />
-        </Col>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="Всего компаний"
-            value={overview?.total ?? 0}
-            accent={SERIES.blue}
-            hint="активные + триал"
-            tip="Живые компании (активные + триал), без удалённых."
-          />
-        </Col>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="Новые за месяц"
-            value={overview?.newThisMonth ?? 0}
-            accent={SERIES.violet}
-            tip="Зарегистрированы с 1-го числа месяца, без тестовых."
-          />
-        </Col>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="Конверсия"
-            value={overview?.conversionRate == null ? "—" : overview.conversionRate}
-            suffix={overview?.conversionRate == null ? "" : "%"}
-            accent={SERIES.yellow}
-            hint={overview?.conversionRate == null ? "мало компаний" : "триал → оплата"}
-            tip="Доля хоть раз оплативших от всех неудалённых. Скрыта при малом числе (шум)."
-          />
-        </Col>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="Триал ≤3 дн."
-            value={overview?.trialsExpiringSoon ?? 0}
-            accent={SERIES.orange}
-            onClick={() => applyFilter("trial_expiring")}
-            active={filter === "trial_expiring"}
-            tip="Кликните, чтобы отфильтровать список."
-          />
-        </Col>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="Оплата просрочена"
-            value={overview?.overdue ?? 0}
-            accent={SERIES.red}
-            onClick={() => applyFilter("overdue")}
-            active={filter === "overdue"}
-            tip="Кликните, чтобы отфильтровать список."
-          />
-        </Col>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="Отток (блок/удал.)"
-            value={overview?.churned ?? 0}
-            accent={SERIES.red}
-            tip="Заблокированные + удалённые. Тестовые исключены."
-          />
-        </Col>
-        <Col xs={12} sm={8} lg={6}>
-          <StatTile
-            label="Удалённые"
-            value={overview?.deleted ?? 0}
-            accent="#94a3b8"
-            tip="Удалённые компании — отдельно, чтобы не задваивать отток."
-          />
-        </Col>
-      </Row>
+      {/* Быстрые фильтры: одно нажатие — нужный список (цифры как на «Обзоре»). */}
+      <div className="chips" role="toolbar" aria-label="Быстрые фильтры">
+        {(
+          [
+            ["", "Все", overview?.total],
+            ["attention", "Требуют внимания", undefined],
+            ["overdue", "Оплата просрочена", overview?.overdue],
+            ["trial_expiring", "Триал ≤3 дн.", overview?.trialsExpiringSoon],
+            ["expiring_7d", "Оплата истекает ≤7 дн.", undefined],
+            ["inactive_14d", "Неактивны > 14 дн.", undefined],
+          ] as Array<[TenantFilter, string, number | undefined]>
+        ).map(([key, label, n]) => (
+          <button
+            key={key || "all"}
+            type="button"
+            className={`chip${filter === key && !status ? " is-on" : ""}`}
+            aria-pressed={filter === key && !status}
+            onClick={() => {
+              setStatus("");
+              setFilter(key);
+            }}
+          >
+            {label}
+            {n ? <span className="chip-n">{n.toLocaleString("ru-RU")}</span> : null}
+          </button>
+        ))}
+      </div>
 
       <Card>
         <div
@@ -543,15 +501,13 @@ export const TenantsPage = () => {
             flexWrap: "wrap",
           }}
         >
-          <Input.Search
-            placeholder="Поиск по названию, slug, телефону"
+          <Input
+            prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
+            placeholder="Название, адрес или телефон"
             allowClear
-            defaultValue={search}
+            value={searchInput}
             style={{ maxWidth: 300 }}
-            onSearch={setSearch}
-            onChange={(e) => {
-              if (!e.target.value) setSearch("");
-            }}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
           <Select
             value={status}
@@ -590,30 +546,14 @@ export const TenantsPage = () => {
             ]}
           />
           <Select
-            value={filter || ""}
-            style={{ width: 190 }}
-            onChange={(v) => {
-              setFilter(v as TenantFilter);
-              setStatus("");
-            }}
-            options={[
-              { value: "", label: "Без доп. фильтра" },
-              { value: "expiring_7d", label: "Оплата истекает ≤7 дн." },
-              { value: "inactive_14d", label: "Неактивны > 14 дн." },
-              { value: "trial_expiring", label: "Триал истекает ≤3 дн." },
-              { value: "overdue", label: "Оплата просрочена" },
-              { value: "attention", label: "⚠ Требуют внимания" },
-            ]}
-          />
-          <Select
             value={sort || ""}
             style={{ width: 170 }}
             onChange={(v) => setSort(v)}
             options={[
-              { value: "", label: "Сортировка: дата" },
-              { value: "mrr", label: "Сортировка: MRR" },
-              { value: "activity", label: "Сортировка: активность" },
-              { value: "recordings", label: "Сортировка: объём записей" },
+              { value: "", label: "Сначала новые" },
+              { value: "mrr", label: "Больше платят" },
+              { value: "activity", label: "Недавно заходили" },
+              { value: "recordings", label: "Больше записей звонков" },
             ]}
           />
           <Checkbox
@@ -622,6 +562,9 @@ export const TenantsPage = () => {
           >
             Показать удалённые
           </Checkbox>
+          <span className="muted">
+            Найдено: {(tenants?.length ?? 0).toLocaleString("ru-RU")}
+          </span>
           <Button type="link" size="small" onClick={resetAll}>
             Сбросить
           </Button>
