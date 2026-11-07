@@ -18,7 +18,15 @@ export type View =
   | "admins"
   | "support";
 
-export type NavItem = { key: View; label: string; hint: string };
+/** Вкладка внутри пункта меню: близкие разделы — один пункт, разные вкладки. */
+export type NavTab = { key: View; label: string; hint: string };
+export type NavItem = {
+  key: View;
+  label: string;
+  hint: string;
+  /** Есть — пункт меню объединяет несколько разделов вкладками. */
+  tabs?: NavTab[];
+};
 export type NavGroup = { title: string; items: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -33,31 +41,56 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Деньги",
     items: [
-      { key: "subscriptions", label: "Подписки", hint: "Сроки, продление, смена тарифа" },
-      { key: "billing", label: "Биллинг", hint: "Счета, оплаты, вебхуки" },
-      { key: "tariffs", label: "Тарифы", hint: "Цены, лимиты, опции" },
+      {
+        key: "subscriptions",
+        label: "Подписки и оплаты",
+        hint: "Сроки, продление, счета, вебхуки",
+        tabs: [
+          { key: "subscriptions", label: "Подписки", hint: "Сроки, продление, смена тарифа" },
+          { key: "billing", label: "Счета и оплаты", hint: "Счета, ручные оплаты, вебхуки Finik" },
+        ],
+      },
+      { key: "tariffs", label: "Тарифы", hint: "Цены, лимиты, неоплата, звонки" },
       { key: "analytics", label: "Аналитика", hint: "MRR, рост, отток" },
     ],
   },
   {
-    title: "Настройки платформы",
+    title: "Система",
     items: [
-      { key: "industries", label: "Отрасли", hint: "Профили отраслей" },
-      { key: "templates", label: "Уведомления", hint: "Тексты напоминаний" },
-      { key: "integrations", label: "Интеграции", hint: "Ключи Meta, Instagram" },
-    ],
-  },
-  {
-    title: "Безопасность",
-    items: [
-      { key: "audit", label: "Журнал", hint: "Кто что менял" },
-      { key: "admins", label: "Администраторы", hint: "Доступы и 2FA" },
+      {
+        key: "industries",
+        label: "Настройки",
+        hint: "Отрасли, уведомления, интеграции",
+        tabs: [
+          { key: "industries", label: "Отрасли", hint: "Профили отраслей" },
+          { key: "templates", label: "Уведомления", hint: "Тексты сообщений клиентам" },
+          { key: "integrations", label: "Интеграции", hint: "Ключи Meta, Instagram" },
+        ],
+      },
+      {
+        key: "admins",
+        label: "Доступ",
+        hint: "Администраторы, 2FA, журнал действий",
+        tabs: [
+          { key: "admins", label: "Администраторы", hint: "Доступы и 2FA" },
+          { key: "audit", label: "Журнал", hint: "Кто что менял" },
+        ],
+      },
     ],
   },
 ];
 
-export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+/** Все разделы (включая вкладки) — для поиска Ctrl+K и проверки адреса. */
+export const NAV_ITEMS: NavTab[] = NAV_GROUPS.flatMap((g) =>
+  g.items.flatMap((i) => i.tabs ?? [{ key: i.key, label: i.label, hint: i.hint }]),
+);
 const VIEWS = new Set<string>(NAV_ITEMS.map((i) => i.key));
+
+/** Пункт меню, в который входит раздел (для подсветки и вкладок). */
+export const sectionOf = (v: View): NavItem | undefined =>
+  NAV_GROUPS.flatMap((g) => g.items).find(
+    (i) => i.key === v || i.tabs?.some((t) => t.key === v),
+  );
 
 export const viewLabel = (v: View): string =>
   NAV_ITEMS.find((i) => i.key === v)?.label ?? "";
