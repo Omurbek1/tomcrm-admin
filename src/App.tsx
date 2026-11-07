@@ -28,6 +28,7 @@ const PAGES: Record<Exclude<View, "home">, ReturnType<typeof page>> = {
   templates: page(() => import("./pages/TemplatesPage"), "TemplatesPage"),
   support: page(() => import("./pages/SupportPage"), "SupportPage"),
   integrations: page(() => import("./pages/IntegrationsPage"), "IntegrationsPage"),
+  load: page(() => import("./pages/SystemLoadPage"), "SystemLoadPage"),
   audit: page(() => import("./pages/AuditPage"), "AuditPage"),
   admins: page(() => import("./pages/AdminsPage"), "AdminsPage"),
 };

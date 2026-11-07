@@ -7,6 +7,7 @@ import {
   BellOutlined,
   CreditCardOutlined,
   CustomerServiceOutlined,
+  DashboardOutlined,
   HomeOutlined,
   CheckOutlined,
   DesktopOutlined,
@@ -39,6 +40,7 @@ const ICON: Record<View, ReactNode> = {
   industries: <ApartmentOutlined />,
   templates: <BellOutlined />,
   integrations: <ApiOutlined />,
+  load: <DashboardOutlined />,
   audit: <AuditOutlined />,
   admins: <SafetyOutlined />,
 };
