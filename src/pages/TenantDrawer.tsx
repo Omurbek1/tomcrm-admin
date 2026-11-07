@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Checkbox,
-  Col,
   Descriptions,
   Divider,
   Dropdown,
@@ -14,7 +13,6 @@ import {
   InputNumber,
   List,
   Modal,
-  Row,
   Select,
   Skeleton,
   Space,
@@ -28,8 +26,6 @@ import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
 import { TenantRecordingsCard } from "./TenantRecordingsCard";
-import { StatTile } from "../components/viz";
-import { SERIES } from "../lib/chartTheme";
 import {
   useAudit,
   useCancelPayment,
@@ -76,16 +72,6 @@ import {
 import { DeleteTenantModal } from "./DeleteTenantModal";
 
 const { Text } = Typography;
-
-/** Цвет AntD статус-бейджа → hex-акцент для KPI-плитки (единая палитра). */
-const STATUS_ACCENT: Record<string, string> = {
-  green: "#1baf7a",
-  red: "#e34948",
-  volcano: "#eb6834",
-  blue: "#2a78d6",
-  orange: "#eda100",
-  default: "#94a3b8",
-};
 
 const ruDate = (v: string | null | undefined): string =>
   v ? new Date(v).toLocaleDateString("ru-RU") : "—";
@@ -615,6 +601,17 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               : { label: STATUS_LABEL[t.status], color: "default" as const }
     : { label: "", color: "default" as const };
 
+  // «Отметить оплату» — из шапки и из вкладки «Биллинг» одинаково.
+  const openPay = () => {
+    payForm.setFieldsValue({
+      periodMonths: 1,
+      amount: suggestAmount(1),
+      currency: tariff?.currency ?? "KGS",
+    });
+    setPayOpen(true);
+  };
+  const isTrial = !!t && t.status === "trial";
+
   // Деструктив (заморозка/удаление) — подтверждение с вводом slug вручную.
   const [danger, setDanger] = useState<null | "freeze" | "delete">(null);
   const [confirmSlug, setConfirmSlug] = useState("");
@@ -672,10 +669,16 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 )}
                 <Text
                   type="secondary"
+                  copyable={{ text: t.slug, tooltips: ["Скопировать адрес", "Скопировано"] }}
                   style={{ fontSize: 12, fontFamily: "monospace" }}
                 >
-                  {t.slug}
+                  /{t.slug}
                 </Text>
+                {t.isTest ? (
+                  <Tag color="purple" style={{ margin: 0 }}>
+                    тест
+                  </Tag>
+                ) : null}
               </div>
             </div>
           </div>
@@ -738,36 +741,43 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
         </div>
       ) : (
         <>
-          {/* Шапка: статус-бейдж (вычисляемый) · slug (копируется) · тест · ⋯ */}
-          <Space size="middle" wrap style={{ marginBottom: 8 }}>
-            <Tag color={statusBadge.color}>{statusBadge.label}</Tag>
-            <Text copyable={{ text: t.slug }} type="secondary">
-              /{t.slug}
-            </Text>
-            <Tooltip title="Не учитывается в MRR, конверсии и аналитике">
-              <Checkbox
-                checked={t.isTest}
-                style={{ fontSize: 12 }}
-                onChange={(e) =>
-                  setTest.mutate(
-                    { id: t.id, isTest: e.target.checked },
-                    { onError: () => message.error("Не удалось") },
-                  )
-                }
+          {/* Действия: частые — кнопками, опасные — в «⋯». */}
+          <div className="card-actions">
+            <Button
+              type="primary"
+              disabled={t.status === "deleted" || !can("impersonate")}
+              onClick={doImpersonate}
+            >
+              Войти под владельцем ↗
+            </Button>
+            <Button disabled={!can("billing.edit")} onClick={openPay}>
+              Отметить оплату
+            </Button>
+            {isTrial ? (
+              <Button
+                loading={extendTrial.isPending}
+                onClick={() => addDays(14)}
               >
-                Тестовая компания
-              </Checkbox>
-            </Tooltip>
+                +14 дн. триала
+              </Button>
+            ) : null}
+            <Dropdown
+              trigger={["click"]}
+              disabled={!can("tenants.notify") || t.status === "deleted"}
+              menu={{
+                items: REMINDER_TYPES.map((rt) => ({
+                  key: rt.value,
+                  label: rt.label,
+                  onClick: () => doSendReminder(rt.value),
+                })),
+              }}
+            >
+              <Button loading={sendReminder.isPending}>Напомнить ▾</Button>
+            </Dropdown>
             <Dropdown
               trigger={["click"]}
               menu={{
                 items: [
-                  {
-                    key: "impersonate",
-                    label: "Войти под владельцем ↗",
-                    disabled: t.status === "deleted" || !can("impersonate"),
-                    onClick: doImpersonate,
-                  },
                   {
                     key: "reset-pw",
                     label: "Сбросить пароль владельца",
@@ -824,50 +834,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 ],
               }}
             >
-              <Tooltip title="Действия">
-                <Button icon={<MoreOutlined />} aria-label="Действия" />
+              <Tooltip title="Ещё: пароль, заморозка, удаление">
+                <Button icon={<MoreOutlined />} aria-label="Ещё действия" />
               </Tooltip>
             </Dropdown>
-          </Space>
-
-          {/* Строка метрик */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "4px 16px",
-              marginBottom: 8,
-              fontSize: 12,
-              color: "#64748b",
-            }}
-          >
-            <span>
-              Отрасль: <b>{data.industry?.name ?? "—"}</b>
-            </span>
-            <span>
-              Владелец: <b>{data.owner?.email ?? data.owner?.name ?? "—"}</b>
-            </span>
-            <span>
-              Вход владельца:{" "}
-              <b>
-                {data.owner?.lastLoginAt
-                  ? fmtDate(data.owner.lastLoginAt)
-                  : "не входил"}
-              </b>
-            </span>
-            <span>
-              Оплачено до: <b>{fmtDate(t.paidUntil)}</b>
-            </span>
-            <span>
-              Сотрудников: <b>{t.employees}</b>
-            </span>
-            <span>
-              Сделок: <b>{t.deals}</b>
-            </span>
-            <span>
-              Создана:{" "}
-              <b>{new Date(t.createdAt).toLocaleDateString("ru-RU")}</b>
-            </span>
           </div>
 
           {noContacts && (
@@ -889,77 +859,95 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 key: "overview",
                 children: (
                   <>
-          {/* KPI-сводка компании (единый стиль StatTile) */}
-          <Row gutter={[10, 10]} style={{ marginBottom: 8 }}>
-            <Col xs={12} sm={8}>
-              <StatTile
-                small
-                label="Статус"
-                value={statusBadge.label || "—"}
-                accent={STATUS_ACCENT[statusBadge.color] ?? "#94a3b8"}
-              />
-            </Col>
-            <Col xs={12} sm={8}>
-              <StatTile
-                small
-                label="Тариф"
-                value={t.tariffName || "—"}
-                accent={SERIES.blue}
-              />
-            </Col>
-            <Col xs={12} sm={8}>
-              <StatTile
-                small
-                label="Оплачено до"
-                value={ruDate(t.paidUntil)}
-                accent={SERIES.aqua}
-              />
-            </Col>
-            <Col xs={12} sm={8}>
-              <StatTile
-                label="Сотрудники"
-                value={t.employees ?? 0}
-                accent={SERIES.violet}
-              />
-            </Col>
-            <Col xs={12} sm={8}>
-              <StatTile
-                label="Сделки"
-                value={t.deals ?? 0}
-                accent={SERIES.orange}
-              />
-            </Col>
-            <Col xs={12} sm={8}>
-              <StatTile
-                small
-                label="Создана"
-                value={ruDate(t.createdAt)}
-                accent="#94a3b8"
-              />
-            </Col>
-          </Row>
+          {/* Главное о компании — одной таблицей, без повторов. */}
+          <dl className="facts">
+            <div>
+              <dt>Тариф</dt>
+              <dd>
+                {t.tariffName || "—"}
+                <span className="facts-sub">
+                  {fmtMoney(data.monthlyPrice)} в месяц
+                  {t.priceOverride != null ? " · индивидуальная цена" : ""}
+                </span>
+              </dd>
+            </div>
+            {isTrial ? (
+              <div>
+                <dt>Триал</dt>
+                <dd className={t.trialDaysLeft <= 0 ? "is-bad" : undefined}>
+                  {t.trialDaysLeft > 0
+                    ? `ещё ${t.trialDaysLeft} дн.`
+                    : "истёк"}
+                  <span className="facts-sub">до {ruDate(t.trialEndsAt)}</span>
+                </dd>
+              </div>
+            ) : (
+              <div>
+                <dt>Оплачено до</dt>
+                <dd className={t.paymentStatus === "overdue" ? "is-bad" : undefined}>
+                  {ruDate(t.paidUntil)}
+                  <span className="facts-sub">
+                    следующее списание {ruDate(t.nextChargeAt)}
+                  </span>
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>Владелец</dt>
+              <dd>
+                {data.owner?.name ?? "—"}
+                <span className="facts-sub">
+                  {[
+                    data.owner?.email,
+                    data.owner?.lastLoginAt
+                      ? `входил ${ruDate(data.owner.lastLoginAt)}`
+                      : "ни разу не входил",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Отрасль</dt>
+              <dd>{data.industry?.name ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Размер</dt>
+              <dd>
+                {(t.employees ?? 0).toLocaleString("ru-RU")} сотр.
+                <span className="facts-sub">
+                  {(t.deals ?? 0).toLocaleString("ru-RU")} сделок
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Создана</dt>
+              <dd>
+                {ruDate(t.createdAt)}
+                <span className="facts-sub">
+                  <Tooltip title="Не учитывается в MRR, конверсии и аналитике">
+                    <Checkbox
+                      checked={t.isTest}
+                      style={{ fontSize: 12 }}
+                      onChange={(e) =>
+                        setTest.mutate(
+                          { id: t.id, isTest: e.target.checked },
+                          { onError: () => message.error("Не удалось") },
+                        )
+                      }
+                    >
+                      тестовая
+                    </Checkbox>
+                  </Tooltip>
+                </span>
+              </dd>
+            </div>
+          </dl>
 
-          {/* Секции обзора — карточки (единый стиль) */}
           <div
             style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}
           >
-            {/* Подписка */}
-            <Card size="small" title="Подписка">
-              <Descriptions column={1} size="small" colon={false}>
-                <Descriptions.Item label="Тариф">
-                  {t.tariffName || "—"}
-                  {t.priceOverride != null &&
-                    ` · ${Number(t.priceOverride).toLocaleString("ru-RU")} сом/мес (индивид.)`}
-                </Descriptions.Item>
-                <Descriptions.Item label="Оплачено до">
-                  {ruDate(t.paidUntil)}
-                </Descriptions.Item>
-                <Descriptions.Item label="Следующее списание">
-                  {ruDate(t.nextChargeAt)}
-                </Descriptions.Item>
-              </Descriptions>
-            </Card>
-
             {/* Записи звонков: объём и очистка */}
             <TenantRecordingsCard tenantId={t.id} />
 
@@ -1432,14 +1420,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               type="primary"
               size="small"
               disabled={!can("billing.edit")}
-              onClick={() => {
-                payForm.setFieldsValue({
-                  periodMonths: 1,
-                  amount: suggestAmount(1),
-                  currency: tariff?.currency ?? "KGS",
-                });
-                setPayOpen(true);
-              }}
+              onClick={openPay}
             >
               Отметить оплату
             </Button>
