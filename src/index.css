@@ -683,3 +683,31 @@ kbd {
   height: 8px;
   border-radius: 999px;
 }
+
+/* ── Предпросмотр шаблона уведомления ────────────────────────────────────── */
+.tpl-preview {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #efeae2;
+}
+.tpl-preview-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #54656f;
+}
+.tpl-preview-bubble {
+  display: inline-block;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.tpl-preview-warn {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #b42318;
+}
