@@ -1,59 +1,62 @@
-import { MenuOutlined } from "@ant-design/icons";
-import { Button, Drawer, Grid, Layout, Menu, Spin, Typography } from "antd";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Spin } from "antd";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 
 import { api, clearToken, getToken, setPermissions, UNAUTH_EVENT } from "./api/client";
+import { AppShell } from "./components/AppShell";
 import { identify, resetIdentity } from "./lib/monitoring";
-import { AdminsPage } from "./pages/AdminsPage";
-// Аналитика тянет recharts — грузим лениво, чтобы не утяжелять остальные вкладки.
-const AnalyticsPage = lazy(() =>
-  import("./pages/AnalyticsPage").then((m) => ({ default: m.AnalyticsPage })),
-);
-import { AuditPage } from "./pages/AuditPage";
-import { BillingPage } from "./pages/BillingPage";
+import { NAV_EVENT, readView, type View } from "./lib/nav";
 import { LoginPage } from "./pages/LoginPage";
-import { TariffsPage } from "./pages/TariffsPage";
-import { IndustriesPage } from "./pages/IndustriesPage";
-import { IntegrationsPage } from "./pages/IntegrationsPage";
-import { SupportPage } from "./pages/SupportPage";
-import { TemplatesPage } from "./pages/TemplatesPage";
-import { TenantsPage } from "./pages/TenantsPage";
+import { HomePage } from "./pages/HomePage";
 
-const { Header, Content } = Layout;
-const { Title } = Typography;
-const { useBreakpoint } = Grid;
+// Разделы — отдельными чанками: вход и «Обзор» не тянут таблицы, графики и
+// формы всех остальных экранов. Частые разделы догружаются в простое.
+const page = <K extends string>(
+  load: () => Promise<Record<K, ComponentType>>,
+  name: K,
+) => ({
+  load,
+  Component: lazy(() => load().then((m) => ({ default: m[name] }))),
+});
 
-type View =
-  | "tenants"
-  | "analytics"
-  | "tariffs"
-  | "billing"
-  | "industries"
-  | "templates"
-  | "integrations"
-  | "audit"
-  | "admins"
-  | "support";
+const PAGES: Record<Exclude<View, "home">, ReturnType<typeof page>> = {
+  tenants: page(() => import("./pages/TenantsPage"), "TenantsPage"),
+  analytics: page(() => import("./pages/AnalyticsPage"), "AnalyticsPage"),
+  tariffs: page(() => import("./pages/TariffsPage"), "TariffsPage"),
+  billing: page(() => import("./pages/BillingPage"), "BillingPage"),
+  industries: page(() => import("./pages/IndustriesPage"), "IndustriesPage"),
+  templates: page(() => import("./pages/TemplatesPage"), "TemplatesPage"),
+  support: page(() => import("./pages/SupportPage"), "SupportPage"),
+  integrations: page(() => import("./pages/IntegrationsPage"), "IntegrationsPage"),
+  audit: page(() => import("./pages/AuditPage"), "AuditPage"),
+  admins: page(() => import("./pages/AdminsPage"), "AdminsPage"),
+};
 
-const NAV: { key: View; label: string }[] = [
-  { key: "tenants", label: "Компании" },
-  { key: "analytics", label: "Аналитика" },
-  { key: "tariffs", label: "Тарифы" },
-  { key: "billing", label: "Биллинг" },
-  { key: "industries", label: "Отрасли" },
-  { key: "templates", label: "Уведомления" },
-  { key: "support", label: "Поддержка" },
-  { key: "integrations", label: "Интеграции" },
-  { key: "audit", label: "Журнал" },
-  { key: "admins", label: "Администраторы" },
-];
+const Loading = () => (
+  <div style={{ textAlign: "center", padding: 80 }}>
+    <Spin />
+  </div>
+);
 
 export const App = () => {
   const [authed, setAuthed] = useState<boolean>(!!getToken());
-  const [view, setView] = useState<View>("tenants");
-  const [navOpen, setNavOpen] = useState(false);
-  const screens = useBreakpoint();
-  const isMobile = !screens.md; // < 768px
+  const [view, setView] = useState<View>(readView);
+  // Каждый переход (меню, «Назад», Ctrl+K) — новый ключ: экран заново читает
+  // свои параметры из адреса (фильтр, ?id= открытой компании).
+  const [navKey, setNavKey] = useState(0);
+
+  useEffect(() => {
+    const sync = () => {
+      setView(readView());
+      setNavKey((k) => k + 1);
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener(NAV_EVENT, sync);
+    window.addEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener(NAV_EVENT, sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, []);
 
   // Токен протух/невалиден (интерсептор axios) → возвращаемся на логин.
   useEffect(() => {
@@ -77,6 +80,17 @@ export const App = () => {
       .catch(() => undefined);
   }, [authed]);
 
+  // Прогрев: после входа в простое догружаем чанки частых разделов —
+  // первый переход без задержки.
+  useEffect(() => {
+    if (!authed) return;
+    const t = setTimeout(() => {
+      for (const k of ["tenants", "billing", "support"] as const)
+        void PAGES[k].load().catch(() => undefined);
+    }, 2_000);
+    return () => clearTimeout(t);
+  }, [authed]);
+
   if (!authed) return <LoginPage onLoggedIn={() => setAuthed(true)} />;
 
   const logout = () => {
@@ -85,114 +99,13 @@ export const App = () => {
     setAuthed(false);
   };
 
-  const currentLabel = NAV.find((n) => n.key === view)?.label ?? "";
+  const Current = view === "home" ? HomePage : PAGES[view].Component;
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          background: "#0f172a",
-          paddingInline: 16,
-        }}
-      >
-        {isMobile ? (
-          <>
-            <Button
-              type="text"
-              icon={<MenuOutlined style={{ color: "#fff", fontSize: 18 }} />}
-              onClick={() => setNavOpen(true)}
-              style={{ flexShrink: 0 }}
-              aria-label="Меню"
-            />
-            <Title
-              level={5}
-              style={{
-                color: "#fff",
-                margin: 0,
-                flex: 1,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {currentLabel}
-            </Title>
-            <Button ghost size="small" onClick={logout} style={{ flexShrink: 0 }}>
-              Выйти
-            </Button>
-          </>
-        ) : (
-          <>
-            <Title
-              level={4}
-              style={{
-                color: "#fff",
-                margin: 0,
-                flexShrink: 0,
-                whiteSpace: "nowrap",
-              }}
-            >
-              TomStore
-            </Title>
-            <Menu
-              theme="dark"
-              mode="horizontal"
-              selectedKeys={[view]}
-              onClick={(e) => setView(e.key as View)}
-              style={{ flex: 1, background: "transparent", minWidth: 0 }}
-              items={NAV}
-            />
-            <Button ghost onClick={logout}>
-              Выйти
-            </Button>
-          </>
-        )}
-      </Header>
-
-      <Drawer
-        title="TomStore · Платформа"
-        placement="left"
-        open={navOpen}
-        onClose={() => setNavOpen(false)}
-        styles={{ body: { padding: 0 } }}
-        size={260}
-      >
-        <Menu
-          mode="inline"
-          selectedKeys={[view]}
-          onClick={(e) => {
-            setView(e.key as View);
-            setNavOpen(false);
-          }}
-          items={NAV}
-        />
-      </Drawer>
-
-      <Content style={{ background: "#f1f5f9" }}>
-        {view === "tenants" && <TenantsPage />}
-        {view === "analytics" && (
-          <Suspense
-            fallback={
-              <div style={{ textAlign: "center", padding: 80 }}>
-                <Spin />
-              </div>
-            }
-          >
-            <AnalyticsPage />
-          </Suspense>
-        )}
-        {view === "tariffs" && <TariffsPage />}
-        {view === "billing" && <BillingPage />}
-        {view === "industries" && <IndustriesPage />}
-        {view === "templates" && <TemplatesPage />}
-        {view === "support" && <SupportPage />}
-        {view === "integrations" && <IntegrationsPage />}
-        {view === "audit" && <AuditPage />}
-        {view === "admins" && <AdminsPage />}
-      </Content>
-    </Layout>
+    <AppShell view={view} onLogout={logout}>
+      <Suspense fallback={<Loading />}>
+        <Current key={`${view}:${navKey}`} />
+      </Suspense>
+    </AppShell>
   );
 };

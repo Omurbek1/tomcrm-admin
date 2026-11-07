@@ -14,7 +14,7 @@ import {
   Tooltip,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useBulkExtend,
@@ -211,20 +211,24 @@ export const TenantsPage = () => {
     );
   }, [search, status, filter, industryId, tariffId, sort, includeDeleted]);
 
-  // Открытая карточка ↔ URL (?id=<slug>).
+  // Открытая карточка ↔ URL (?id=<slug>). Пока список не пришёл, ?id= из
+  // ссылки (Ctrl+K, F5, ссылка коллеге) не трогаем — иначе стирали его до
+  // того, как успевали открыть карточку.
+  const pendingSlug = useRef(new URLSearchParams(window.location.search).get("id"));
   useEffect(() => {
+    if (!pendingSlug.current || !tenants) return;
+    const found = tenants.find((t) => t.slug === pendingSlug.current);
+    pendingSlug.current = null;
+    if (found) setOpenId(found.id);
+  }, [tenants]);
+  useEffect(() => {
+    if (pendingSlug.current) return;
     const url = new URL(window.location.href);
     const slug = tenants?.find((t) => t.id === openId)?.slug;
     if (openId && slug) url.searchParams.set("id", slug);
     else url.searchParams.delete("id");
     window.history.replaceState(null, "", url.toString());
   }, [openId, tenants]);
-  useEffect(() => {
-    if (openId) return;
-    const slug = new URLSearchParams(window.location.search).get("id");
-    const found = slug ? tenants?.find((t) => t.slug === slug) : undefined;
-    if (found) setOpenId(found.id);
-  }, [tenants, openId]);
 
   const selectedRows = useMemo(
     () => (tenants ?? []).filter((t) => selected.includes(t.id)),
