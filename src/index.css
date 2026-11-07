@@ -1013,3 +1013,178 @@ kbd {
 .theme-item-check {
   color: var(--accent-text);
 }
+
+/* ── Телефон: карточки вместо таблиц, компактные заголовки и фильтры ─────── */
+.m-cards {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.m-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.m-card.is-tap {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-card.is-tap:active {
+  background: var(--hover);
+}
+.m-card.is-tap:focus-visible {
+  outline: 2px solid #2a78d6;
+}
+.m-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.m-row-main {
+  flex: 1;
+  min-width: 0;
+}
+.m-row-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.m-row-sub {
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.m-row-side {
+  flex-shrink: 0;
+  text-align: right;
+}
+.m-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.m-meta .is-bad {
+  color: var(--danger-text);
+}
+.m-tenant {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.m-tenant > .ant-checkbox-wrapper {
+  margin-top: 2px;
+}
+@media (max-width: 767px) {
+  /* Название раздела уже в верхней панели — крупный заголовок не дублируем. */
+  .page-header {
+    margin-bottom: 12px !important;
+  }
+  .page-header-text {
+    display: none;
+  }
+  /* Без кнопок действий от шапки ничего не остаётся — не держим пустое место. */
+  .page-header:not(:has(> :not(.page-header-text))) {
+    display: none !important;
+  }
+  /* Длинные переключатели (статусы обращений и т.п.) листаются, а не
+     растягивают страницу вбок. */
+  .ant-segmented:not(.ant-segmented-block) {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ant-segmented:not(.ant-segmented-block)::-webkit-scrollbar {
+    display: none;
+  }
+  /* Обёртка без заголовка вокруг списка карточек — без второй рамки. */
+  .ant-card:not(:has(> .ant-card-head)):has(> .ant-card-body > .m-cards) {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .ant-card:not(:has(> .ant-card-head)):has(> .ant-card-body > .m-cards) > .ant-card-body {
+    padding: 0;
+  }
+  /* Карточка-обёртка вокруг таблицы/списка: без двойных отступов. */
+  .m-flat.ant-card {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .m-flat.ant-card > .ant-card-body {
+    padding: 0;
+  }
+  .ant-card .ant-card-body {
+    padding: 14px;
+  }
+  .ant-card .ant-card-head {
+    padding: 0 14px;
+  }
+  /* Фильтры: поиск во всю ширину, выпадающие — по два в ряд, мелочи — строкой. */
+  .filter-bar {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px !important;
+  }
+  .filter-bar > .ant-input-affix-wrapper,
+  .filter-bar > .ant-input-search,
+  .filter-bar > .ant-segmented {
+    flex: 1 1 100%;
+    max-width: none !important;
+  }
+  .filter-bar > .ant-select {
+    flex: 1 1 calc(50% - 4px);
+    width: auto !important;
+    min-width: 0;
+  }
+  .filter-bar > .m-hide {
+    display: none !important;
+  }
+}
+.rt-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.rt-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.rt-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.rt-fields > div {
+  display: contents;
+}
+.rt-fields dt {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.rt-fields dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.rt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}

@@ -7,7 +7,6 @@ import {
   Select,
   Space,
   Switch,
-  Table,
   Tabs,
   Tag,
   Tooltip,
@@ -37,6 +36,7 @@ import type {
   IndustryInput,
   IndustryProductCatalog,
 } from "../types";
+import { ResponsiveTable } from "../components/MobileCards";
 
 const { Text } = Typography;
 
@@ -141,7 +141,7 @@ export function IndustriesPage() {
         }
       />
 
-      <Table<Industry>
+      <ResponsiveTable<Industry>
         rowKey="id"
         loading={isLoading}
         dataSource={industries}

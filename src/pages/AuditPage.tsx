@@ -1,4 +1,4 @@
-import { Button, Card, Select, Space, Table, Tag } from "antd";
+import { Button, Card, Select, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 
@@ -7,6 +7,7 @@ import { PageHeader } from "../components/viz";
 import { openTenant } from "../lib/nav";
 import type { AuditRow } from "../types";
 import { AUDIT_ACTION_LABEL, AUDIT_FILTERS } from "../types";
+import { ResponsiveTable } from "../components/MobileCards";
 
 /** Действия, после которых стоит присмотреться: доступ, удаление, деньги. */
 const SENSITIVE = new Set([
@@ -128,7 +129,7 @@ export const AuditPage = () => {
         }
       />
       <Card>
-        <Table<AuditRow>
+        <ResponsiveTable<AuditRow>
           rowKey="id"
           loading={isLoading}
           dataSource={audit?.rows ?? []}

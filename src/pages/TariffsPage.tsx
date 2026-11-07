@@ -9,7 +9,6 @@ import {
   Space,
   Segmented,
   Switch,
-  Table,
   Tabs,
   Tag,
   Tree,
@@ -36,6 +35,7 @@ import {
   MODULE_GROUPS_FALLBACK,
   PAYMENT_PERIODS,
 } from "../types";
+import { ResponsiveTable } from "../components/MobileCards";
 
 const DISCOUNT_PERIODS = PAYMENT_PERIODS.filter((m) => m > 1); // 3/6/12
 
@@ -298,7 +298,7 @@ export const TariffsPage = () => {
           Цены, модули и лимиты меняются сразу, без выкладки; лендинг берёт их
           отсюда.
         </div>
-        <Table<Tariff>
+        <ResponsiveTable<Tariff>
           rowKey="id"
           loading={isLoading}
           dataSource={tariffs ?? []}

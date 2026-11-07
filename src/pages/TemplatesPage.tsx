@@ -1,4 +1,4 @@
-import { App, Button, Card, Form, Input, Modal, Switch, Table, Tag } from "antd";
+import { App, Button, Card, Form, Input, Modal, Switch, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useRef, useState } from "react";
 import type { TextAreaRef } from "antd/es/input/TextArea";
@@ -8,6 +8,7 @@ import type { NotificationTemplate } from "../types";
 import { TEMPLATE_PLACEHOLDERS } from "../types";
 import { can, CRM_URL } from "../api/client";
 import { PageHeader } from "../components/viz";
+import { ResponsiveTable } from "../components/MobileCards";
 
 /** Что подставится вместо переменной и пример для предпросмотра. */
 const VARS: Record<string, { label: string; sample: string }> = {
@@ -117,7 +118,7 @@ export const TemplatesPage = () => {
           триала, напоминание об оплате, приглашение владельца при создании
           компании. Правки действуют сразу.
         </p>
-        <Table<NotificationTemplate>
+        <ResponsiveTable<NotificationTemplate>
           rowKey="key"
           loading={isLoading}
           dataSource={templates ?? []}
