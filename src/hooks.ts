@@ -1164,3 +1164,30 @@ export const useSetTenantCallLines = () => {
     onSuccess: (d, v) => qc.setQueryData(["tenant-call-lines", v.id], d),
   });
 };
+
+// ── Расход AI на ключе платформы по компаниям ─────────────────────────────
+
+export interface AiSpend {
+  days: string[];
+  /** Дневной лимит на компанию, $ (0 — без лимита). */
+  limitUsd: number;
+  /** Подсказка: 3× самого дорогого дня самой активной компании. */
+  suggestedLimitUsd: number;
+  tenants: Array<{
+    tenantId: string;
+    name: string;
+    totalUsd: number;
+    maxDayUsd: number;
+    byDay: number[];
+    byScenario: Record<string, { calls: number; in: number; out: number; usd: number }>;
+  }>;
+}
+
+export const useAiSpend = () =>
+  useQuery<AiSpend>({
+    queryKey: ["ai-spend"],
+    queryFn: async () =>
+      (await api.get("/api/platform/ai-spend", { params: { days: 7 } })).data,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
