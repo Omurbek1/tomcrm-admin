@@ -972,45 +972,44 @@ kbd {
   background: var(--accent-soft-2);
 }
 
-/* ── Переключатель темы (в тёмном меню и в выезжающем на телефоне) ────────── */
-.theme-switch {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
-  margin: 0 4px;
-  padding: 2px;
+/* ── Тема: кнопка в верхней панели и её меню ─────────────────────────────── */
+.shell-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.shell-icon-btn.ant-btn {
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
-  background: rgba(148, 163, 184, 0.14);
+  color: var(--text-3);
+  font-size: 16px;
 }
-.theme-opt {
-  height: 30px;
-  padding: 0 2px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #94a3b8;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
+.shell-icon-btn.ant-btn:hover {
+  color: var(--text);
+  background: var(--hover);
 }
-.theme-opt:hover {
-  color: #e2e8f0;
+.theme-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 220px;
+  padding: 2px 0;
 }
-.theme-opt.is-on {
-  background: #2a78d6;
-  color: #fff;
+.theme-item-label {
+  display: block;
+  font-weight: 500;
 }
-.theme-opt:focus-visible {
-  outline: 2px solid #3987e5;
-  outline-offset: 1px;
-}
-/* В выезжающем меню телефона фон светлый/тёмный по теме. */
-.ant-drawer .theme-opt {
+.theme-item-hint {
+  display: block;
+  font-size: 12px;
   color: var(--text-3);
 }
-.ant-drawer .theme-opt.is-on {
-  color: #fff;
+.theme-item-icon {
+  font-size: 15px;
 }
-.ant-drawer .theme-switch {
-  background: var(--track);
+.theme-item-check {
+  color: var(--accent-text);
 }

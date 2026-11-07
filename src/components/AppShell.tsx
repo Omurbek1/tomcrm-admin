@@ -7,14 +7,19 @@ import {
   CreditCardOutlined,
   CustomerServiceOutlined,
   HomeOutlined,
+  CheckOutlined,
+  DesktopOutlined,
   LogoutOutlined,
+  MoonFilled,
+  MoonOutlined,
+  SunOutlined,
   MenuOutlined,
   ApiOutlined,
   SafetyOutlined,
   SearchOutlined,
   TagsOutlined,
 } from "@ant-design/icons";
-import { Badge, Button, Drawer, Grid, Tooltip } from "antd";
+import { Badge, Button, Drawer, Dropdown, Grid, Tooltip } from "antd";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useAttention } from "../lib/attention";
@@ -36,32 +41,57 @@ const ICON: Record<View, ReactNode> = {
   admins: <SafetyOutlined />,
 };
 
-const THEMES: Array<{ key: ThemeMode; label: string; title: string }> = [
-  { key: "light", label: "Светлая", title: "Светлая тема" },
-  { key: "dark", label: "Тёмная", title: "Тёмная тема (графит)" },
-  { key: "black", label: "Чёрная", title: "Чёрная тема — бережёт заряд на OLED-экранах" },
-  { key: "system", label: "Авто", title: "Как в системе телефона или компьютера" },
+const THEMES: Array<{
+  key: ThemeMode;
+  label: string;
+  hint: string;
+  icon: ReactNode;
+}> = [
+  { key: "light", label: "Светлая", hint: "Белый фон", icon: <SunOutlined /> },
+  { key: "dark", label: "Тёмная", hint: "Графит, мягко для глаз", icon: <MoonOutlined /> },
+  { key: "black", label: "Чёрная", hint: "Чистый чёрный — бережёт заряд OLED", icon: <MoonFilled /> },
+  { key: "system", label: "Как в системе", hint: "Следует настройке устройства", icon: <DesktopOutlined /> },
 ];
 
-/** Переключатель темы — внизу меню (и на телефоне в выезжающем меню). */
-const ThemeSwitch = () => {
+/**
+ * Тема — кнопкой в верхней панели: иконка показывает текущую, по нажатию
+ * меню из четырёх вариантов с отметкой выбранного. Меняется сразу.
+ */
+const ThemeMenu = () => {
   const { mode } = useTheme();
+  const cur = THEMES.find((t) => t.key === mode) ?? THEMES[0];
   return (
-    <div className="theme-switch" role="radiogroup" aria-label="Тема">
-      {THEMES.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          role="radio"
-          aria-checked={mode === t.key}
-          title={t.title}
-          className={`theme-opt${mode === t.key ? " is-on" : ""}`}
-          onClick={() => setMode(t.key)}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
+    <Dropdown
+      trigger={["click"]}
+      placement="bottomRight"
+      menu={{
+        selectable: true,
+        selectedKeys: [mode],
+        onClick: ({ key }) => setMode(key as ThemeMode),
+        items: THEMES.map((t) => ({
+          key: t.key,
+          icon: <span className="theme-item-icon">{t.icon}</span>,
+          label: (
+            <span className="theme-item">
+              <span>
+                <span className="theme-item-label">{t.label}</span>
+                <span className="theme-item-hint">{t.hint}</span>
+              </span>
+              {t.key === mode ? <CheckOutlined className="theme-item-check" /> : null}
+            </span>
+          ),
+        })),
+      }}
+    >
+      <Tooltip title={`Тема: ${cur.label.toLowerCase()}`} placement="bottom">
+        <Button
+          type="text"
+          className="shell-icon-btn"
+          icon={cur.icon}
+          aria-label={`Тема: ${cur.label}. Сменить`}
+        />
+      </Tooltip>
+    </Dropdown>
   );
 };
 
@@ -134,10 +164,6 @@ export const AppShell = ({
           })}
         </div>
       ))}
-      <div className="shell-group">
-        <div className="shell-group-title">Тема</div>
-        <ThemeSwitch />
-      </div>
     </nav>
   );
 
@@ -200,6 +226,9 @@ export const AppShell = ({
           ) : null}
           {isMobile ? <span className="shell-top-title">{viewLabel(view)}</span> : null}
           {search}
+          <div className="shell-top-actions">
+            <ThemeMenu />
+          </div>
           {isMobile ? (
             <Tooltip title="Выйти">
               <Button
