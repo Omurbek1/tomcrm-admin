@@ -9,7 +9,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { useAnalytics, useOverview } from "../hooks";
+import { useAiSpend, useAnalytics, useOverview } from "../hooks";
 import {
   AXIS_INK,
   monthLabel,
@@ -18,7 +18,7 @@ import {
   STATUS_COLOR,
   STATUS_LABEL,
 } from "../lib/chartTheme";
-import { navigate } from "../lib/nav";
+import { navigate, openTenant } from "../lib/nav";
 import { ChartCard, PageHeader, StatTile, VizTooltip } from "../components/viz";
 
 const axisProps = {
@@ -338,7 +338,79 @@ export const AnalyticsPage = () => {
             )}
           </ChartCard>
         </Col>
+        <Col xs={24}>
+          <AiSpendCard />
+        </Col>
       </Row>
     </div>
+  );
+};
+
+const AI_SCENARIO: Record<string, string> = {
+  ai_manager_reply: "автоответы",
+  lead_classification: "разбор лидов",
+  hr_resume: "резюме",
+  hr_candidate_message: "сообщения кандидатам",
+  file_extract: "чтение файлов",
+  product_card: "карточки товаров",
+  owner_assistant: "помощник владельца",
+  other: "прочее",
+};
+
+const usd = (n: number) =>
+  "$" +
+  n.toLocaleString("ru-RU", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+/** Расход AI на ключе платформы по компаниям за 7 дней — кто сколько тратит. */
+const AiSpendCard = () => {
+  const { data, isLoading, isError } = useAiSpend();
+  if (isError) return null;
+  const rows = data?.tenants ?? [];
+  const max = Math.max(0.0001, ...rows.map((r) => r.totalUsd));
+  const total = rows.reduce((a, r) => a + r.totalUsd, 0);
+  const limit = data?.limitUsd ?? 0;
+  const parts = data
+    ? [
+        "всего " + usd(total),
+        "лимит в день на компанию: " + (limit > 0 ? usd(limit) : "нет"),
+        data.suggestedLimitUsd > 0 ? "разумно ≈ " + usd(data.suggestedLimitUsd) : "",
+      ].filter(Boolean)
+    : ["загрузка…"];
+  return (
+    <ChartCard
+      title="Расход на AI за 7 дней"
+      subtitle={parts.join(" · ")}
+      height={Math.max(100, Math.min(rows.length, 10) * 64)}
+    >
+      {isLoading ? null : rows.length ? (
+        <Bars
+          rows={rows.slice(0, 10).map((r) => {
+            const top = Object.entries(r.byScenario).sort(
+              (a, b) => b[1].usd - a[1].usd,
+            )[0];
+            const near = limit > 0 && r.maxDayUsd >= limit * 0.8;
+            return {
+              key: r.tenantId,
+              name: r.name,
+              value: r.totalUsd,
+              max,
+              text: usd(r.totalUsd),
+              note:
+                "пик " +
+                usd(r.maxDayUsd) +
+                "/день" +
+                (top ? " · " + (AI_SCENARIO[top[0]] ?? top[0]) : ""),
+              color: near ? "#d03b3b" : SERIES.violet,
+              onClick: () => openTenant(r.tenantId),
+            };
+          })}
+        />
+      ) : (
+        <Empty description="За неделю AI на ключе платформы не использовался" />
+      )}
+    </ChartCard>
   );
 };
