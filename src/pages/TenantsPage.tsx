@@ -217,7 +217,9 @@ export const TenantsPage = () => {
   const pendingSlug = useRef(new URLSearchParams(window.location.search).get("id"));
   useEffect(() => {
     if (!pendingSlug.current || !tenants) return;
-    const found = tenants.find((t) => t.slug === pendingSlug.current);
+    const found = tenants.find(
+      (t) => t.slug === pendingSlug.current || t.id === pendingSlug.current,
+    );
     pendingSlug.current = null;
     if (found) setOpenId(found.id);
   }, [tenants]);

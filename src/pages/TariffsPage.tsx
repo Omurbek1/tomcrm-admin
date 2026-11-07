@@ -14,10 +14,11 @@ import {
   Tree,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
+import { navigate } from "../lib/nav";
 import {
   useConfig,
   useCreateTariff,
@@ -25,6 +26,7 @@ import {
   useModuleCatalog,
   useSetConfig,
   useTariffs,
+  useTenants,
 } from "../hooks";
 import type { Tariff } from "../types";
 import {
@@ -192,6 +194,16 @@ export const TariffsPage = () => {
     }
   };
 
+  // Сколько живых компаний на каждом тарифе — из кэша списка «Компании».
+  const { data: allTenants } = useTenants({});
+  const tenantsByTariff = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of allTenants ?? [])
+      if (t.tariffId && t.status !== "deleted")
+        m.set(t.tariffId, (m.get(t.tariffId) ?? 0) + 1);
+    return m;
+  }, [allTenants]);
+
   const columns: ColumnsType<Tariff> = [
     {
       title: "Тариф",
@@ -212,6 +224,25 @@ export const TariffsPage = () => {
         Number(v) > 0
           ? `${Number(v).toLocaleString("ru-RU")} ${r.currency}/${r.period === "year" ? "год" : "мес"}`
           : "—",
+    },
+    {
+      title: "Компаний",
+      width: 100,
+      render: (_v: unknown, r: Tariff) => {
+        const n = tenantsByTariff.get(r.id) ?? 0;
+        return n ? (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => navigate("tenants", { tariff: r.id })}
+          >
+            {n.toLocaleString("ru-RU")}
+          </Button>
+        ) : (
+          <span style={{ color: "#94a3b8" }}>0</span>
+        );
+      },
     },
     ...TARIFF_LIMIT_META.slice(0, 3).map((l) => ({
       title: l.label,
@@ -238,14 +269,54 @@ export const TariffsPage = () => {
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       <PageHeader
-        title="Тарифы и ограничение подписки"
-        subtitle="Планы подписки, лимиты и периоды блокировки при просрочке"
+        title="Тарифы"
+        subtitle="Цены и лимиты планов, что происходит при неоплате"
       />
+      <Card
+        title="Тарифы"
+        style={{ marginBottom: 16 }}
+        extra={
+          <Button
+            type="primary"
+            disabled={!can("tariffs.edit")}
+            onClick={openCreate}
+          >
+            Создать тариф
+          </Button>
+        }
+      >
+        <div style={{ color: "#64748b", fontSize: 13, marginBottom: 10 }}>
+          Цены, модули и лимиты меняются сразу, без выкладки; лендинг берёт их
+          отсюда.
+        </div>
+        <Table<Tariff>
+          rowKey="id"
+          loading={isLoading}
+          dataSource={tariffs ?? []}
+          columns={columns}
+          scroll={{ x: "max-content" }}
+          pagination={false}
+        />
+      </Card>
       <Card
         size="small"
         style={{ marginBottom: 16 }}
-        title="Периоды при неоплате (применяются ко всем компаниям сразу)"
+        title="Что происходит при неоплате"
       >
+        <div className="dunning">
+          <span>Оплата просрочена</span>
+          <span className="dunning-step">
+            {grace} дн. — полный доступ и баннер
+          </span>
+          <span className="dunning-step">
+            {readOnlyDays} дн. — только чтение
+          </span>
+          <span className="dunning-step is-end">блокировка до оплаты</span>
+        </div>
+        <div style={{ color: "#64748b", fontSize: 13, marginBottom: 12 }}>
+          После триала: ещё {trialGraceDays} дн. до экрана оплаты. Действует
+          для всех компаний сразу.
+        </div>
         <Space direction="vertical" size="small" style={{ width: "100%" }}>
           <Space wrap align="center">
             <span style={{ fontWeight: 600, minWidth: 260 }}>
@@ -321,27 +392,6 @@ export const TariffsPage = () => {
         </Space>
       </Card>
 
-      <Card
-        title="Тарифы — цены, модули и лимиты (меняются без деплоя, лендинг тянет отсюда)"
-        extra={
-          <Button
-            type="primary"
-            disabled={!can("tariffs.edit")}
-            onClick={openCreate}
-          >
-            Создать тариф
-          </Button>
-        }
-      >
-        <Table<Tariff>
-          rowKey="id"
-          loading={isLoading}
-          dataSource={tariffs ?? []}
-          columns={columns}
-          scroll={{ x: "max-content" }}
-          pagination={false}
-        />
-      </Card>
 
       <Modal
         open={open}
