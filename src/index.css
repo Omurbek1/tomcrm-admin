@@ -1188,3 +1188,76 @@ kbd {
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
+
+/* ── Пункт меню с вкладками (Подписки и оплаты, Настройки, Доступ) ────────── */
+.section-head {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px 24px 0;
+}
+.section-title {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+.section-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.section-tabs::-webkit-scrollbar {
+  display: none;
+}
+.section-tab {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.section-tab:hover {
+  color: var(--text);
+}
+.section-tab.is-on {
+  border-bottom-color: #2a78d6;
+  color: var(--text);
+  font-weight: 500;
+}
+.section-tab:focus-visible {
+  outline: 2px solid #2a78d6;
+  outline-offset: -2px;
+}
+/* Внутри вкладки крупный заголовок страницы не повторяем — название уже
+   во вкладке; пояснение под ним остаётся. */
+.in-section .page-header-text h3 {
+  display: none;
+}
+.in-section .page-header {
+  margin-top: -4px;
+}
+@media (max-width: 767px) {
+  .section-head {
+    padding: 12px 12px 0;
+  }
+  /* Страница внутри вкладки — те же поля, что у полосы вкладок
+     (обёртка вкладки своих полей не даёт). */
+  .shell-content > .in-section {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .in-section > div {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .section-title {
+    display: none;
+  }
+}

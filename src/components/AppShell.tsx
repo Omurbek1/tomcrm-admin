@@ -25,7 +25,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { useAttention } from "../lib/attention";
 import { setMode, useTheme, type ThemeMode } from "../lib/theme";
-import { NAV_GROUPS, navigate, viewLabel, type View } from "../lib/nav";
+import { NAV_GROUPS, navigate, sectionOf, viewLabel, type View } from "../lib/nav";
 import { CommandPalette } from "./CommandPalette";
 
 const ICON: Record<View, ReactNode> = {
@@ -136,8 +136,13 @@ export const AppShell = ({
         <div key={g.title} className="shell-group">
           <div className="shell-group-title">{g.title}</div>
           {g.items.map((i) => {
-            const count = badges[i.key] ?? 0;
-            const current = i.key === view;
+            // Пункт с вкладками: счётчик — сумма по вкладкам, подсветка —
+            // когда открыта любая из них.
+            const count = (i.tabs ?? [i]).reduce(
+              (a, t) => a + (badges[t.key] ?? 0),
+              0,
+            );
+            const current = sectionOf(view)?.key === i.key;
             return (
               <button
                 key={i.key}
