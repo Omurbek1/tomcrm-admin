@@ -231,7 +231,7 @@ export const TariffsPage = () => {
       width: 150,
       render: (v: string, r) =>
         Number(v) > 0
-          ? `${Number(v).toLocaleString("ru-RU")} ${r.currency}/${r.period === "year" ? "год" : "мес"}`
+          ? `${Number(v).toLocaleString("ru-RU")} ${r.currency === "KGS" ? "сом" : r.currency}/${r.period === "year" ? "год" : "мес"}`
           : "—",
     },
     {

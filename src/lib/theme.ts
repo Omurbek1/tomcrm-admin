@@ -116,6 +116,8 @@ export const antdThemeFor = (t: ResolvedTheme): ThemeConfig => {
         rowHoverBg: black ? "#151518" : "#1c2636",
       },
       Card: { borderRadiusLG: 12 },
+      // Дерево модулей в окнах — на фоне окна, без своей подложки.
+      Tree: { colorBgContainer: "transparent" },
     },
   };
 };
