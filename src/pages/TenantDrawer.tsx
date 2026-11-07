@@ -27,6 +27,7 @@ import { MoreOutlined } from "@ant-design/icons";
 import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
+import { tableLabel } from "../lib/dataTables";
 import { TenantRecordingsCard } from "./TenantRecordingsCard";
 import {
   useAudit,
@@ -1077,20 +1078,39 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             {/* Объём данных (мониторинг: кто занимает место) */}
             <Card
               size="small"
-              title={
-                dataVolume
-                  ? `Объём данных · ${dataVolume.totalRows.toLocaleString("ru-RU")} строк`
-                  : "Объём данных"
+              title="Сколько данных у компании"
+              extra={
+                dataVolume ? (
+                  <Text type="secondary">
+                    всего {dataVolume.totalRows.toLocaleString("ru-RU")} записей
+                  </Text>
+                ) : null
               }
             >
               {dataVolume ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {dataVolume.top.slice(0, 8).map((r) => (
-                    <Tag key={r.table}>
-                      {r.table}: {r.rows.toLocaleString("ru-RU")}
-                    </Tag>
-                  ))}
-                </div>
+                <>
+                  <ul className="vol-list">
+                    {dataVolume.top.slice(0, 8).map((r) => {
+                      const l = tableLabel(r.table);
+                      const max = dataVolume.top[0]?.rows || 1;
+                      return (
+                        <li key={r.table} className={l.service ? "is-service" : undefined}>
+                          <Tooltip title={l.service ? `Служебное · ${l.raw}` : l.raw}>
+                            <span className="vol-name">{l.label}</span>
+                          </Tooltip>
+                          <span className="vol-num">{r.rows.toLocaleString("ru-RU")}</span>
+                          <span className="vol-bar">
+                            <i style={{ width: `${Math.max(2, (r.rows / max) * 100)}%` }} />
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="form-hint" style={{ marginTop: 8, marginBottom: 0 }}>
+                    Самые большие разделы. Серым — служебные записи системы
+                    (ключи, журналы), компания их не вводит.
+                  </div>
+                </>
               ) : (
                 <Text type="secondary">Считаем…</Text>
               )}

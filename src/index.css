@@ -1280,3 +1280,50 @@ kbd {
   content-visibility: auto;
   contain-intrinsic-size: auto 110px;
 }
+
+/* Карточка компании → «Сколько данных у компании» */
+.vol-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vol-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  align-items: baseline;
+}
+.vol-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vol-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.vol-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+  overflow: hidden;
+}
+.vol-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent, #2a78d6);
+}
+.vol-list li.is-service .vol-name,
+.vol-list li.is-service .vol-num {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.vol-list li.is-service .vol-bar > i {
+  background: var(--text-4);
+  opacity: 0.6;
+}
