@@ -1750,19 +1750,35 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             cancelText="Отмена"
             onCancel={() => setDanger(null)}
             onOk={runDanger}
+            destroyOnHidden
           >
-            <Text>
-              {danger === "delete"
-                ? "Вход закроется, данные — мягкое удаление (восстановимо сменой статуса)."
-                : "Доступ станет только на чтение, данные сохранятся."}
-            </Text>
+            <Alert
+              type="warning"
+              showIcon
+              title={
+                danger === "delete"
+                  ? "Вход в компанию закроется."
+                  : "Компания перейдёт в режим «только чтение»."
+              }
+              description={
+                danger === "delete"
+                  ? "Данные сохраняются, компанию можно восстановить."
+                  : "Сотрудники видят свои данные, но ничего не меняют и не отправляют. Данные сохраняются, разморозить можно в любой момент."
+              }
+            />
             <div style={{ marginTop: 12 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Для подтверждения введите slug компании:{" "}
+                Для подтверждения введите адрес компании:{" "}
                 <Text code>{t.slug}</Text>
               </Text>
               <Input
                 style={{ marginTop: 6 }}
+                autoFocus
+                autoComplete="off"
+                status={confirmSlug && confirmSlug.trim() !== t.slug ? "error" : undefined}
+                onPressEnter={() => {
+                  if (confirmSlug.trim() === t.slug) runDanger();
+                }}
                 value={confirmSlug}
                 onChange={(e) => setConfirmSlug(e.target.value)}
                 placeholder={t.slug}
