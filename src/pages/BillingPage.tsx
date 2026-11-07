@@ -104,8 +104,8 @@ export const BillingPage = () => {
   const markManual = useMarkManualPayment();
   const markPaid = useMarkInvoicePaid();
   const [modalOpen, setModalOpen] = useState(false);
-  const [tenantSearch, setTenantSearch] = useState("");
-  const { data: tenants } = useTenants({ search: tenantSearch });
+  // Компании — из общего кэша списка; поиск на клиенте, без запроса на букву.
+  const { data: tenants } = useTenants({});
   const [form] = Form.useForm();
 
   // Фильтры (клиентские — список небольшой, приходит целиком).
@@ -667,31 +667,48 @@ export const BillingPage = () => {
             rules={[{ required: true, message: "Выберите компанию" }]}
           >
             <Select
-              showSearch={{ onSearch: setTenantSearch }}
-              placeholder="Начните вводить название"
+              showSearch
+              autoFocus
+              optionFilterProp="search"
+              placeholder="Название, адрес или телефон"
               options={(tenants || []).map((t) => ({
                 value: t.id,
-                label: t.name,
+                search: `${t.name} ${t.slug} ${t.contactPhone ?? ""} ${t.ownerPhone ?? ""}`,
+                label: (
+                  <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span>{t.name}</span>
+                    <span style={{ color: "#94a3b8", fontSize: 12 }}>
+                      /{t.slug}
+                      {t.paidUntil
+                        ? ` · до ${new Date(t.paidUntil).toLocaleDateString("ru-RU")}`
+                        : t.status === "trial"
+                          ? " · триал"
+                          : ""}
+                    </span>
+                  </span>
+                ),
               }))}
             />
           </Form.Item>
           <Form.Item
             name="periodMonths"
-            label="Период (мес.)"
+            label="За сколько месяцев"
             rules={[{ required: true }]}
           >
-            <Select
+            <Segmented
+              block
               options={PERIODS.map((m) => ({ value: m, label: `${m} мес.` }))}
             />
           </Form.Item>
           <Form.Item
             name="amount"
-            label="Сумма (необязательно — иначе по тарифу)"
+            label="Сумма, сом"
+            extra="Пусто — посчитаем по тарифу компании"
           >
             <InputNumber
               style={{ width: "100%" }}
               min={0}
-              placeholder="Оставьте пустым для расчёта по тарифу"
+              placeholder="по тарифу"
               formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
             />
           </Form.Item>

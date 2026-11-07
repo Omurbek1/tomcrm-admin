@@ -1,10 +1,12 @@
 import {
   App,
   Alert,
+  Drawer,
+  Grid,
+  Segmented,
   Button,
   Card,
   Checkbox,
-  Descriptions,
   Divider,
   Dropdown,
   Form,
@@ -83,6 +85,7 @@ interface Props {
 
 export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const { message, modal } = App.useApp();
+  const isMobile = !Grid.useBreakpoint().md;
   const { data, isLoading, isError, refetch } = useTenant(tenantId);
   const { data: billingJournal } = useBillingJournal(tenantId);
   const { data: dataVolume } = useTenantDataVolume(tenantId, !!tenantId);
@@ -353,6 +356,17 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   };
 
   // Подсказка суммы: цена тарифа × месяцы × (1 − скидка периода).
+  // Как на сервере: продлеваем от большего из (оплачено до, сегодня).
+  const payMonths: number | undefined = Form.useWatch("periodMonths", payForm);
+  const paidUntilAfter = (months: number): string => {
+    const now = new Date();
+    const cur = t?.paidUntil ? new Date(t.paidUntil) : now;
+    const base = cur > now ? cur : now;
+    const d = new Date(base);
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString();
+  };
+
   const suggestAmount = (months: number): number => {
     if (!tariff) return 0;
     const base = Number(tariff.price) * months;
@@ -626,11 +640,12 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   };
 
   return (
-    <Modal
+    <Drawer
       open={!!tenantId}
-      onCancel={requestClose}
-      width={900}
-      centered
+      onClose={requestClose}
+      placement="right"
+      size={isMobile ? "100%" : 960}
+      destroyOnHidden
       title={
         t ? (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -715,14 +730,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
         ) : null
       }
       styles={{
-        // Тело — единая область прокрутки: скроллится вся карточка целиком
-        // (шапка + вкладки + контент). Таб-бар остаётся доступным (sticky в CSS).
-        body: {
-          maxHeight: "78vh",
-          overflowY: "auto",
-          overflowX: "hidden",
-          padding: "12px 16px 16px",
-        },
+        header: { paddingBlock: 12 },
+        body: { padding: "12px 20px 20px" },
       }}
     >
       {isLoading ? (
@@ -1098,6 +1107,54 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               </div>
             </div>
 
+            {/* Расход против лимитов — сразу под тарифом: главное для контроля. */}
+            <div>
+              <Text strong>Использование лимитов</Text>
+              <ul className="usage">
+                {LIMIT_META.map((l) => {
+                  const used = data.usage[l.key] ?? 0;
+                  const limit = data.limits[l.key];
+                  const unlimited = limit === null || limit === undefined;
+                  const over = !unlimited && used > (limit as number);
+                  const pct = unlimited
+                    ? 0
+                    : Math.min(100, (used / Math.max(Number(limit), 1)) * 100);
+                  return (
+                    <li key={l.key}>
+                      <span className="usage-head">
+                        <span>{l.label}</span>
+                        <span className={over ? "usage-over" : undefined}>
+                          {used.toLocaleString("ru-RU")} из{" "}
+                          {unlimited ? "∞" : Number(limit).toLocaleString("ru-RU")}
+                          {over ? " — превышение" : ""}
+                        </span>
+                      </span>
+                      {unlimited ? null : (
+                        <span className="usage-track">
+                          <span
+                            className="usage-fill"
+                            style={{
+                              width: `${pct}%`,
+                              background: over
+                                ? "#d03b3b"
+                                : pct >= 80
+                                  ? "#c98500"
+                                  : "#2a78d6",
+                            }}
+                          />
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {data.limitPolicy === "hard"
+                  ? "При превышении новое создать нельзя."
+                  : "При превышении — только предупреждение, создавать можно."}
+              </Text>
+            </div>
+
             {/* Отрасль: привязка + применение пресета (перезапись override модулей). */}
             <Divider titlePlacement="start">Отрасль</Divider>
             {(() => {
@@ -1280,8 +1337,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
-                  gap: "0 8px",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                  gap: "8px",
                 }}
               >
                 {addonMeta.map((a) => {
@@ -1346,31 +1403,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               })()}
             </div>
           </Space>
-
-          {/* Расход vs лимиты тарифа */}
-          <Divider titlePlacement="start">
-            Лимиты тарифа {t.tariffName ? `(${t.tariffName})` : ""}
-          </Divider>
-          <Descriptions column={1} size="small">
-            {LIMIT_META.map((l) => {
-              const used = data.usage[l.key] ?? 0;
-              const limit = data.limits[l.key];
-              const exceeded = limit !== null && limit !== undefined && used > limit;
-              return (
-                <Descriptions.Item key={l.key} label={l.label}>
-                  <Text type={exceeded ? "danger" : undefined} strong={exceeded}>
-                    {used} / {limit === null || limit === undefined ? "∞" : limit}
-                    {exceeded ? " — превышение" : ""}
-                  </Text>
-                </Descriptions.Item>
-              );
-            })}
-          </Descriptions>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {data.limitPolicy === "hard"
-              ? "При превышении создание блокируется (402)."
-              : "При превышении показывается предупреждение, создание разрешено."}
-          </Text>
 
                   </>
                 ),
@@ -1643,35 +1675,51 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <Form form={payForm} layout="vertical" onFinish={submitPayment}>
               <Form.Item
                 name="periodMonths"
-                label="Период оплаты"
+                label="За сколько месяцев"
                 rules={[{ required: true }]}
               >
-                <Select
-                  onChange={(m: number) =>
-                    payForm.setFieldsValue({ amount: suggestAmount(m) })
+                <Segmented
+                  block
+                  onChange={(m) =>
+                    payForm.setFieldsValue({ amount: suggestAmount(Number(m)) })
                   }
                   options={PAYMENT_PERIODS.map((m) => {
                     const pct = tariff?.discounts?.[String(m)] ?? 0;
                     return {
                       value: m,
-                      label: `${m} мес.${pct ? ` (−${pct}%)` : ""}`,
+                      label: pct ? `${m} мес. −${pct}%` : `${m} мес.`,
                     };
                   })}
                 />
               </Form.Item>
-              <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ display: "flex", gap: "0 12px", flexWrap: "wrap" }}>
                 <Form.Item
                   name="amount"
                   label="Сумма"
-                  style={{ flex: 1 }}
+                  style={{ flex: "1 1 200px" }}
                   rules={[{ required: true, message: "Укажите сумму" }]}
                 >
-                  <InputNumber min={0} style={{ width: "100%" }} />
+                  <InputNumber<number>
+                    min={0}
+                    style={{ width: "100%" }}
+                    formatter={(v) =>
+                      v == null ? "" : Number(v).toLocaleString("ru-RU")
+                    }
+                    parser={(v) => Number(String(v ?? "").replace(/\D/g, ""))}
+                  />
                 </Form.Item>
                 <Form.Item name="currency" label="Валюта" style={{ width: 110 }}>
                   <Input />
                 </Form.Item>
               </div>
+              {payMonths ? (
+                <div className="pay-result">
+                  Оплачено до станет <b>{ruDate(paidUntilAfter(payMonths))}</b>
+                  {t.paidUntil && new Date(t.paidUntil) > new Date()
+                    ? ` (сейчас ${ruDate(t.paidUntil)})`
+                    : " (считаем от сегодня)"}
+                </div>
+              ) : null}
               <Form.Item name="receipt" label="Номер чека / счёта">
                 <Input placeholder="напр. №1024" />
               </Form.Item>
@@ -1732,6 +1780,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
           />
         </>
       )}
-    </Modal>
+    </Drawer>
   );
 };

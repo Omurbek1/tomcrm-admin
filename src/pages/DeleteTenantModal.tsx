@@ -84,6 +84,7 @@ export const DeleteTenantModal = ({
   };
 
   const slugOk = confirmSlug.trim() === slug;
+  const n = (v: number) => Number(v ?? 0).toLocaleString("ru-RU");
 
   return (
     <Modal
@@ -112,9 +113,9 @@ export const DeleteTenantModal = ({
 
         {impact && (
           <Text type="secondary">
-            Затронуто: {impact.deals} сделок · {impact.clients} клиентов ·{" "}
-            {impact.products} товаров · {impact.employees} сотрудников ·{" "}
-            {impact.files} файлов.
+            Затронуто: {n(impact.deals)} сделок · {n(impact.clients)} клиентов ·{" "}
+            {n(impact.products)} товаров · {n(impact.employees)} сотрудников ·{" "}
+            {n(impact.files)} файлов.
           </Text>
         )}
 
@@ -130,9 +131,11 @@ export const DeleteTenantModal = ({
 
         <div>
           <Text>
-            Для подтверждения введите slug: <b>{slug}</b>
+            Для подтверждения введите адрес компании: <b>{slug}</b>
           </Text>
           <Input
+            status={confirmSlug && !slugOk ? "error" : undefined}
+            autoComplete="off"
             value={confirmSlug}
             onChange={(e) => setConfirmSlug(e.target.value)}
             placeholder={slug}
@@ -148,7 +151,7 @@ export const DeleteTenantModal = ({
             disabled={!slugOk || reason.trim().length < 3}
             onClick={doSoftDelete}
           >
-            Удалить (soft, 90 дней)
+            Удалить — можно вернуть 90 дней
           </Button>
         </Space>
 

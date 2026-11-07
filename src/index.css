@@ -711,3 +711,95 @@ kbd {
   font-size: 12px;
   color: #b42318;
 }
+
+/* ── Использование лимитов (карточка компании) ───────────────────────────── */
+.usage {
+  margin: 6px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.usage li + li {
+  margin-top: 8px;
+}
+.usage-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.usage-over {
+  color: #d03b3b;
+  font-weight: 600;
+}
+.usage-track {
+  display: block;
+  height: 6px;
+  margin-top: 3px;
+  border-radius: 999px;
+  background: #eef1f5;
+}
+.usage-fill {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+}
+
+/* ── Все окна: кнопки всегда видны, прокручивается середина; телефон ─────── */
+.ant-modal:not(.ant-modal-confirm) .ant-modal-body {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 575px) {
+  .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto;
+  }
+  .ant-modal:not(.ant-modal-confirm) .ant-modal-body {
+    max-height: calc(100vh - 170px);
+  }
+  .ant-modal-footer .ant-btn {
+    min-height: 40px;
+  }
+}
+.pay-result {
+  margin: -4px 0 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #eef6ff;
+  font-size: 13px;
+}
+
+/* ── Массовые действия: кого затронет ─────────────────────────────────────── */
+.affected {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid #e8edf3;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.affected-title {
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+.affected ul {
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.affected li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.affected-sub {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
