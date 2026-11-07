@@ -8,6 +8,7 @@ import {
   Space,
   Switch,
   Table,
+  Tabs,
   Tag,
   Tooltip,
   Tree,
@@ -365,10 +366,17 @@ function IndustryModal({
       onOk={submit}
       okText="Сохранить"
       confirmLoading={create.isPending || update.isPending}
-      width={640}
+      width={720}
     >
-      <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+      <Tabs
+        style={{ marginTop: 4 }}
+        items={[
+          {
+            key: "main",
+            label: "Основное",
+            children: (
+              <div style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
           <Field label="Название (RU)">
             <Input
               value={form.nameRu}
@@ -390,7 +398,7 @@ function IndustryModal({
           </Field>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
           <Field label="slug (латиница)">
             <Input
               value={form.slug}
@@ -411,71 +419,8 @@ function IndustryModal({
         </div>
 
         <div>
-          <Text strong>Модули отрасли (пресет)</Text>
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
-            Те же разделы CRM, что в карточке компании. Всегда-включённые нельзя снять.
-          </div>
-          <Tree
-            checkable
-            selectable={false}
-            defaultExpandAll
-            treeData={moduleTreeData}
-            checkedKeys={form.modules ?? []}
-            onCheck={(keys) => {
-              const arr = (Array.isArray(keys) ? keys : keys.checked).map(String);
-              set("modules", arr.filter((k) => !k.startsWith("grp:")));
-            }}
-          />
-        </div>
-
-        <div>
-          <Text strong>Стадии воронки</Text>
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
-            По порядку. Последняя = проигрыш, предпоследняя = победа.
-          </div>
-          <div style={{ display: "grid", gap: 6 }}>
-            {stages.map((s, i) => (
-              <Space key={i} style={{ width: "100%" }}>
-                <Input
-                  value={s}
-                  onChange={(e) => setStage(i, e.target.value)}
-                  placeholder={`Стадия ${i + 1}`}
-                  style={{ width: 320 }}
-                />
-                <Button
-                  size="small"
-                  icon={<ArrowUpOutlined />}
-                  disabled={i === 0}
-                  onClick={() => moveStage(i, -1)}
-                />
-                <Button
-                  size="small"
-                  icon={<ArrowDownOutlined />}
-                  disabled={i === stages.length - 1}
-                  onClick={() => moveStage(i, 1)}
-                />
-                <Button
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => removeStage(i)}
-                />
-              </Space>
-            ))}
-            <Button
-              size="small"
-              icon={<PlusOutlined />}
-              onClick={addStage}
-              style={{ width: 160 }}
-            >
-              Добавить стадию
-            </Button>
-          </div>
-        </div>
-
-        <div>
           <Text strong>Как называть «Клиента»</Text>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginTop: 6 }}>
             <Input
               addonBefore="RU"
               value={form.clientTermRu}
@@ -502,6 +447,95 @@ function IndustryModal({
           <span>Использовать склад</span>
         </Space>
 
+              </div>
+            ),
+          },
+          {
+            key: "stages",
+            label: `Воронка · ${stages.length}`,
+            children: (
+        <div>
+          <Text strong>Стадии воронки</Text>
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+            По порядку. Последняя = проигрыш, предпоследняя = победа.
+          </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            {stages.map((s, i) => (
+              <Space.Compact key={i} style={{ width: "100%" }}>
+                <Input
+                  value={s}
+                  onChange={(e) => setStage(i, e.target.value)}
+                  placeholder={`Стадия ${i + 1}`}
+                  prefix={<span style={{ color: "#94a3b8", width: 18 }}>{i + 1}</span>}
+                  suffix={
+                    i === stages.length - 1 ? (
+                      <Tag color="red" style={{ margin: 0 }}>проигрыш</Tag>
+                    ) : i === stages.length - 2 ? (
+                      <Tag color="green" style={{ margin: 0 }}>победа</Tag>
+                    ) : null
+                  }
+                />
+                <Button
+                  aria-label="Выше"
+                  icon={<ArrowUpOutlined />}
+                  disabled={i === 0}
+                  onClick={() => moveStage(i, -1)}
+                />
+                <Button
+                  aria-label="Ниже"
+                  icon={<ArrowDownOutlined />}
+                  disabled={i === stages.length - 1}
+                  onClick={() => moveStage(i, 1)}
+                />
+                <Button
+                  aria-label="Удалить стадию"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => removeStage(i)}
+                />
+              </Space.Compact>
+            ))}
+            <Button
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={addStage}
+              style={{ width: 160 }}
+            >
+              Добавить стадию
+            </Button>
+          </div>
+        </div>
+
+            ),
+          },
+          {
+            key: "modules",
+            label: `Модули · ${(form.modules ?? []).length}`,
+            children: (
+        <div>
+          <Text strong>Модули отрасли (пресет)</Text>
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+            Те же разделы CRM, что в карточке компании. Всегда-включённые нельзя снять.
+          </div>
+          <Tree
+            checkable
+            selectable={false}
+            defaultExpandAll
+            treeData={moduleTreeData}
+            checkedKeys={form.modules ?? []}
+            onCheck={(keys) => {
+              const arr = (Array.isArray(keys) ? keys : keys.checked).map(String);
+              set("modules", arr.filter((k) => !k.startsWith("grp:")));
+            }}
+          />
+        </div>
+
+            ),
+          },
+          {
+            key: "catalog",
+            label: "Каталог товаров",
+            children: (
         <div>
           <Text strong>Каталог товаров по умолчанию</Text>
           <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
@@ -573,7 +607,10 @@ function IndustryModal({
             </Space>
           </div>
         </div>
-      </div>
+            ),
+          },
+        ]}
+      />
     </Modal>
   );
 }

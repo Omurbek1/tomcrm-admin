@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Drawer,
+  Grid,
   Input,
   Segmented,
   Select,
@@ -51,6 +52,7 @@ const fmt = (iso?: string | null) =>
 const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void }) => {
   const { message } = AntApp.useApp();
   const { data, isLoading, refetch } = useSupportTicket(id);
+  const isMobile = !Grid.useBreakpoint().md;
   const reply = useSupportReply(id ?? "");
   const [text, setText] = useState("");
   const [status, setStatus] = useState<SupportTicketStatus | undefined>(undefined);
@@ -74,7 +76,7 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
   const att = (messageId: string | null) => (data?.attachments ?? []).filter((a) => (a.messageId ?? null) === messageId);
 
   return (
-    <Drawer open={Boolean(id)} onClose={onClose} size={640} title={data ? `Обращение #${data.number}` : "Обращение"} loading={isLoading}>
+    <Drawer open={Boolean(id)} onClose={onClose} size={isMobile ? "100%" : 640} title={data ? `Обращение #${data.number}` : "Обращение"} loading={isLoading}>
       {data ? (
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
           <div>

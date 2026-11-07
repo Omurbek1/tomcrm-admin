@@ -6,10 +6,11 @@ import {
   Input,
   InputNumber,
   Modal,
-  Select,
   Space,
+  Segmented,
   Switch,
   Table,
+  Tabs,
   Tag,
   Tree,
 } from "antd";
@@ -76,6 +77,14 @@ export const TariffsPage = () => {
   // Включённые разделы (листья дерева). Раздел вкл, если не выключен явно.
   const [moduleChecked, setModuleChecked] = useState<string[]>([]);
   const [form] = Form.useForm();
+  const priceW: number | undefined = Form.useWatch("price", form);
+  const periodW: string | undefined = Form.useWatch("period", form);
+  const currencyW: string | undefined = Form.useWatch("currency", form);
+  // Все поля формы одним watch — без хуков в цикле.
+  const allW = Form.useWatch([], form) as Record<string, unknown> | undefined;
+  const discountsW = Object.fromEntries(
+    DISCOUNT_PERIODS.map((m) => [m, allW?.[`discount_${m}`] as number | undefined]),
+  ) as Record<number, number | undefined>;
 
   useEffect(() => {
     if (!config) return;
@@ -401,152 +410,183 @@ export const TariffsPage = () => {
         okText={editing ? "Сохранить" : "Создать"}
         cancelText="Отмена"
         confirmLoading={saving}
-        width={600}
+        width={760}
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={submit}>
-          <div style={{ display: "flex", gap: 12 }}>
-            {!editing && (
-              <Form.Item
-                name="code"
-                label="Код (латиница)"
-                style={{ width: 160 }}
-                rules={[
-                  { required: true, message: "Код" },
-                  {
-                    pattern: /^[a-z0-9_-]+$/,
-                    message: "a-z, 0-9, - _",
-                  },
-                ]}
-              >
-                <Input placeholder="team" />
-              </Form.Item>
-            )}
-            <Form.Item
-              name="name"
-              label="Название"
-              style={{ flex: 1 }}
-              rules={[{ required: true }]}
-            >
-              <Input />
-            </Form.Item>
-          </div>
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <Form.Item
-              name="price"
-              label="Цена"
-              style={{ flex: 1 }}
-              rules={[{ required: true }]}
-            >
-              <InputNumber min={0} style={{ width: "100%" }} />
-            </Form.Item>
-            <Form.Item name="currency" label="Валюта" style={{ width: 100 }}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="period" label="Период" style={{ width: 120 }}>
-              <Select
-                options={[
-                  { value: "month", label: "Месяц" },
-                  { value: "year", label: "Год" },
-                ]}
-              />
-            </Form.Item>
-          </div>
-
-          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>
-            Модули (группа + разделы, как в меню CRM)
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <Tree
-              checkable
-              selectable={false}
-              defaultExpandAll
-              treeData={treeData}
-              checkedKeys={moduleChecked}
-              onCheck={(keys) => {
-                const arr = (Array.isArray(keys) ? keys : keys.checked).map(
-                  String,
-                );
-                setModuleChecked(arr.filter((k) => !k.startsWith("grp:")));
-              }}
-            />
-          </div>
-
-          <div style={{ fontWeight: 600, margin: "8px 0 8px" }}>
-            Аддоны (докупаются поверх пакета)
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: "0 12px",
-            }}
-          >
-            {addonMeta.map((a) => (
-              <Form.Item
-                key={a.key}
-                name={`addon_${a.key}`}
-                label={<span title={a.unit}>{a.label}</span>}
-              >
-                <InputNumber
-                  min={0}
-                  placeholder="0"
-                  style={{ width: "100%" }}
-                  addonAfter="/мес"
-                />
-              </Form.Item>
-            ))}
-          </div>
-
-          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>
-            Лимиты (пусто = ∞)
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "0 12px",
-            }}
-          >
-            {TARIFF_LIMIT_META.map((l) => (
-              <Form.Item key={l.key} name={`limit_${l.key}`} label={l.label}>
-                <InputNumber min={0} placeholder="∞" style={{ width: "100%" }} />
-              </Form.Item>
-            ))}
-          </div>
-
-          <div style={{ fontWeight: 600, margin: "4px 0 8px" }}>
-            Скидка за период (%)
-          </div>
-          <div style={{ display: "flex", gap: 12 }}>
-            {DISCOUNT_PERIODS.map((m) => (
-              <Form.Item
-                key={m}
-                name={`discount_${m}`}
-                label={`${m} мес.`}
-                style={{ flex: 1 }}
-              >
-                <InputNumber min={0} max={90} addonAfter="%" style={{ width: "100%" }} />
-              </Form.Item>
-            ))}
-          </div>
-
-          <Form.Item
-            name="isPublic"
-            label="Показывать на лендинге"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-          {editing && (
-            <Form.Item
-              name="archived"
-              label="Архивный (существующие остаются, новым нельзя)"
-              valuePropName="checked"
-            >
-              <Switch />
-            </Form.Item>
-          )}
+          {/* forceRender: поля всех вкладок зарегистрированы — сохраняются,
+              даже если вкладку не открывали. */}
+          <Tabs
+            items={[
+              {
+                key: "main",
+                label: "Основное",
+                forceRender: true,
+                children: (
+                  <>
+                    <div className="form-row">
+                      {!editing && (
+                        <Form.Item
+                          name="code"
+                          label="Код (латиница)"
+                          style={{ flex: "0 1 160px" }}
+                          extra="Нельзя изменить после создания"
+                          rules={[
+                            { required: true, message: "Укажите код" },
+                            { pattern: /^[a-z0-9_-]+$/, message: "a-z, 0-9, - _" },
+                          ]}
+                        >
+                          <Input placeholder="team" autoFocus />
+                        </Form.Item>
+                      )}
+                      <Form.Item
+                        name="name"
+                        label="Название"
+                        style={{ flex: "1 1 220px" }}
+                        rules={[{ required: true, message: "Укажите название" }]}
+                      >
+                        <Input autoFocus={!!editing} />
+                      </Form.Item>
+                    </div>
+                    <div className="form-row">
+                      <Form.Item
+                        name="price"
+                        label="Цена"
+                        style={{ flex: "1 1 160px" }}
+                        rules={[{ required: true, message: "Укажите цену" }]}
+                      >
+                        <InputNumber<number>
+                          min={0}
+                          style={{ width: "100%" }}
+                          formatter={(v) => (v == null ? "" : Number(v).toLocaleString("ru-RU"))}
+                          parser={(v) => Number(String(v ?? "").replace(/\D/g, ""))}
+                        />
+                      </Form.Item>
+                      <Form.Item name="currency" label="Валюта" style={{ flex: "0 1 100px" }}>
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name="period" label="За" style={{ flex: "0 1 140px" }}>
+                        <Segmented
+                          block
+                          options={[
+                            { value: "month", label: "Месяц" },
+                            { value: "year", label: "Год" },
+                          ]}
+                        />
+                      </Form.Item>
+                    </div>
+                    <div className="form-label">Скидка при оплате вперёд</div>
+                    <div className="form-row">
+                      {DISCOUNT_PERIODS.map((m) => {
+                        const pct = Number(discountsW?.[m] ?? 0);
+                        const total =
+                          Number(priceW ?? 0) * m * (1 - Math.min(pct, 90) / 100);
+                        return (
+                          <Form.Item
+                            key={m}
+                            name={`discount_${m}`}
+                            label={`${m} мес.`}
+                            style={{ flex: "1 1 120px" }}
+                            extra={
+                              priceW && periodW !== "year"
+                                ? `${Math.round(total).toLocaleString("ru-RU")} ${!currencyW || currencyW === "KGS" ? "сом" : currencyW}`
+                                : undefined
+                            }
+                          >
+                            <InputNumber min={0} max={90} suffix="%" style={{ width: "100%" }} />
+                          </Form.Item>
+                        );
+                      })}
+                    </div>
+                    <div className="form-row">
+                      <Form.Item
+                        name="isPublic"
+                        label="Показывать на лендинге"
+                        valuePropName="checked"
+                        style={{ flex: "1 1 200px" }}
+                      >
+                        <Switch />
+                      </Form.Item>
+                      {editing && (
+                        <Form.Item
+                          name="archived"
+                          label="В архиве"
+                          extra="У кого есть — останется, новым не выбрать"
+                          valuePropName="checked"
+                          style={{ flex: "1 1 200px" }}
+                        >
+                          <Switch />
+                        </Form.Item>
+                      )}
+                    </div>
+                  </>
+                ),
+              },
+              {
+                key: "limits",
+                label: "Лимиты",
+                forceRender: true,
+                children: (
+                  <>
+                    <div className="form-hint">Пусто — без ограничений (∞).</div>
+                    <div className="form-grid">
+                      {TARIFF_LIMIT_META.map((l) => (
+                        <Form.Item key={l.key} name={`limit_${l.key}`} label={l.label}>
+                          <InputNumber min={0} placeholder="∞" style={{ width: "100%" }} />
+                        </Form.Item>
+                      ))}
+                    </div>
+                  </>
+                ),
+              },
+              {
+                key: "modules",
+                label: `Модули · ${moduleChecked.length}/${allSectionKeys.length}`,
+                forceRender: true,
+                children: (
+                  <>
+                    <div className="form-hint">
+                      Разделы CRM, которые входят в тариф (как в меню).
+                    </div>
+                    <Tree
+                      checkable
+                      selectable={false}
+                      defaultExpandAll
+                      treeData={treeData}
+                      checkedKeys={moduleChecked}
+                      onCheck={(keys) => {
+                        const arr = (Array.isArray(keys) ? keys : keys.checked).map(String);
+                        setModuleChecked(arr.filter((k) => !k.startsWith("grp:")));
+                      }}
+                    />
+                  </>
+                ),
+              },
+              {
+                key: "addons",
+                label: "Опции",
+                forceRender: true,
+                children: (
+                  <>
+                    <div className="form-hint">
+                      Докупаются поверх тарифа, цена в месяц. 0 — опцию не продаём.
+                    </div>
+                    <div className="form-grid">
+                      {addonMeta.map((a) => (
+                        <Form.Item
+                          key={a.key}
+                          name={`addon_${a.key}`}
+                          label={<span title={a.unit}>{a.label}</span>}
+                        >
+                          <InputNumber min={0} placeholder="0" style={{ width: "100%" }} suffix="/мес" />
+                        </Form.Item>
+                      ))}
+                    </div>
+                  </>
+                ),
+              },
+            ]}
+          />
         </Form>
       </Modal>
     </div>

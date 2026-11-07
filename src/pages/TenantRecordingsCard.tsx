@@ -146,7 +146,13 @@ export function TenantRecordingsCard({ tenantId }: { tenantId: string }) {
                 <Text>
                   Введите слово <b>{WORD}</b>, чтобы подтвердить
                 </Text>
-                <Input value={word} onChange={(e) => setWord(e.target.value)} />
+                <Input
+                  autoFocus
+                  autoComplete="off"
+                  value={word}
+                  status={word && word.trim().toLowerCase() !== WORD ? "error" : undefined}
+                  onChange={(e) => setWord(e.target.value)}
+                />
               </>
             ) : null}
           </Space>

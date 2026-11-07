@@ -40,6 +40,49 @@ const { Text, Paragraph } = Typography;
 const permsSummary = (perms: string[]): string =>
   perms.includes("*") ? "Полный доступ" : perms.length ? `${perms.length} прав` : "—";
 
+
+/** Надёжный пароль без похожих символов (0/O, 1/l/I) — легко продиктовать. */
+const genPassword = (len = 14): string => {
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const buf = new Uint32Array(len);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (n) => abc[n % abc.length]).join("");
+};
+
+/** Поле пароля с кнопкой «Сгенерировать» (сразу копирует в буфер). */
+const PasswordField = ({
+  form,
+  onCopied,
+}: {
+  form: ReturnType<typeof Form.useForm>[0];
+  onCopied: () => void;
+}) => (
+  <Form.Item
+    label="Пароль"
+    required
+    extra="Не короче 6 символов. «Сгенерировать» — сразу скопирует в буфер."
+  >
+    <Space.Compact style={{ width: "100%" }}>
+      <Form.Item
+        name="password"
+        noStyle
+        rules={[{ required: true, min: 6, message: "Минимум 6 символов" }]}
+      >
+        <Input.Password autoComplete="new-password" />
+      </Form.Item>
+      <Button
+        onClick={() => {
+          const pw = genPassword();
+          form.setFieldsValue({ password: pw });
+          void navigator.clipboard?.writeText(pw).then(onCopied, () => undefined);
+        }}
+      >
+        Сгенерировать
+      </Button>
+    </Space.Compact>
+  </Form.Item>
+);
+
 export const AdminsPage = () => {
   const { message } = App.useApp();
   const { data: admins, isLoading } = useAdmins();
@@ -268,6 +311,8 @@ export const AdminsPage = () => {
         okText="Создать"
         cancelText="Отмена"
         confirmLoading={createAdmin.isPending}
+        destroyOnHidden
+        afterClose={() => createForm.resetFields()}
       >
         <Form form={createForm} layout="vertical" onFinish={submitCreate}>
           <Form.Item
@@ -275,25 +320,26 @@ export const AdminsPage = () => {
             label="Логин"
             rules={[{ required: true, min: 3, message: "Минимум 3 символа" }]}
           >
-            <Input autoComplete="off" />
+            <Input autoComplete="off" autoFocus />
           </Form.Item>
           <Form.Item name="name" label="Имя">
             <Input autoComplete="off" />
           </Form.Item>
+          <PasswordField
+            form={createForm}
+            onCopied={() => message.success("Пароль скопирован")}
+          />
           <Form.Item
-            name="password"
-            label="Пароль"
-            rules={[{ required: true, min: 6, message: "Минимум 6 символов" }]}
+            name="permissions"
+            label="Права"
+            extra="Без галочек — только просмотр."
           >
-            <Input.Password autoComplete="new-password" />
-          </Form.Item>
-          <Form.Item name="permissions" label="Права (без галочек — только просмотр)">
             <Checkbox.Group
+              className="perm-grid"
               options={(catalog ?? []).map((p) => ({
                 label: p.label,
                 value: p.key,
               }))}
-              style={{ display: "flex", flexDirection: "column", gap: 6 }}
             />
           </Form.Item>
         </Form>
@@ -308,6 +354,7 @@ export const AdminsPage = () => {
         okText="Сохранить"
         cancelText="Отмена"
         confirmLoading={setPerms.isPending}
+        destroyOnHidden
       >
         {permsFor?.permissions.includes("*") && (
           <Alert
@@ -325,14 +372,28 @@ export const AdminsPage = () => {
         </Checkbox>
         {!permDraft.includes("*") && (
           <div style={{ marginTop: 12 }}>
+            <Space size={4} style={{ marginBottom: 8 }}>
+              <Button
+                size="small"
+                onClick={() => setPermDraft((catalog ?? []).map((p) => p.key))}
+              >
+                Выбрать все
+              </Button>
+              <Button size="small" onClick={() => setPermDraft([])}>
+                Снять все
+              </Button>
+              <span style={{ color: "#64748b", fontSize: 12 }}>
+                Выбрано {permDraft.length} из {(catalog ?? []).length}
+              </span>
+            </Space>
             <Checkbox.Group
+              className="perm-grid"
               value={permDraft}
               onChange={(v) => setPermDraft(v as string[])}
               options={(catalog ?? []).map((p) => ({
                 label: p.label,
                 value: p.key,
               }))}
-              style={{ display: "flex", flexDirection: "column", gap: 6 }}
             />
           </div>
         )}
@@ -344,18 +405,17 @@ export const AdminsPage = () => {
         title={`Новый пароль для ${pwFor?.login ?? ""}`}
         onCancel={() => setPwFor(null)}
         onOk={() => pwForm.submit()}
-        okText="Сменить"
+        okText="Сменить пароль"
         cancelText="Отмена"
         confirmLoading={changePassword.isPending}
+        destroyOnHidden
+        afterClose={() => pwForm.resetFields()}
       >
         <Form form={pwForm} layout="vertical" onFinish={submitPassword}>
-          <Form.Item
-            name="password"
-            label="Пароль"
-            rules={[{ required: true, min: 6, message: "Минимум 6 символов" }]}
-          >
-            <Input.Password autoComplete="new-password" />
-          </Form.Item>
+          <PasswordField
+            form={pwForm}
+            onCopied={() => message.success("Пароль скопирован — передайте админу")}
+          />
         </Form>
       </Modal>
     </div>
