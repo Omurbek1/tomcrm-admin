@@ -14,6 +14,7 @@ export type View =
   | "industries"
   | "templates"
   | "integrations"
+  | "load"
   | "audit"
   | "admins"
   | "support";
@@ -60,11 +61,12 @@ export const NAV_GROUPS: NavGroup[] = [
       {
         key: "industries",
         label: "Настройки",
-        hint: "Отрасли, уведомления, интеграции",
+        hint: "Отрасли, уведомления, интеграции, нагрузка",
         tabs: [
           { key: "industries", label: "Отрасли", hint: "Профили отраслей" },
           { key: "templates", label: "Уведомления", hint: "Тексты сообщений клиентам" },
           { key: "integrations", label: "Интеграции", hint: "Ключи Meta, Instagram" },
+          { key: "load", label: "Нагрузка", hint: "Тяжёлые компании, фоновые задачи" },
         ],
       },
       {
