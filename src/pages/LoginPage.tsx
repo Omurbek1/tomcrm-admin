@@ -20,6 +20,7 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
   // Шаг с кодом показываем ТОЛЬКО если у админа включена 2FA (бэк вернёт
   // TOTP_REQUIRED). Нет 2FA → обычный вход по логину/паролю.
   const [needCode, setNeedCode] = useState(false);
+  const [form] = Form.useForm();
 
   const submit = async (values: {
     login: string;
@@ -33,10 +34,18 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
       setPermissions(data.permissions ?? []);
       onLoggedIn();
     } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "";
-      if (msg === "TOTP_REQUIRED") {
+      const err = e as {
+        response?: { status?: number; data?: { message?: string } };
+      };
+      const msg = err.response?.data?.message ?? "";
+      const status = err.response?.status;
+      if (!err.response) {
+        message.error("Нет связи с сервером — проверьте интернет и повторите");
+      } else if (status === 429) {
+        message.error("Слишком много попыток входа — подождите минуту");
+      } else if (status && status >= 500) {
+        message.error("Сервер временно недоступен — попробуйте чуть позже");
+      } else if (msg === "TOTP_REQUIRED") {
         setNeedCode(true);
         message.info("Введите код из приложения-аутентификатора");
       } else if (msg.includes("2FA")) {
@@ -62,13 +71,19 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
           </div>
         </div>
 
-        <Form layout="vertical" onFinish={submit} requiredMark={false} size="large">
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={submit}
+          requiredMark={false}
+          size="large"
+        >
           <Form.Item
             name="login"
             label="Логин"
             rules={[{ required: true, message: "Введите логин" }]}
           >
-            <Input autoComplete="username" placeholder="admin" />
+            <Input autoComplete="username" placeholder="admin" autoFocus />
           </Form.Item>
           <Form.Item
             name="password"
@@ -91,8 +106,15 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
               >
                 <Input
                   inputMode="numeric"
-                  maxLength={6}
+                  autoComplete="one-time-code"
+                  maxLength={7}
                   autoFocus
+                  onChange={(e) => {
+                    // Только цифры (вставка «123 456» тоже), 6 цифр — вход сам.
+                    const code = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    form.setFieldValue("totpCode", code);
+                    if (code.length === 6 && !loading) form.submit();
+                  }}
                   placeholder="123 456"
                   style={{ letterSpacing: 6, textAlign: "center" }}
                 />
