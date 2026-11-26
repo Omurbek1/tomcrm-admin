@@ -470,13 +470,6 @@ function IndustryModal({
           </div>
         </div>
 
-        <label className="switch-row">
-          <Switch
-            checked={form.warehouseEnabled}
-            onChange={(v) => set("warehouseEnabled", v)}
-          />
-          <span>Использовать склад</span>
-        </label>
 
               </div>
             ),
@@ -632,9 +625,13 @@ function IndustryModal({
             <label className="switch-row">
               <Switch
                 checked={form.productCatalog?.useWarehouse !== false}
-                onChange={(v) => setCatalog({ useWarehouse: v })}
+                onChange={(v) => {
+                  // Один флаг склада: каталог + старое поле — одинаково.
+                  setCatalog({ useWarehouse: v });
+                  set("warehouseEnabled", v);
+                }}
               />
-              <span>Склад и поступления</span>
+              <span>Склад: остатки, поступления, перемещения</span>
             </label>
           </div>
         </div>
