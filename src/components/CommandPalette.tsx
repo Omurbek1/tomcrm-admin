@@ -2,11 +2,20 @@ import { SearchOutlined } from "@ant-design/icons";
 import { Input, Modal, Tag } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { can } from "../api/client";
 import { useTenants } from "../hooks";
+import { openAddSubscription } from "./AddSubscriptionModal";
 import { NAV_ITEMS, navigate, type View } from "../lib/nav";
 
 type Hit =
   | { kind: "view"; key: string; title: string; sub: string; view: View }
+  | {
+      kind: "action";
+      key: string;
+      title: string;
+      sub: string;
+      tenantId: string | null;
+    }
   | {
       kind: "tenant";
       key: string;
@@ -55,7 +64,42 @@ export const CommandPalette = ({
       sub: i.hint,
       view: i.key,
     }));
-    if (!t) return views;
+    // Действие «Добавить подписку» — по словам «подписка/оплата/продлить».
+    const canPay = can("billing.edit");
+    const wantsPay = !t || /подпис|оплат|продл|платеж|платёж/.test(t);
+    const addAction: Hit[] =
+      canPay && wantsPay
+        ? [
+            {
+              kind: "action",
+              key: "a:add-subscription",
+              title: "Добавить подписку",
+              sub: "Ручная оплата: компания, срок, сумма",
+              tenantId: null,
+            },
+          ]
+        : [];
+    if (!t) return [...addAction, ...views];
+    const matched = (tenants ?? []).filter(
+      (r) =>
+        r.status !== "deleted" &&
+        (norm(r.name).includes(t) || norm(r.slug).includes(t)),
+    );
+    // Одна найденная компания — сразу предложить продлить именно её.
+    const payFor: Hit[] =
+      canPay && matched.length === 1
+        ? [
+            {
+              kind: "action",
+              key: `a:pay:${matched[0].id}`,
+              title: `Добавить подписку: ${matched[0].name}`,
+              sub: matched[0].paidUntil
+                ? `Сейчас оплачено до ${new Date(matched[0].paidUntil).toLocaleDateString("ru-RU")}`
+                : "Ручная оплата",
+              tenantId: matched[0].id,
+            },
+          ]
+        : [];
     const companies: Hit[] = (tenants ?? [])
       .filter(
         (r) =>
@@ -77,12 +121,13 @@ export const CommandPalette = ({
         slug: r.slug,
         status: r.status,
       }));
-    return [...companies, ...views];
+    return [...companies, ...payFor, ...addAction, ...views];
   }, [q, tenants]);
 
   const go = (h: Hit | undefined) => {
     if (!h) return;
     if (h.kind === "view") navigate(h.view);
+    else if (h.kind === "action") openAddSubscription(h.tenantId);
     else navigate("tenants", { id: h.slug });
     onClose();
   };
@@ -161,7 +206,9 @@ export const CommandPalette = ({
                   {STATUS_TAG[h.status]?.label ?? h.status}
                 </Tag>
               ) : (
-                <span className="cmdk-kind">раздел</span>
+                <span className="cmdk-kind">
+                  {h.kind === "action" ? "действие" : "раздел"}
+                </span>
               )}
             </li>
           ))}

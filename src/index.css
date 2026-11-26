@@ -860,6 +860,149 @@ kbd {
   font-size: 13px;
 }
 
+/* ── «Подписки»: поиск + группы ───────────────────────────────────────────── */
+.subs-toolbar {
+  display: flex;
+  gap: 8px 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.subs-search {
+  width: 240px;
+}
+.subs-toolbar > .ant-segmented {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+@media (max-width: 575px) {
+  .subs-search {
+    width: 100%;
+  }
+}
+
+/* ── «Добавить подписку» ──────────────────────────────────────────────────── */
+.addsub-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.addsub-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.addsub-option-sub {
+  flex: none;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.addsub-alert {
+  margin: -8px 0 16px;
+}
+.addsub-period {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.25;
+  padding: 4px 0;
+}
+.addsub-period-off {
+  font-size: 11px;
+  color: var(--accent-text);
+}
+.addsub-row {
+  display: flex;
+  gap: 0 12px;
+  flex-wrap: wrap;
+}
+.addsub-amount {
+  flex: 1 1 180px;
+}
+.addsub-note {
+  flex: 2 1 240px;
+}
+.addsub-summary {
+  border: 1px solid var(--accent-soft-2);
+  background: var(--accent-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-height: 96px;
+}
+.addsub-summary-empty {
+  color: var(--text-3);
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 66px;
+}
+.addsub-summary-body {
+  transition: opacity 0.15s ease;
+}
+.addsub-summary-body.is-stale {
+  opacity: 0.6;
+}
+.addsub-dates {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.addsub-k {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.addsub-v {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.addsub-v-old {
+  color: var(--text-3);
+}
+.addsub-v-new {
+  color: var(--accent-text);
+}
+.addsub-arrow {
+  color: var(--text-4);
+}
+.addsub-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.addsub-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.addsub-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 575px) {
+  .addsub-footer > .ant-btn {
+    flex: 1;
+    min-height: 44px;
+  }
+  .addsub-v {
+    font-size: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .addsub-summary-body {
+    transition: none;
+  }
+}
+
 /* ── Массовые действия: кого затронет ─────────────────────────────────────── */
 .affected {
   margin-top: 14px;

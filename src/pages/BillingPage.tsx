@@ -4,10 +4,7 @@ import {
   Button,
   Card,
   Col,
-  Form,
   Input,
-  InputNumber,
-  Modal,
   Popconfirm,
   Row,
   Segmented,
@@ -20,7 +17,10 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 
+import { PlusOutlined } from "@ant-design/icons";
+
 import { can } from "../api/client";
+import { openAddSubscription } from "../components/AddSubscriptionModal";
 import { PageHeader, StatTile } from "../components/viz";
 import { openTenant } from "../lib/nav";
 import { SERIES } from "../lib/chartTheme";
@@ -30,8 +30,6 @@ import {
   useLimitOverages,
   useConfirmEvent,
   useMarkInvoicePaid,
-  useMarkManualPayment,
-  useTenants,
   useUnverifiedEvents,
   type BillingInvoiceRow,
   type LimitOverageRow,
@@ -69,7 +67,12 @@ const STATUS: Record<
   failed: { color: "error", label: "Ошибка" },
 };
 
-const PERIODS = [1, 3, 6, 12];
+const MANUAL_METHOD: Record<string, string> = {
+  cash: "наличные",
+  transfer: "перевод",
+  card: "карта",
+  free: "бесплатно",
+};
 
 /** Название компании — ссылкой в её карточку. */
 const TenantLink = ({ id, name }: { id: string; name: string | null }) => (
@@ -101,12 +104,7 @@ export const BillingPage = () => {
   const { data: unverified } = useUnverifiedEvents();
   const confirmEvent = useConfirmEvent();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const markManual = useMarkManualPayment();
   const markPaid = useMarkInvoicePaid();
-  const [modalOpen, setModalOpen] = useState(false);
-  // Компании — из общего кэша списка; поиск на клиенте, без запроса на букву.
-  const { data: tenants } = useTenants({});
-  const [form] = Form.useForm();
 
   // Фильтры (клиентские — список небольшой, приходит целиком).
   const [statusF, setStatusF] = useState<"all" | BillingInvoiceRow["status"]>(
@@ -165,27 +163,6 @@ export const BillingPage = () => {
         (!q || (r.tenantName || "").toLowerCase().includes(q)),
     );
   }, [rows, statusF, providerF, search]);
-
-  const submit = async () => {
-    const v = await form.validateFields();
-    try {
-      await markManual.mutateAsync({
-        tenantId: v.tenantId,
-        periodMonths: v.periodMonths,
-        amount: v.amount ?? null,
-        method: v.method ?? null,
-        note: v.note ?? null,
-      });
-      message.success("Оплата отмечена, подписка продлена");
-      setModalOpen(false);
-      form.resetFields();
-    } catch (e) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Не удалось отметить оплату";
-      message.error(msg);
-    }
-  };
 
   const credit = async (r: BillingInvoiceRow) => {
     setPayingId(r.id);
@@ -256,10 +233,21 @@ export const BillingPage = () => {
       title: "Способ",
       dataIndex: "provider",
       key: "provider",
-      width: 100,
-      render: (v: string) =>
+      width: 150,
+      render: (v: string, r) =>
         v === "manual" ? (
-          <Tag>Вручную</Tag>
+          <Tooltip
+            title={
+              [r.adminLogin ? `Отметил: ${r.adminLogin}` : null, r.note]
+                .filter(Boolean)
+                .join(" · ") || undefined
+            }
+          >
+            <Tag>
+              Вручную
+              {r.manualMethod ? ` · ${MANUAL_METHOD[r.manualMethod] ?? r.manualMethod}` : ""}
+            </Tag>
+          </Tooltip>
         ) : (
           <Tag color="blue">{v === "finik" ? "Finik QR" : v}</Tag>
         ),
@@ -332,8 +320,12 @@ export const BillingPage = () => {
         subtitle="Счета, оплаты и приём вебхуков Finik"
         extra={
           editable && (
-            <Button type="primary" onClick={() => setModalOpen(true)}>
-              Отметить оплату
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => openAddSubscription()}
+            >
+              Добавить подписку
             </Button>
           )
         }
@@ -640,94 +632,6 @@ export const BillingPage = () => {
         virtualList={{ x: 1260 }}
       />
 
-      <Modal
-        title="Отметить ручную оплату"
-        open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        onOk={submit}
-        okText="Отметить оплату"
-        confirmLoading={markManual.isPending}
-        destroyOnHidden
-      >
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-          title="Создаёт новый оплаченный счёт и продлевает подписку."
-          description="Для оплаты, которая уже прошла в Finik, лучше нажать «Провести» в строке нужного счёта — так не появится дубль."
-        />
-        <Form form={form} layout="vertical" initialValues={{ periodMonths: 1 }}>
-          <Form.Item
-            name="tenantId"
-            label="Компания"
-            rules={[{ required: true, message: "Выберите компанию" }]}
-          >
-            <Select
-              showSearch
-              autoFocus
-              optionFilterProp="search"
-              placeholder="Название, адрес или телефон"
-              options={(tenants || []).map((t) => ({
-                value: t.id,
-                search: `${t.name} ${t.slug} ${t.contactPhone ?? ""} ${t.ownerPhone ?? ""}`,
-                label: (
-                  <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <span>{t.name}</span>
-                    <span style={{ color: "#94a3b8", fontSize: 12 }}>
-                      /{t.slug}
-                      {t.paidUntil
-                        ? ` · до ${new Date(t.paidUntil).toLocaleDateString("ru-RU")}`
-                        : t.status === "trial"
-                          ? " · триал"
-                          : ""}
-                    </span>
-                  </span>
-                ),
-              }))}
-            />
-          </Form.Item>
-          <Form.Item
-            name="periodMonths"
-            label="За сколько месяцев"
-            rules={[{ required: true }]}
-          >
-            <Segmented
-              block
-              options={PERIODS.map((m) => ({ value: m, label: `${m} мес.` }))}
-            />
-          </Form.Item>
-          <Form.Item
-            name="amount"
-            label="Сумма, сом"
-            extra="Пусто — посчитаем по тарифу компании"
-          >
-            <InputNumber
-              style={{ width: "100%" }}
-              min={0}
-              placeholder="по тарифу"
-              formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
-            />
-          </Form.Item>
-          <Form.Item name="method" label="Способ">
-            <Select
-              allowClear
-              placeholder="Наличные / перевод / …"
-              options={[
-                { value: "cash", label: "Наличные" },
-                { value: "transfer", label: "Банковский перевод" },
-                { value: "card", label: "Карта (вручную)" },
-                { value: "other", label: "Другое" },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name="note" label="Заметка (необязательно)">
-            <Input.TextArea
-              rows={2}
-              placeholder="Комментарий для истории (кто/за что)"
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

@@ -44,6 +44,12 @@ export interface PaymentRow {
   cancelled: boolean;
   adminLogin: string | null;
   createdAt: string;
+  /** legacy — старая ручная запись; manual — ручная подписка; online — Finik. */
+  source?: "legacy" | "manual" | "online";
+  /** Способ ручной оплаты: cash|transfer|card|free. */
+  method?: string | null;
+  /** Назначение счёта: subscription|addon|order|plan_change|topup. */
+  kind?: string | null;
 }
 
 export interface PaymentsResponse {

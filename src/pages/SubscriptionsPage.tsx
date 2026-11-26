@@ -1,12 +1,23 @@
-import { DownOutlined } from "@ant-design/icons";
-import { App, Button, Col, Dropdown, Row, Segmented, Space, Tag } from "antd";
+import { DownOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  App,
+  Button,
+  Col,
+  Dropdown,
+  Input,
+  Row,
+  Segmented,
+  Space,
+  Tag,
+} from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 
 import { can } from "../api/client";
+import { openAddSubscription } from "../components/AddSubscriptionModal";
 import { ResponsiveTable } from "../components/MobileCards";
 import { PageHeader, StatTile } from "../components/viz";
-import { useBulkExtend, useBulkTariff, useTariffs, useTenants } from "../hooks";
+import { useBulkTariff, useTariffs, useTenants } from "../hooks";
 import { SERIES } from "../lib/chartTheme";
 import { openTenant } from "../lib/nav";
 import type { TenantRow } from "../types";
@@ -24,6 +35,7 @@ const companies = (n: number) => {
   return `${n} ${w}`;
 };
 const som = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} сом`;
+const norm = (s: string) => s.toLowerCase().replace(/ё/g, "е").trim();
 const ruDate = (v: string | null | undefined) =>
   v ? new Date(v).toLocaleDateString("ru-RU") : "—";
 
@@ -98,9 +110,9 @@ export const SubscriptionsPage = () => {
   const { message, modal } = App.useApp();
   const { data: tenants, isLoading } = useTenants({});
   const { data: tariffs } = useTariffs();
-  const extend = useBulkExtend();
   const setTariff = useBulkTariff();
   const [group, setGroup] = useState<Group | "all">("all");
+  const [search, setSearch] = useState("");
   const [now] = useState(() => Date.now());
   const canPay = can("billing.edit");
   const canTariff = can("tenants.tariff");
@@ -117,13 +129,20 @@ export const SubscriptionsPage = () => {
     }
     return m;
   }, [live, now]);
-  const rows = useMemo(
-    () =>
+  const rows = useMemo(() => {
+    const list =
       group === "all"
         ? ORDER.flatMap((g) => groups.get(g) ?? [])
-        : (groups.get(group) ?? []),
-    [groups, group],
-  );
+        : (groups.get(group) ?? []);
+    const q = norm(search);
+    if (!q) return list;
+    return list.filter(
+      (t) =>
+        norm(t.name).includes(q) ||
+        norm(t.slug).includes(q) ||
+        norm(t.ownerName ?? "").includes(q),
+    );
+  }, [groups, group, search]);
 
   const count = (g: Group) => groups.get(g)?.length ?? 0;
   const sumMrr = (list: TenantRow[]) =>
@@ -135,23 +154,6 @@ export const SubscriptionsPage = () => {
     return left >= 0 && left <= 30 * DAY;
   });
   const overdue = groups.get("overdue") ?? [];
-
-  const doExtend = (t: TenantRow, months: number) =>
-    modal.confirm({
-      title: `Отметить оплату «${t.name}» за ${months} мес.?`,
-      content:
-        "Запишется оплата по тарифу компании (со скидкой за период), «оплачено до» продлится, статус станет «Активна». Отменить платёж можно в карточке компании → Биллинг.",
-      okText: "Отметить оплату",
-      cancelText: "Отмена",
-      onOk: () =>
-        extend.mutateAsync({ ids: [t.id], periodMonths: months }).then(
-          (r) =>
-            r.extended
-              ? void message.success(`Продлено на ${months} мес.`)
-              : void message.error("Не удалось продлить"),
-          () => void message.error("Не удалось продлить"),
-        ),
-    });
 
   const doTariff = (t: TenantRow, tariffId: string, name: string) =>
     modal.confirm({
@@ -237,21 +239,16 @@ export const SubscriptionsPage = () => {
       width: 270,
       render: (_v, t) => (
         <Space size={6} wrap onClick={(e) => e.stopPropagation()}>
-          <Dropdown
-            trigger={["click"]}
+          <Button
+            size="small"
+            type="primary"
+            ghost
+            icon={<PlusOutlined />}
             disabled={!canPay}
-            menu={{
-              items: [1, 3, 6, 12].map((m) => ({
-                key: String(m),
-                label: `на ${m} мес.`,
-                onClick: () => doExtend(t, m),
-              })),
-            }}
+            onClick={() => openAddSubscription(t.id)}
           >
-            <Button size="small" type="primary" ghost disabled={!canPay}>
-              Отметить оплату <DownOutlined />
-            </Button>
-          </Dropdown>
+            {t.status === "trial" ? "Оформить" : "Продлить"}
+          </Button>
           <Dropdown
             trigger={["click"]}
             disabled={!canTariff}
@@ -278,7 +275,18 @@ export const SubscriptionsPage = () => {
     <div className="page">
       <PageHeader
         title="Подписки"
-        subtitle="Все подписки по срокам: отметить оплату и сменить тариф прямо в списке"
+        subtitle="Все подписки по срокам: продлить, оформить и сменить тариф прямо в списке"
+        extra={
+          canPay ? (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => openAddSubscription()}
+            >
+              Добавить подписку
+            </Button>
+          ) : null
+        }
       />
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
@@ -322,7 +330,16 @@ export const SubscriptionsPage = () => {
         </Col>
       </Row>
 
-      <div style={{ marginBottom: 12 }}>
+      <div className="subs-toolbar">
+        <Input
+          allowClear
+          prefix={<SearchOutlined style={{ color: "var(--text-4)" }} />}
+          placeholder="Найти компанию"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="subs-search"
+          aria-label="Найти компанию"
+        />
         <Segmented
           value={group}
           onChange={(v) => setGroup(v as Group | "all")}

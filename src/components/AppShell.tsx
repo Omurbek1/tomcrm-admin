@@ -16,6 +16,7 @@ import {
   MoonOutlined,
   SunOutlined,
   MenuOutlined,
+  PlusOutlined,
   ApiOutlined,
   SafetyOutlined,
   SearchOutlined,
@@ -27,6 +28,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAttention } from "../lib/attention";
 import { setMode, useTheme, type ThemeMode } from "../lib/theme";
 import { NAV_GROUPS, navigate, sectionOf, viewLabel, type View } from "../lib/nav";
+import { can } from "../api/client";
+import { AddSubscriptionHost, openAddSubscription } from "./AddSubscriptionModal";
 import { CommandPalette } from "./CommandPalette";
 
 const ICON: Record<View, ReactNode> = {
@@ -236,6 +239,18 @@ export const AppShell = ({
           {isMobile ? <span className="shell-top-title">{viewLabel(view)}</span> : null}
           {search}
           <div className="shell-top-actions">
+            {can("billing.edit") ? (
+              <Tooltip title="Добавить подписку вручную" placement="bottom">
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => openAddSubscription()}
+                  aria-label="Добавить подписку"
+                >
+                  {isMobile ? null : "Подписка"}
+                </Button>
+              </Tooltip>
+            ) : null}
             <ThemeMenu />
           </div>
           {isMobile ? (
@@ -253,6 +268,7 @@ export const AppShell = ({
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <AddSubscriptionHost />
     </div>
   );
 };

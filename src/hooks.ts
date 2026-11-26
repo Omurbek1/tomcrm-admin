@@ -100,6 +100,10 @@ export interface BillingInvoiceRow {
   kind?: "subscription" | "addon";
   addonKey?: string | null;
   addonQty?: number | null;
+  /** Ручная оплата: способ, комментарий и логин администратора (мигр.490). */
+  manualMethod?: string | null;
+  note?: string | null;
+  adminLogin?: string | null;
 }
 
 export const useBillingInvoices = () =>
@@ -167,6 +171,91 @@ export const useMarkManualPayment = () => {
       void qc.invalidateQueries({ queryKey: ["tenant", v.tenantId] });
       void qc.invalidateQueries({ queryKey: ["tenants"] });
     },
+  });
+};
+
+/** Способ ручной оплаты подписки. */
+export type ManualMethod = "transfer" | "cash" | "card" | "free";
+
+/** Итог ручной подписки с сервера (до сохранения). */
+export interface ManualQuote {
+  tenantId: string;
+  tenantName: string;
+  tariffId: string | null;
+  tariffName: string | null;
+  tariffChanged: boolean;
+  currency: string;
+  months: number;
+  method: ManualMethod;
+  monthly: number;
+  discountPct: number;
+  fullAmount: number;
+  computedAmount: number;
+  amount: number;
+  customAmount: boolean;
+  paidUntilBefore: string | null;
+  startsFrom: string;
+  paidUntilAfter: string;
+  statusBefore: string;
+  frozenManually: boolean;
+}
+
+export interface ManualSubscriptionInput {
+  tenantId: string;
+  tariffId?: string | null;
+  periodMonths: number;
+  method: ManualMethod;
+  amount?: number | null;
+  note?: string | null;
+}
+
+/**
+ * Расчёт ручной подписки: сумма по тарифу со скидкой и новая дата «оплачено
+ * до» — считает сервер (те же правила, что у оплаты клиентом). Пока меняются
+ * поля, показываем прошлый итог, без мигания.
+ */
+export const useManualQuote = (
+  input: Omit<ManualSubscriptionInput, "amount" | "note"> | null,
+) =>
+  useQuery<ManualQuote>({
+    queryKey: ["manual-quote", input],
+    enabled: !!input?.tenantId && (input?.periodMonths ?? 0) >= 1,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    queryFn: async () =>
+      (await api.post("/api/platform/billing/manual-subscription/quote", input))
+        .data,
+  });
+
+/** Всё, что показывает подписку/оплаты компании, — перечитать. */
+const invalidateSubscription = (
+  qc: ReturnType<typeof useQueryClient>,
+  tenantId: string,
+) => {
+  for (const key of [
+    ["tenants"],
+    ["tenant", tenantId],
+    ["payments", tenantId],
+    ["billing-invoices"],
+    ["billing-journal", tenantId],
+    ["overview"],
+    ["attention"],
+    ["analytics"],
+    ["audit"],
+    ["manual-quote"],
+  ]) {
+    void qc.invalidateQueries({ queryKey: key });
+  }
+};
+
+/** «Добавить подписку» вручную: тариф (необяз.) + срок + способ + сумма. */
+export const useAddSubscription = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ManualSubscriptionInput) =>
+      (await api.post("/api/platform/billing/manual-subscription", input))
+        .data as { tenant: TenantRow; invoiceId: string; quote: ManualQuote },
+    onSuccess: (_d, v) => invalidateSubscription(qc, v.tenantId),
   });
 };
 

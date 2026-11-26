@@ -3,7 +3,6 @@ import {
   Alert,
   Drawer,
   Grid,
-  Segmented,
   Button,
   Card,
   Checkbox,
@@ -23,10 +22,11 @@ import {
   Tree,
   Typography,
 } from "antd";
-import { MoreOutlined } from "@ant-design/icons";
+import { MoreOutlined, PlusOutlined } from "@ant-design/icons";
 import { useState, type ReactNode } from "react";
 
 import { can, CRM_URL } from "../api/client";
+import { openAddSubscription } from "../components/AddSubscriptionModal";
 import { tableLabel } from "../lib/dataTables";
 import { actionLabel, auditDetails } from "../lib/auditText";
 import { TenantRecordingsCard } from "./TenantRecordingsCard";
@@ -40,7 +40,6 @@ import {
   usePayments,
   useApplyIndustryPreset,
   useIndustries,
-  useRecordPayment,
   useResetOwnerPassword,
   useSendReminder,
   useSetContacts,
@@ -59,7 +58,7 @@ import {
   useSetTenantCallLines,
   useTenantCallLines,
 } from "../hooks";
-import type { TenantStatus } from "../types";
+import type { PaymentRow, TenantStatus } from "../types";
 import {
   ADDON_META,
   SINGLE_ADDON_KEYS,
@@ -69,7 +68,6 @@ import {
   NOTIF_STATUS_COLOR,
   PAYMENT_COLOR,
   PAYMENT_LABEL,
-  PAYMENT_PERIODS,
   REMINDER_TYPES,
   STATUS_DATA_POLICY,
   STATUS_LABEL,
@@ -80,6 +78,28 @@ const { Text } = Typography;
 
 const ruDate = (v: string | null | undefined): string =>
   v ? new Date(v).toLocaleDateString("ru-RU") : "—";
+
+const METHOD_LABEL: Record<string, string> = {
+  cash: "Наличные",
+  transfer: "Перевод",
+  card: "Карта",
+  free: "Бесплатно",
+};
+const KIND_LABEL: Record<string, string> = {
+  addon: "Докупка",
+  order: "Заказ",
+  plan_change: "Смена тарифа",
+  topup: "Пополнение",
+};
+
+/** Откуда оплата: онлайн (Finik) / ручная со способом / старая ручная запись. */
+const paymentOrigin = (p: PaymentRow): string => {
+  const kind = p.kind && KIND_LABEL[p.kind] ? ` · ${KIND_LABEL[p.kind]}` : "";
+  if (p.source === "online") return `Онлайн · Finik${kind}`;
+  if (p.source === "manual")
+    return `Вручную · ${METHOD_LABEL[p.method ?? ""] ?? "перевод"}`;
+  return "Вручную";
+};
 
 interface Props {
   tenantId: string | null;
@@ -195,7 +215,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const extendTrial = useExtendTrial();
   const setTariff = useSetTariff();
   const setContacts = useSetContacts();
-  const recordPayment = useRecordPayment();
   const cancelPayment = useCancelPayment();
   const setPrice = useSetPriceOverride();
   const setAddons = useSetTenantAddons();
@@ -302,10 +321,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   // Включённые разделы (листья). null = не редактировали (показываем эффективные).
   const [moduleChecked, setModuleChecked] = useState<string[] | null>(null);
   const [contactForm] = Form.useForm();
-  const [payOpen, setPayOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const restoreTenant = useRestoreTenant();
-  const [payForm] = Form.useForm();
   const [priceDraft, setPriceDraft] = useState<string>("");
   const [industryDraft, setIndustryDraft] = useState<string | null>(null);
 
@@ -431,51 +448,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     } else {
       onClose();
     }
-  };
-
-  // Подсказка суммы: цена тарифа × месяцы × (1 − скидка периода).
-  // Как на сервере: продлеваем от большего из (оплачено до, сегодня).
-  const payMonths: number | undefined = Form.useWatch("periodMonths", payForm);
-  const paidUntilAfter = (months: number): string => {
-    const now = new Date();
-    const cur = t?.paidUntil ? new Date(t.paidUntil) : now;
-    const base = cur > now ? cur : now;
-    const d = new Date(base);
-    d.setMonth(d.getMonth() + months);
-    return d.toISOString();
-  };
-
-  const suggestAmount = (months: number): number => {
-    if (!tariff) return 0;
-    const base = Number(tariff.price) * months;
-    const pct = tariff.discounts?.[String(months)] ?? 0;
-    return Math.round(base * (1 - pct / 100));
-  };
-
-  const submitPayment = (v: {
-    amount: number;
-    currency: string;
-    periodMonths: number;
-    note?: string;
-    receipt?: string;
-  }) => {
-    if (!t) return;
-    recordPayment.mutate(
-      { id: t.id, ...v },
-      {
-        onSuccess: () => {
-          message.success("Платёж записан");
-          setPayOpen(false);
-          payForm.resetFields();
-        },
-        onError: (e: unknown) => {
-          const msg =
-            (e as { response?: { data?: { message?: string } } })?.response
-              ?.data?.message ?? "Не удалось записать платёж";
-          message.error(msg);
-        },
-      },
-    );
   };
 
   const fmtDate = (s: string | null) =>
@@ -693,14 +665,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               : { label: STATUS_LABEL[t.status], color: "default" as const }
     : { label: "", color: "default" as const };
 
-  // «Отметить оплату» — из шапки и из вкладки «Биллинг» одинаково.
+  // «Добавить подписку» — общее окно панели (то же, что в «Подписках»/Ctrl+K).
   const openPay = () => {
-    payForm.setFieldsValue({
-      periodMonths: 1,
-      amount: suggestAmount(1),
-      currency: tariff?.currency ?? "KGS",
-    });
-    setPayOpen(true);
+    if (t) openAddSubscription(t.id);
   };
   const isTrial = !!t && t.status === "trial";
 
@@ -837,8 +804,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             >
               Войти под владельцем ↗
             </Button>
-            <Button disabled={!can("billing.edit")} onClick={openPay}>
-              Отметить оплату
+            <Button
+              disabled={!can("billing.edit") || t.status === "deleted"}
+              onClick={openPay}
+            >
+              {isTrial ? "Оформить подписку" : "Продлить подписку"}
             </Button>
             {isTrial ? (
               <Button
@@ -1370,10 +1340,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <Button
               type="primary"
               size="small"
-              disabled={!can("billing.edit")}
+              icon={<PlusOutlined />}
+              disabled={!can("billing.edit") || t.status === "deleted"}
               onClick={openPay}
             >
-              Отметить оплату
+              Добавить подписку
             </Button>
           </div>
           <List
@@ -1396,16 +1367,26 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               <List.Item>
                 <Space orientation="vertical" size={0} style={{ width: "100%" }}>
                   <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                    <Text delete={p.cancelled}>
-                      {Number(p.amount).toLocaleString("ru-RU")} {p.currency}
-                      {p.periodMonths ? ` · ${p.periodMonths} мес.` : ""}
+                    <Space size={6} wrap>
+                      <Text delete={p.cancelled} strong>
+                        {fmtMoney(p.amount)}
+                        {p.periodMonths && (!p.kind || p.kind === "subscription")
+                          ? ` · ${p.periodMonths} мес.`
+                          : ""}
+                      </Text>
+                      <Tag
+                        color={p.source === "online" ? "blue" : "default"}
+                        style={{ marginInlineEnd: 0 }}
+                      >
+                        {paymentOrigin(p)}
+                      </Tag>
                       {p.cancelled && (
-                        <Tag color="default" style={{ marginLeft: 6 }}>
-                          отменён
+                        <Tag color="default" style={{ marginInlineEnd: 0 }}>
+                          отменена
                         </Tag>
                       )}
-                    </Text>
-                    {!p.cancelled && (
+                    </Space>
+                    {!p.cancelled && p.source !== "online" && can("billing.edit") && (
                       <Button
                         type="link"
                         size="small"
@@ -1413,20 +1394,26 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                         loading={cancelPayment.isPending}
                         onClick={() =>
                           modal.confirm({
-                            title: "Отменить платёж?",
+                            title: `Отменить оплату ${fmtMoney(p.amount)}?`,
                             content:
-                              "Оплачено-до пересчитается по оставшимся платежам.",
-                            okText: "Отменить",
+                              p.source === "manual"
+                                ? `«Оплачено до» вернётся на ${p.periodMonths ?? 1} мес. назад. Запись останется в истории как отменённая.`
+                                : "«Оплачено до» пересчитается по оставшимся оплатам. Запись останется в истории как отменённая.",
+                            okText: "Отменить оплату",
                             okButtonProps: { danger: true },
-                            cancelText: "Нет",
+                            cancelText: "Не отменять",
                             onOk: () =>
-                              cancelPayment.mutate(
-                                { id: t.id, paymentId: p.id },
-                                {
-                                  onError: () =>
-                                    message.error("Не удалось отменить"),
-                                },
-                              ),
+                              cancelPayment
+                                .mutateAsync({ id: t.id, paymentId: p.id })
+                                .then(
+                                  () => void message.success("Оплата отменена"),
+                                  (e: unknown) =>
+                                    void message.error(
+                                      (e as { response?: { data?: { message?: string } } })
+                                        ?.response?.data?.message ??
+                                        "Не удалось отменить",
+                                    ),
+                                ),
                           })
                         }
                       >
@@ -1435,7 +1422,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                     )}
                   </Space>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    до {fmtDate(p.paidUntil)} ·{" "}
+                    {p.paidUntil ? `до ${fmtDate(p.paidUntil)} · ` : ""}
                     {new Date(p.createdAt).toLocaleDateString("ru-RU")} ·{" "}
                     {p.adminLogin}
                     {p.receipt ? ` · чек ${p.receipt}` : ""}
@@ -1772,78 +1759,6 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               },
             ]}
           />
-
-          <Modal
-            open={payOpen}
-            title="Отметить оплату"
-            onCancel={() => setPayOpen(false)}
-            onOk={() => payForm.submit()}
-            okText="Записать"
-            cancelText="Отмена"
-            confirmLoading={recordPayment.isPending}
-          >
-            <Form form={payForm} layout="vertical" onFinish={submitPayment}>
-              <Form.Item
-                name="periodMonths"
-                label="За сколько месяцев"
-                rules={[{ required: true }]}
-              >
-                <Segmented
-                  block
-                  onChange={(m) =>
-                    payForm.setFieldsValue({ amount: suggestAmount(Number(m)) })
-                  }
-                  options={PAYMENT_PERIODS.map((m) => {
-                    const pct = tariff?.discounts?.[String(m)] ?? 0;
-                    return {
-                      value: m,
-                      label: pct ? `${m} мес. −${pct}%` : `${m} мес.`,
-                    };
-                  })}
-                />
-              </Form.Item>
-              <div style={{ display: "flex", gap: "0 12px", flexWrap: "wrap" }}>
-                <Form.Item
-                  name="amount"
-                  label="Сумма"
-                  style={{ flex: "1 1 200px" }}
-                  rules={[{ required: true, message: "Укажите сумму" }]}
-                >
-                  <InputNumber<number>
-                    min={0}
-                    style={{ width: "100%" }}
-                    formatter={(v) =>
-                      v == null ? "" : Number(v).toLocaleString("ru-RU")
-                    }
-                    parser={(v) => Number(String(v ?? "").replace(/\D/g, ""))}
-                  />
-                </Form.Item>
-                <Form.Item name="currency" label="Валюта" style={{ width: 110 }}>
-                  <Input />
-                </Form.Item>
-              </div>
-              {payMonths ? (
-                <div className="pay-result">
-                  Оплачено до станет <b>{ruDate(paidUntilAfter(payMonths))}</b>
-                  {t.paidUntil && new Date(t.paidUntil) > new Date()
-                    ? ` (сейчас ${ruDate(t.paidUntil)})`
-                    : " (считаем от сегодня)"}
-                </div>
-              ) : null}
-              <Form.Item name="receipt" label="Номер чека / счёта">
-                <Input placeholder="напр. №1024" />
-              </Form.Item>
-              <Form.Item name="note" label="Комментарий">
-                <Input.TextArea rows={2} placeholder="Способ оплаты, детали" />
-              </Form.Item>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {tariff
-                  ? `Сумма подставлена из тарифа «${tariff.name}» с учётом скидки — можно поправить вручную.`
-                  : "У компании не выбран тариф — укажите сумму вручную."}{" "}
-                Компания переводится в «Активна».
-              </Text>
-            </Form>
-          </Modal>
 
           {/* Деструктив (заморозка/удаление) — ввод slug вручную. */}
           <Modal
