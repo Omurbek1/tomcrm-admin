@@ -4,7 +4,6 @@ import {
   Checkbox,
   Form,
   Input,
-  InputNumber,
   Modal,
   Segmented,
   Select,
@@ -39,7 +38,6 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
   const { data: industries } = useIndustries();
   const applyIndustry = useApplyIndustryPreset();
   const [form] = Form.useForm();
-  const trialPreset = Form.useWatch("trialPreset", form) as string | undefined;
   const [slugState, setSlugState] = useState<SlugState>("");
   const [result, setResult] = useState<CreateTenantResult | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -193,7 +191,7 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
           form={form}
           layout="vertical"
           onFinish={submit}
-          initialValues={{ trialPreset: "14", trialDays: 14 }}
+          initialValues={{ trialPreset: "3", trialDays: 3 }}
           requiredMark={false}
         >
           <div className="form-section">Компания</div>
@@ -272,25 +270,21 @@ export const CreateTenantModal = ({ open, onClose }: Props) => {
           </div>
 
           <div className="form-section">Пробный период</div>
-          <Form.Item name="trialPreset" style={{ marginBottom: 8 }}>
+          {/* Не больше 3 дней (сервер тоже ограничивает); продлить — в карточке. */}
+          <Form.Item
+            name="trialPreset"
+            style={{ marginBottom: 8 }}
+            extra="Максимум 3 дня. Продлить можно потом в карточке компании."
+          >
             <Segmented
               block
               options={[
-                { value: "7", label: "7 дн." },
-                { value: "14", label: "14 дн." },
-                { value: "30", label: "30 дн." },
-                { value: "custom", label: "Свой срок" },
+                { value: "1", label: "1 дн." },
+                { value: "2", label: "2 дн." },
+                { value: "3", label: "3 дн." },
               ]}
             />
           </Form.Item>
-          {trialPreset === "custom" ? (
-            <Form.Item
-              name="trialDays"
-              rules={[{ required: true, message: "Сколько дней" }]}
-            >
-              <InputNumber min={0} max={3650} style={{ width: "100%" }} suffix="дн." />
-            </Form.Item>
-          ) : null}
           <Form.Item name="isTest" valuePropName="checked" style={{ marginBottom: 0 }}>
             <Checkbox>Тестовая — не попадёт в выручку, конверсию и аналитику</Checkbox>
           </Form.Item>
