@@ -872,9 +872,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             {isTrial ? (
               <Button
                 loading={extendTrial.isPending}
-                onClick={() => addDays(14)}
+                onClick={() => addDays(3)}
               >
-                +14 дн. триала
+                +3 дн. триала
               </Button>
             ) : null}
             <Dropdown
@@ -1382,7 +1382,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                     : `Триал истёк (${fmtDate(t.trialEndsAt)})`}
                 </Text>
                 <Space>
-                  {[7, 14, 30].map((d) => (
+                  {/* Продлить за раз — не больше 3 дней (как и сам триал). */}
+                  {[1, 2, 3].map((d) => (
                     <Button
                       key={d}
                       size="small"
