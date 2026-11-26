@@ -712,7 +712,9 @@ export const TariffsPage = () => {
                 children: (
                   <>
                     <div className="form-hint">
-                      Докупаются поверх тарифа, цена в месяц. 0 — опцию не продаём.
+                      Цена опции в месяц для компаний на этом тарифе. 0 — опцию не
+                      продаём. Включить опцию конкретной компании — в её карточке
+                      (тумблер в «Опции (докуплено)»).
                     </div>
                     <div className="form-grid">
                       {addonMeta.map((a) => (
@@ -721,7 +723,12 @@ export const TariffsPage = () => {
                           name={`addon_${a.key}`}
                           label={<span title={a.unit}>{a.label}</span>}
                         >
-                          <InputNumber min={0} placeholder="0" style={{ width: "100%" }} suffix="/мес" />
+                          <InputNumber
+                            min={0}
+                            placeholder="0 — не продаём"
+                            style={{ width: "100%" }}
+                            suffix="сом/мес"
+                          />
                         </Form.Item>
                       ))}
                     </div>

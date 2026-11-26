@@ -17,6 +17,7 @@ import {
   Select,
   Skeleton,
   Space,
+  Switch,
   Tabs,
   Tag,
   Tree,
@@ -1303,7 +1304,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               <Text strong>Опции (докуплено)</Text>
               <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 6 }}>
                 Добавляются к лимитам тарифа: доп. сотрудник — +1 место,
-                WABA или доп. WhatsApp — +1 номер, AI-менеджер включает модуль AI.
+                WABA или доп. WhatsApp — +1 номер. AI-менеджер, запись разговоров
+                и звонки WhatsApp — тумблер: включено или нет.
                 «до дата» — опция оплачена заранее до этого дня, потом снимается сама.
               </div>
               <div
@@ -1325,20 +1327,36 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                           </span>
                         ) : null}
                       </div>
-                      <InputNumber
-                        min={0}
-                        max={SINGLE_ADDON_KEYS.has(a.key) ? 1 : undefined}
-                        style={{ width: "100%" }}
-                        placeholder="0"
-                        disabled={!can("billing.edit")}
-                        value={cur[a.key] ?? 0}
-                        onChange={(v) =>
-                          setAddonDraft({
-                            ...(addonDraft ?? data.addons ?? {}),
-                            [a.key]: Number(v ?? 0),
-                          })
-                        }
-                      />
+                      {/* Опция «одна на компанию» — тумблер вкл/выкл, а не число. */}
+                      {SINGLE_ADDON_KEYS.has(a.key) ? (
+                        <Switch
+                          checked={(cur[a.key] ?? 0) > 0}
+                          checkedChildren="Вкл"
+                          unCheckedChildren="Выкл"
+                          disabled={!can("billing.edit")}
+                          aria-label={a.label}
+                          onChange={(on) =>
+                            setAddonDraft({
+                              ...(addonDraft ?? data.addons ?? {}),
+                              [a.key]: on ? 1 : 0,
+                            })
+                          }
+                        />
+                      ) : (
+                        <InputNumber
+                          min={0}
+                          style={{ width: "100%" }}
+                          placeholder="0"
+                          disabled={!can("billing.edit")}
+                          value={cur[a.key] ?? 0}
+                          onChange={(v) =>
+                            setAddonDraft({
+                              ...(addonDraft ?? data.addons ?? {}),
+                              [a.key]: Number(v ?? 0),
+                            })
+                          }
+                        />
+                      )}
                     </div>
                   );
                 })}
