@@ -609,7 +609,11 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     extendTrial.mutate(
       { id: t.id, days },
       {
-        onSuccess: () => message.success(`Триал продлён на ${days} дн.`),
+        // Сервер не даёт уйти дальше 3 дней от сегодня — показываем итог.
+        onSuccess: (r) =>
+          message.success(
+            `Триал до ${r.trialEndsAt ? new Date(r.trialEndsAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}`,
+          ),
         onError: (e: unknown) => {
           const msg =
             (e as { response?: { data?: { message?: string } } })?.response
@@ -726,6 +730,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     if (t) openAddSubscription(t.id);
   };
   const isTrial = !!t && t.status === "trial";
+  // Общий триал — не больше 3 дней от сегодня (запас в час, как на сервере).
+  const trialAtMax =
+    !!t?.trialEndsAt &&
+    new Date(t.trialEndsAt).getTime() >= Date.now() + 3 * 86_400_000 - 3_600_000;
 
   // Деструктив (заморозка/удаление) — подтверждение с вводом slug вручную.
   const [danger, setDanger] = useState<null | "freeze" | "delete">(null);
@@ -870,12 +878,21 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               {isTrial ? "Оформить подписку" : "Продлить подписку"}
             </Button>
             {isTrial ? (
-              <Button
-                loading={extendTrial.isPending}
-                onClick={() => addDays(3)}
+              <Tooltip
+                title={
+                  trialAtMax
+                    ? "Триал уже максимальный — 3 дня от сегодня"
+                    : "Не дальше чем на 3 дня от сегодня"
+                }
               >
-                +3 дн. триала
-              </Button>
+                <Button
+                  loading={extendTrial.isPending}
+                  disabled={trialAtMax}
+                  onClick={() => addDays(3)}
+                >
+                  +3 дн. триала
+                </Button>
+              </Tooltip>
             ) : null}
             <Dropdown
               trigger={["click"]}
@@ -1387,6 +1404,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                     <Button
                       key={d}
                       size="small"
+                      disabled={trialAtMax}
                       onClick={() => addDays(d)}
                       loading={extendTrial.isPending}
                     >
