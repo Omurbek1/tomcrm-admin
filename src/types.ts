@@ -241,6 +241,8 @@ export const MODULE_BUNDLES: Array<{
   // Флаги-пакеты без раздела CRM (платные, по умолчанию выключены).
   { key: "ai", label: "AI-менеджер (автоответы в чатах)", blocks: [] },
   { key: "callRecording", label: "Запись разговоров", blocks: [] },
+  // Звонки — только докупкой (в тарифы не входят); без них звонки выключены.
+  { key: "calls", label: "Звонки WhatsApp", blocks: [] },
 ];
 
 /** Всегда включённые разделы (нельзя отключить тарифом). */
@@ -281,10 +283,11 @@ export const ADDON_META: Array<{ key: string; label: string; unit: string }> = [
   { key: "extraWhatsapp", label: "Доп. WhatsApp номер", unit: "за номер/мес" },
   { key: "aiManager", label: "AI-менеджер", unit: "за компанию/мес" },
   { key: "callRecording", label: "Запись разговоров", unit: "за компанию/мес" },
+  { key: "calls", label: "Звонки WhatsApp", unit: "за компанию/мес" },
 ];
 
 /** Опции «одна на компанию» (включено/выключено) — как SINGLE_ADDON_KEYS бэка. */
-export const SINGLE_ADDON_KEYS = new Set(["aiManager", "callRecording"]);
+export const SINGLE_ADDON_KEYS = new Set(["aiManager", "callRecording", "calls"]);
 
 export interface Analytics {
   mrrByTariff: Array<{
