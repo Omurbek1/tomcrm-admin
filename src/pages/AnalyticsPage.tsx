@@ -19,6 +19,7 @@ import {
   STATUS_LABEL,
 } from "../lib/chartTheme";
 import { navigate, openTenant } from "../lib/nav";
+import { QueryError } from "../components/QueryError";
 import { ChartCard, PageHeader, StatTile, VizTooltip } from "../components/viz";
 
 const axisProps = {
@@ -76,8 +77,10 @@ const Bars = ({
 );
 
 export const AnalyticsPage = () => {
-  const { data: overview } = useOverview();
-  const { data } = useAnalytics();
+  const overviewQ = useOverview();
+  const analyticsQ = useAnalytics();
+  const overview = overviewQ.data;
+  const data = analyticsQ.data;
 
   // Статусы — полосами (только ненулевые), самая большая сверху.
   const statusData = Object.entries(overview?.byStatus ?? {})
@@ -86,7 +89,7 @@ export const AnalyticsPage = () => {
       key: k,
       name: STATUS_LABEL[k] ?? k,
       value: v,
-      color: STATUS_COLOR[k] ?? "#94a3b8",
+      color: STATUS_COLOR[k] ?? "var(--text-3)",
     }))
     .sort((a, b) => b.value - a.value);
   const statusMax = Math.max(1, ...statusData.map((s) => s.value));
@@ -110,11 +113,20 @@ export const AnalyticsPage = () => {
   const som = (v: number) => `${num(v)} сом`;
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+    <div className="page">
       <PageHeader
         title="Аналитика"
         subtitle="Рост, деньги и отток платформы за 12 месяцев"
       />
+      {overviewQ.isError || analyticsQ.isError ? (
+        <QueryError
+          what="аналитику — нули ниже могут быть не настоящими"
+          onRetry={() => {
+            void overviewQ.refetch();
+            void analyticsQ.refetch();
+          }}
+        />
+      ) : null}
 
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} lg={4}>
@@ -403,7 +415,7 @@ const AiSpendCard = () => {
                 usd(r.maxDayUsd) +
                 "/день" +
                 (top ? " · " + (AI_SCENARIO[top[0]] ?? top[0]) : ""),
-              color: near ? "#d03b3b" : SERIES.violet,
+              color: near ? "var(--danger)" : SERIES.violet,
               onClick: () => openTenant(r.tenantId),
             };
           })}

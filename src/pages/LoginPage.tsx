@@ -1,5 +1,5 @@
-import { App, Button, Form, Input, Typography } from "antd";
-import { useState } from "react";
+import { Alert, Button, Form, Input, Typography, type InputRef } from "antd";
+import { useRef, useState } from "react";
 
 import { api, setPermissions, setToken } from "../api/client";
 
@@ -15,8 +15,11 @@ interface LoginOk {
 }
 
 export const LoginPage = ({ onLoggedIn }: Props) => {
-  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
+  // Ошибка — рядом с полями и не исчезает сама (раньше — всплывашка на 3 с).
+  const [error, setError] = useState<string | null>(null);
+  const passwordRef = useRef<InputRef>(null);
+  const codeRef = useRef<InputRef>(null);
   // Шаг с кодом показываем ТОЛЬКО если у админа включена 2FA (бэк вернёт
   // TOTP_REQUIRED). Нет 2FA → обычный вход по логину/паролю.
   const [needCode, setNeedCode] = useState(false);
@@ -28,6 +31,7 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
     totpCode?: string;
   }) => {
     setLoading(true);
+    setError(null);
     try {
       const { data } = await api.post<LoginOk>("/api/platform/login", values);
       setToken(data.token);
@@ -40,18 +44,21 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
       const msg = err.response?.data?.message ?? "";
       const status = err.response?.status;
       if (!err.response) {
-        message.error("Нет связи с сервером — проверьте интернет и повторите");
+        setError("Нет связи с сервером — проверьте интернет и повторите");
       } else if (status === 429) {
-        message.error("Слишком много попыток входа — подождите минуту");
+        setError("Слишком много попыток входа — подождите минуту");
       } else if (status && status >= 500) {
-        message.error("Сервер временно недоступен — попробуйте чуть позже");
+        setError("Сервер временно недоступен — попробуйте чуть позже");
       } else if (msg === "TOTP_REQUIRED") {
         setNeedCode(true);
-        message.info("Введите код из приложения-аутентификатора");
       } else if (msg.includes("2FA")) {
-        message.error("Неверный код 2FA");
+        // Неверный код: очищаем и ставим курсор — следующие 6 цифр уйдут сами.
+        setError("Код не подошёл — введите новый из приложения");
+        form.setFieldValue("totpCode", "");
+        setTimeout(() => codeRef.current?.focus(), 0);
       } else {
-        message.error("Неверный логин или пароль");
+        setError("Неверный логин или пароль");
+        setTimeout(() => passwordRef.current?.focus({ cursor: "all" }), 0);
       }
     } finally {
       setLoading(false);
@@ -91,20 +98,26 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
             rules={[{ required: true, message: "Введите пароль" }]}
             style={{ marginBottom: needCode ? 12 : 24 }}
           >
-            <Input.Password autoComplete="current-password" placeholder="••••••••" />
+            <Input.Password
+              ref={passwordRef}
+              autoComplete="current-password"
+              placeholder="••••••••"
+            />
           </Form.Item>
 
           {needCode && (
             <div className="login-2fa">
               <Form.Item
                 name="totpCode"
-                label="Код двухфакторной защиты"
+                label="Код из приложения-аутентификатора"
+                extra="Google Authenticator, 1Password и т. п. — 6 цифр"
                 rules={[
                   { required: true, message: "Введите 6-значный код" },
                   { len: 6, message: "Код из 6 цифр" },
                 ]}
               >
                 <Input
+                  ref={codeRef}
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={7}
@@ -122,6 +135,15 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
             </div>
           )}
 
+          {error ? (
+            <Alert
+              type="error"
+              showIcon
+              role="alert"
+              title={error}
+              style={{ marginBottom: 12 }}
+            />
+          ) : null}
           <Button type="primary" htmlType="submit" block loading={loading}>
             {needCode ? "Подтвердить вход" : "Войти"}
           </Button>
@@ -131,7 +153,10 @@ export const LoginPage = ({ onLoggedIn }: Props) => {
               type="link"
               block
               style={{ marginTop: 8 }}
-              onClick={() => setNeedCode(false)}
+              onClick={() => {
+                setNeedCode(false);
+                setError(null);
+              }}
             >
               ← Назад
             </Button>

@@ -2,6 +2,7 @@ import { CheckCircleFilled, RightOutlined } from "@ant-design/icons";
 import { Button, Col, Row, Skeleton, Tag } from "antd";
 import type { ReactNode } from "react";
 
+import { QueryError } from "../components/QueryError";
 import { PageHeader, StatTile } from "../components/viz";
 import { useAttention } from "../lib/attention";
 import { useSupportTickets } from "../hooks";
@@ -35,9 +36,9 @@ type Task = {
 };
 
 const TONE_COLOR: Record<Tone, string> = {
-  critical: "#e34948",
-  warning: "#c98500",
-  info: "#2a78d6",
+  critical: "var(--danger)",
+  warning: "var(--warning)",
+  info: "var(--accent)",
 };
 
 const ago = (iso?: string | null) => {
@@ -84,11 +85,11 @@ export const HomePage = () => {
     {
       key: "sig",
       count: a.badSignatures,
-      title: "Вебхуки оплаты с неверной подписью",
-      why: "За последний час. Возможна подделка или сменился ключ платёжки",
+      title: "Оплаты Finik с неверной подписью",
+      why: "За последний час. Возможна подделка или сменился ключ Finik — сообщите разработчику",
       tone: "critical",
-      action: "Биллинг",
-      go: to("billing"),
+      action: "Разобрать",
+      go: () => navigate("billing", { focus: "health" }),
     },
     {
       key: "unverified",
@@ -97,7 +98,7 @@ export const HomePage = () => {
       why: "Деньги пришли, но подпись не проверена — подписка не продлена",
       tone: "critical",
       action: "Проверить",
-      go: to("billing"),
+      go: () => navigate("billing", { focus: "unverified" }),
     },
     {
       key: "overdue",
@@ -125,8 +126,8 @@ export const HomePage = () => {
       title: "Счета зависли в ожидании",
       why: "Клиент начал оплату, ответа от платёжки нет",
       tone: "warning",
-      action: "Биллинг",
-      go: to("billing"),
+      action: "Показать счета",
+      go: () => navigate("billing", { status: "pending", provider: "finik" }),
     },
     {
       key: "trial-soon",
@@ -143,8 +144,8 @@ export const HomePage = () => {
       title: "Используют больше, чем оплатили",
       why: "Сотрудники, номера или опции сверх тарифа",
       tone: "warning",
-      action: "Биллинг",
-      go: to("billing"),
+      action: "Показать",
+      go: () => navigate("billing", { focus: "overages" }),
     },
     {
       key: "trial-expired",
@@ -175,7 +176,9 @@ export const HomePage = () => {
           tasks.length ? <span className="muted">{items(tasks.length)}</span> : null
         }
       >
-        {loading ? (
+        {a.isError ? (
+          <QueryError what="список дел" onRetry={a.refetch} style={{ marginBottom: 0 }} />
+        ) : loading ? (
           <Skeleton active paragraph={{ rows: 3 }} title={false} />
         ) : tasks.length ? (
           <ul className="tasks">
@@ -198,7 +201,7 @@ export const HomePage = () => {
           </ul>
         ) : (
           <div className="all-clear">
-            <CheckCircleFilled style={{ color: "#1baf7a", fontSize: 20 }} />
+            <CheckCircleFilled style={{ color: "var(--success)", fontSize: 20 }} />
             Срочных дел нет: оплаты сходятся, обращения разобраны.
           </div>
         )}

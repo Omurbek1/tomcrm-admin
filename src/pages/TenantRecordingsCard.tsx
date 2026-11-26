@@ -9,6 +9,7 @@ import {
   useTenantRecordingsStorage,
   type RecordingsPurgeScope,
 } from "../hooks";
+import { count } from "../lib/format";
 import { formatBytes } from "../types";
 
 const { Text } = Typography;
@@ -32,8 +33,11 @@ export function TenantRecordingsCard({ tenantId }: { tenantId: string }) {
   } | null>(null);
   const [word, setWord] = useState("");
   const [busy, setBusy] = useState(false);
+  // Какая кнопка считает объём — крутится только она, а не все три.
+  const [asking, setAsking] = useState<string | null>(null);
 
   const ask = async (scope: RecordingsPurgeScope) => {
+    setAsking("all" in scope ? "all" : "olderThanDays" in scope ? String(scope.olderThanDays) : "other");
     setBusy(true);
     try {
       const r = await purgeTenantRecordings(tenantId, scope, true);
@@ -47,6 +51,7 @@ export function TenantRecordingsCard({ tenantId }: { tenantId: string }) {
       message.error("Не удалось посчитать записи");
     } finally {
       setBusy(false);
+      setAsking(null);
     }
   };
 
@@ -79,9 +84,9 @@ export function TenantRecordingsCard({ tenantId }: { tenantId: string }) {
       ) : q.isError || !s ? (
         <Text type="secondary">Нет данных</Text>
       ) : (
-        <Space direction="vertical" style={{ width: "100%" }}>
+        <Space orientation="vertical" style={{ width: "100%" }}>
           <Text>
-            <b>{formatBytes(s.bytes)}</b> · {s.count} шт.
+            <b>{formatBytes(s.bytes)}</b> · {count(s.count)} шт.
             {s.oldestAt
               ? ` · самая старая ${new Date(s.oldestAt).toLocaleDateString("ru-RU")}`
               : ""}
@@ -100,7 +105,8 @@ export function TenantRecordingsCard({ tenantId }: { tenantId: string }) {
                 <Button
                   key={d}
                   size="small"
-                  loading={busy}
+                  loading={asking === String(d)}
+                  disabled={busy && asking !== String(d)}
                   onClick={() => void ask({ olderThanDays: d })}
                 >
                   Удалить старше {d} дней
@@ -110,7 +116,8 @@ export function TenantRecordingsCard({ tenantId }: { tenantId: string }) {
                 size="small"
                 danger
                 icon={<DeleteOutlined />}
-                loading={busy}
+                loading={asking === "all"}
+                disabled={busy && asking !== "all"}
                 onClick={() => void ask({ all: true, confirm: WORD })}
               >
                 Удалить всё
@@ -134,9 +141,9 @@ export function TenantRecordingsCard({ tenantId }: { tenantId: string }) {
         destroyOnHidden
       >
         {pending ? (
-          <Space direction="vertical" style={{ width: "100%" }}>
+          <Space orientation="vertical" style={{ width: "100%" }}>
             <Text strong>
-              Будет удалено записей: {pending.count}, {formatBytes(pending.bytes)}
+              Будет удалено записей: {count(pending.count)}, {formatBytes(pending.bytes)}
             </Text>
             <Text type="secondary">
               Удаление необратимо. История звонков останется.

@@ -33,6 +33,25 @@ const STATUS_TAG: Record<string, { label: string; color: string }> = {
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/ё/g, "е").trim();
+
+/** Недавно открытые компании (только в этом браузере) — для пустого запроса. */
+const RECENT_KEY = "platform-recent-tenants";
+const readRecent = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+const pushRecent = (slug: string) => {
+  try {
+    const next = [slug, ...readRecent().filter((x) => x !== slug)].slice(0, 5);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    /* приватный режим — просто без «недавних» */
+  }
+};
 const digits = (s: string) => s.replace(/\D/g, "");
 
 /**
@@ -79,7 +98,21 @@ export const CommandPalette = ({
             },
           ]
         : [];
-    if (!t) return [...addAction, ...views];
+    if (!t) {
+      const bySlug = new Map((tenants ?? []).map((r) => [r.slug, r]));
+      const recent: Hit[] = readRecent()
+        .map((slug) => bySlug.get(slug))
+        .filter((r): r is NonNullable<typeof r> => !!r)
+        .map((r) => ({
+          kind: "tenant",
+          key: `r:${r.id}`,
+          title: r.name,
+          sub: ["недавно", `/${r.slug}`, r.tariffName].filter(Boolean).join(" · "),
+          slug: r.slug,
+          status: r.status,
+        }));
+      return [...recent, ...addAction, ...views];
+    }
     const matched = (tenants ?? []).filter(
       (r) =>
         r.status !== "deleted" &&
@@ -122,13 +155,17 @@ export const CommandPalette = ({
         status: r.status,
       }));
     return [...companies, ...payFor, ...addAction, ...views];
-  }, [q, tenants]);
+    // open — «недавние» перечитываем при каждом открытии.
+  }, [q, tenants, open]);
 
   const go = (h: Hit | undefined) => {
     if (!h) return;
     if (h.kind === "view") navigate(h.view);
     else if (h.kind === "action") openAddSubscription(h.tenantId);
-    else navigate("tenants", { id: h.slug });
+    else {
+      pushRecent(h.slug);
+      navigate("tenants", { id: h.slug });
+    }
     onClose();
   };
 
@@ -173,7 +210,7 @@ export const CommandPalette = ({
           autoFocus
           size="large"
           variant="borderless"
-          prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
+          prefix={<SearchOutlined style={{ color: "var(--text-3)" }} />}
           placeholder="Компания, телефон владельца или раздел…"
           value={q}
           onChange={(e) => {
@@ -181,12 +218,17 @@ export const CommandPalette = ({
             setActive(0);
           }}
           onKeyDown={onKey}
+          role="combobox"
+          aria-expanded
+          aria-controls="cmdk-list"
+          aria-activedescendant={hits[active] ? `cmdk-opt-${active}` : undefined}
           aria-label="Быстрый переход"
         />
-        <ul className="cmdk-list" ref={listRef} role="listbox">
+        <ul className="cmdk-list" ref={listRef} role="listbox" id="cmdk-list">
           {hits.map((h, i) => (
             <li
               key={h.key}
+              id={`cmdk-opt-${i}`}
               data-idx={i}
               role="option"
               aria-selected={i === active}

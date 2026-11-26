@@ -22,7 +22,7 @@ import {
   SearchOutlined,
   TagsOutlined,
 } from "@ant-design/icons";
-import { Badge, Button, Drawer, Dropdown, Grid, Tooltip } from "antd";
+import { App, Badge, Button, Drawer, Dropdown, Grid, Tooltip } from "antd";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useAttention } from "../lib/attention";
@@ -122,7 +122,16 @@ export const AppShell = ({
   const isMobile = !Grid.useBreakpoint().md;
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { badges } = useAttention();
+  const { badges, supportUrgent } = useAttention();
+  const { modal } = App.useApp();
+  // На телефоне «Выйти» стоит рядом с темой — случайное касание не выкидывает.
+  const confirmLogout = () =>
+    modal.confirm({
+      title: "Выйти из панели?",
+      okText: "Выйти",
+      cancelText: "Отмена",
+      onOk: onLogout,
+    });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -168,7 +177,11 @@ export const AppShell = ({
                     count={count}
                     overflowCount={99}
                     size="small"
-                    color={i.key === "support" ? "#2a78d6" : "#e34948"}
+                    color={
+                      i.key === "support" && !supportUrgent
+                        ? "var(--accent)"
+                        : "var(--danger)"
+                    }
                   />
                 ) : null}
               </button>
@@ -258,7 +271,7 @@ export const AppShell = ({
               <Button
                 type="text"
                 icon={<LogoutOutlined />}
-                onClick={onLogout}
+                onClick={confirmLogout}
                 aria-label="Выйти"
               />
             </Tooltip>

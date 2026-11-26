@@ -7,6 +7,8 @@ import { useTemplates, useUpdateTemplate } from "../hooks";
 import type { NotificationTemplate } from "../types";
 import { TEMPLATE_PLACEHOLDERS } from "../types";
 import { can, CRM_URL } from "../api/client";
+import { QueryError } from "../components/QueryError";
+import { confirmDiscard } from "../lib/confirmDiscard";
 import { PageHeader } from "../components/viz";
 import { ResponsiveTable } from "../components/MobileCards";
 
@@ -34,8 +36,8 @@ const preview = (body: string) =>
 
 export const TemplatesPage = () => {
   const editable = can("templates.edit");
-  const { message } = App.useApp();
-  const { data: templates, isLoading } = useTemplates();
+  const { message, modal } = App.useApp();
+  const { data: templates, isLoading, isError, refetch } = useTemplates();
   const update = useUpdateTemplate();
   const [editing, setEditing] = useState<NotificationTemplate | null>(null);
   const [form] = Form.useForm();
@@ -58,7 +60,22 @@ export const TemplatesPage = () => {
 
   const openEdit = (t: NotificationTemplate) => {
     setEditing(t);
+    form.resetFields();
     form.setFieldsValue({ title: t.title, body: t.body, enabled: t.enabled });
+  };
+  // Правки = значения отличаются от шаблона (вставка переменной кнопкой тоже).
+  const templateDirty = () => {
+    if (!editing) return false;
+    const v = form.getFieldsValue(["title", "body", "enabled"]) as {
+      title?: string;
+      body?: string;
+      enabled?: boolean;
+    };
+    return (
+      (v.title ?? "") !== (editing.title ?? "") ||
+      (v.body ?? "") !== (editing.body ?? "") ||
+      !!v.enabled !== !!editing.enabled
+    );
   };
 
   const submit = (v: { title: string; body: string; enabled: boolean }) => {
@@ -90,7 +107,7 @@ export const TemplatesPage = () => {
       title: "Текст",
       dataIndex: "body",
       render: (v: string) => (
-        <span style={{ color: "#64748b", fontSize: 13 }}>
+        <span style={{ color: "var(--text-3)", fontSize: 13 }}>
           {v.length > 90 ? v.slice(0, 90) + "…" : v}
         </span>
       ),
@@ -107,13 +124,14 @@ export const TemplatesPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
+    <div className="page is-narrow">
       <PageHeader
         title="Уведомления"
         subtitle="Тексты автоматических сообщений клиентам в WhatsApp"
       />
+      {isError ? <QueryError what="шаблоны" onRetry={refetch} /> : null}
       <Card>
-        <p style={{ color: "#64748b", marginTop: 0 }}>
+        <p style={{ color: "var(--text-3)", marginTop: 0 }}>
           Эти сообщения уходят клиентам сами: за 3, 1 и 0 дней до конца
           триала, напоминание об оплате, приглашение владельца при создании
           компании. Правки действуют сразу.
@@ -131,7 +149,9 @@ export const TemplatesPage = () => {
       <Modal
         open={!!editing}
         title={`Шаблон: ${editing?.title ?? ""}`}
-        onCancel={() => setEditing(null)}
+        onCancel={() =>
+          confirmDiscard(modal, templateDirty(), () => setEditing(null))
+        }
         onOk={() => form.submit()}
         okText="Сохранить"
         cancelText="Отмена"
@@ -164,16 +184,21 @@ export const TemplatesPage = () => {
           >
             <Input.TextArea ref={bodyRef} rows={6} />
           </Form.Item>
-          <div style={{ marginTop: -8, marginBottom: 12 }}>
+          <div
+            style={{ marginTop: -8, marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 4 }}
+            role="group"
+            aria-label="Вставить переменную"
+          >
             {TEMPLATE_PLACEHOLDERS.map((p) => (
-              <Tag
+              <Button
                 key={p}
-                style={{ margin: 2, cursor: "pointer" }}
-                color={usedVars(body).includes(p) ? "blue" : undefined}
+                size="small"
+                type={usedVars(body).includes(p) ? "primary" : "default"}
+                ghost={usedVars(body).includes(p)}
                 onClick={() => insertVar(p)}
               >
                 {`{${p}}`} · {VARS[p]?.label ?? p}
-              </Tag>
+              </Button>
             ))}
           </div>
           {body.trim() ? (

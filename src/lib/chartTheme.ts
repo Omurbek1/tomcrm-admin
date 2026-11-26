@@ -38,15 +38,15 @@ export const STATUS_COLOR: Record<string, string> = {
 export const STATUS_LABEL: Record<string, string> = {
   active: "Активные",
   trial: "Триал",
-  blocked: "Заблокированы",
+  blocked: "Заморожены",
   frozen: "Заморожены",
   deleted: "Удалённые",
 };
 
 /** Рецессивные оси/сетка (не спорят с данными) и чернильные токены текста. */
-export const AXIS_INK = "#94a3b8";
+export const AXIS_INK = "var(--text-4)";
 export const GRID_INK = "var(--chart-grid)";
-export const TEXT_MUTED = "#64748b";
+export const TEXT_MUTED = "var(--text-3)";
 
 /** Число с разделением тысяч ПРОБЕЛАМИ (2 500 000) — обязательное правило проекта. */
 export const num = (n: number | string | null | undefined): string =>

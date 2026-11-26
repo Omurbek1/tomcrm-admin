@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   App as AntApp,
@@ -13,7 +13,12 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { PaperClipOutlined, ReloadOutlined, SendOutlined } from "@ant-design/icons";
+import {
+  PaperClipOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  SendOutlined,
+} from "@ant-design/icons";
 
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
@@ -78,17 +83,24 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
   return (
     <Drawer open={Boolean(id)} onClose={onClose} size={isMobile ? "100%" : 640} title={data ? `Обращение #${data.number}` : "Обращение"} loading={isLoading}>
       {data ? (
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <Space orientation="vertical" size={16} style={{ width: "100%" }}>
           <div>
             <Space wrap>
               <Tag color={STATUS[data.status]?.color}>{STATUS[data.status]?.label ?? data.status}</Tag>
               <Tag>{CATEGORY[data.category] ?? data.category}</Tag>
-              {data.priority === "high" ? <Tag color="red">высокий</Tag> : null}
+              {data.priority === "high" ? <Tag color="red">срочно</Tag> : null}
             </Space>
             <Typography.Title level={4} style={{ margin: "8px 0 4px" }}>{data.subject}</Typography.Title>
             <Text type="secondary">
               {data.tenantId ? (
-                <a onClick={() => openTenant(data.tenantId!)}>{data.tenantName ?? "Компания"}</a>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, height: "auto" }}
+                  onClick={() => openTenant(data.tenantId!)}
+                >
+                  {data.tenantName ?? "Компания"}
+                </Button>
               ) : (
                 "Без компании"
               )}{" "}
@@ -105,7 +117,7 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
                 ))}
               </Space>
             ) : null}
-            <div style={{ marginTop: 8, fontSize: 12, color: "#94a3b8" }}>
+            <div style={{ marginTop: 8, fontSize: 12, color: "var(--text-4)" }}>
               {[data.route, data.browser, data.appVersion ? `сборка ${data.appVersion}` : "", data.lastErrorId ? `err ${data.lastErrorId}` : ""].filter(Boolean).join(" · ")}
             </div>
           </Card>
@@ -146,9 +158,19 @@ const TicketDrawer = ({ id, onClose }: { id: string | null; onClose: () => void 
                   style={{ width: 260 }}
                   value={status}
                   onChange={(v) => setStatus(v)}
-                  options={(Object.keys(STATUS) as SupportTicketStatus[]).map((k) => ({ value: k, label: STATUS[k].label }))}
+                  options={(Object.keys(STATUS) as SupportTicketStatus[])
+                    .filter((k) => k !== "open")
+                    .map((k) => ({ value: k, label: STATUS[k].label }))}
                 />
                 <Space wrap>
+                  {data.status === "open" && !text.trim() ? (
+                    <Button
+                      loading={reply.isPending}
+                      onClick={() => void send("in_progress")}
+                    >
+                      Взять в работу
+                    </Button>
+                  ) : null}
                   <Button
                     loading={reply.isPending}
                     disabled={!text.trim()}
@@ -198,13 +220,33 @@ export const SupportPage = () => {
     setOpenIdState(v);
     syncUrl("ticket", v);
   };
-  const { data, isLoading, refetch, isFetching } = useSupportTickets(
+  const { data, isLoading, isError, refetch, isFetching, isPlaceholderData } = useSupportTickets(
     status === "all" ? "" : status,
   );
+  const [search, setSearch] = useState("");
+  // Срочные — наверх, дальше свежие; поиск — по номеру, компании, теме, автору.
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase().replace(/ё/g, "е").replace(/^#/, "");
+    const list = (data ?? []).filter(
+      (r) =>
+        !q ||
+        String(r.number) === q ||
+        [r.tenantName, r.subject, r.authorName]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().replace(/ё/g, "е").includes(q)),
+    );
+    const at = (r: SupportTicketRow) =>
+      new Date(r.lastMessageAt ?? r.createdAt).getTime() || 0;
+    return [...list].sort(
+      (a, b) =>
+        Number(b.priority === "high") - Number(a.priority === "high") ||
+        at(b) - at(a),
+    );
+  }, [data, search]);
 
   if (!can("support.manage") && !can("*")) {
     return (
-      <div style={{ padding: 24 }}>
+      <div className="page">
         <Alert
           type="warning"
           showIcon
@@ -218,7 +260,14 @@ export const SupportPage = () => {
     { title: "№", dataIndex: "number", width: 70, render: (n: number) => <b>#{n}</b> },
     { title: "Компания", dataIndex: "tenantName", width: 180, render: (v: string | null, r: SupportTicketRow) =>
       r.tenantId ? (
-        <a onClick={(e) => { e.stopPropagation(); openTenant(r.tenantId!); }}>{v ?? "Компания"}</a>
+        <Button
+          type="link"
+          size="small"
+          style={{ padding: 0, height: "auto" }}
+          onClick={(e) => { e.stopPropagation(); openTenant(r.tenantId!); }}
+        >
+          {v ?? "Компания"}
+        </Button>
       ) : "—" },
     { title: "Тема", dataIndex: "subject", ellipsis: true, render: (v: string, r: SupportTicketRow) => (
       <div>
@@ -234,14 +283,23 @@ export const SupportPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1280, margin: "0 auto" }}>
+    <div className="page">
       <PageHeader
         title="Поддержка"
         subtitle="Обращения компаний из Help Center. Ответ уходит клиенту уведомлением в CRM и письмом."
         extra={<Button icon={<ReloadOutlined />} loading={isFetching} onClick={() => void refetch()}>Обновить</Button>}
       />
+      <div className="subs-toolbar">
+      <Input
+        allowClear
+        prefix={<SearchOutlined style={{ color: "var(--text-4)" }} />}
+        placeholder="№, компания или тема"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="subs-search"
+        aria-label="Найти обращение"
+      />
       <Segmented
-        style={{ marginBottom: 12 }}
         value={status}
         onChange={(v) => setStatus(String(v))}
         options={[
@@ -253,12 +311,26 @@ export const SupportPage = () => {
           { value: "all", label: "Все" },
         ]}
       />
+      </div>
+      {isError ? (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 12 }}
+          title="Не удалось загрузить обращения"
+          action={
+            <Button size="small" onClick={() => void refetch()}>
+              Повторить
+            </Button>
+          }
+        />
+      ) : null}
       {isMobile ? (
         <MobileCards<SupportTicketRow>
-          rows={data ?? []}
+          rows={rows}
           rowKey={(r) => r.id}
-          loading={isLoading}
-          emptyText="Обращений нет"
+          loading={isLoading || (isFetching && isPlaceholderData)}
+          emptyText={search ? "Ничего не нашлось" : "Обращений нет"}
           onOpen={(r) => setOpenId(r.id)}
           render={(r) => (
             <MRow
@@ -285,15 +357,16 @@ export const SupportPage = () => {
       <ResponsiveTable<SupportTicketRow>
         rowKey="id"
         size="middle"
-        loading={isLoading}
-        dataSource={data ?? []}
+        loading={isLoading || (isFetching && isPlaceholderData)}
+        dataSource={rows}
         columns={columns}
         pagination={{ pageSize: 25, showSizeChanger: false }}
         onRow={(r) => ({ onClick: () => setOpenId(r.id), style: { cursor: "pointer" } })}
         scroll={{ x: 760 }}
       />
       )}
-      <TicketDrawer id={openId} onClose={() => setOpenId(null)} />
+      {/* key: черновик ответа и статус не переезжают в другое обращение. */}
+      <TicketDrawer key={openId ?? "none"} id={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 };

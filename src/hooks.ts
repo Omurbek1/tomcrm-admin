@@ -61,6 +61,8 @@ export const useTenants = (opts: {
           },
         })
       ).data,
+    // Новый фильтр/буква поиска — показываем прошлый список, без спиннера и «0».
+    placeholderData: keepPreviousData,
   });
 
 export const useTenant = (id: string | null) =>
@@ -1082,6 +1084,7 @@ export const useSupportTickets = (status?: string) =>
           params: { status: status || undefined, limit: 200 },
         })
       ).data,
+    placeholderData: keepPreviousData,
     refetchInterval: 60_000,
   });
 

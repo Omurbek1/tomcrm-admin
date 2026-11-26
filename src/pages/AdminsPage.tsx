@@ -32,6 +32,7 @@ import {
 } from "../hooks";
 import type { AdminRow } from "../types";
 import { can } from "../api/client";
+import { QueryError } from "../components/QueryError";
 import { PageHeader } from "../components/viz";
 import { ResponsiveTable } from "../components/MobileCards";
 
@@ -84,12 +85,26 @@ const PasswordField = ({
 );
 
 export const AdminsPage = () => {
-  const { message } = App.useApp();
-  const { data: admins, isLoading } = useAdmins();
+  const { message, modal } = App.useApp();
+  const { data: admins, isLoading, isError, refetch } = useAdmins();
   const { data: catalog } = usePermissionCatalog();
   const { data: me } = useMe();
   const createAdmin = useCreateAdmin();
   const setActive = useSetAdminActive();
+  // Крутилка — только у строки, которую переключают (не у всех сразу).
+  const [activeBusy, setActiveBusy] = useState<string | null>(null);
+  const applyActive = (r: AdminRow, isActive: boolean) => {
+    setActiveBusy(r.id);
+    setActive.mutate(
+      { id: r.id, isActive },
+      {
+        onSuccess: () =>
+          message.success(isActive ? "Вход включён" : "Вход отключён"),
+        onError: (e) => message.error(errMsg(e, "Не удалось")),
+        onSettled: () => setActiveBusy(null),
+      },
+    );
+  };
   const changePassword = useChangeAdminPassword();
   const deleteAdmin = useDeleteAdmin();
   const setPerms = useSetAdminPermissions();
@@ -218,13 +233,21 @@ export const AdminsPage = () => {
         <Switch
           checked={v}
           disabled={!manage || me?.id === r.id}
+          aria-label={`Вход для ${r.login}`}
           onChange={(checked) =>
-            setActive.mutate(
-              { id: r.id, isActive: checked },
-              { onError: (e) => message.error(errMsg(e, "Не удалось")) },
-            )
+            checked
+              ? applyActive(r, true)
+              : modal.confirm({
+                  title: `Отключить вход для «${r.name || r.login}»?`,
+                  content:
+                    "Админ сразу потеряет доступ к панели. Включить обратно можно здесь же.",
+                  okText: "Отключить",
+                  okButtonProps: { danger: true },
+                  cancelText: "Отмена",
+                  onOk: () => applyActive(r, false),
+                })
           }
-          loading={setActive.isPending}
+          loading={activeBusy === r.id}
         />
       ),
     },
@@ -249,6 +272,7 @@ export const AdminsPage = () => {
           <Popconfirm
             disabled={me?.id === r.id}
             title="Удалить админа?"
+            description="Вход будет закрыт навсегда; его действия в журнале останутся."
             okText="Удалить"
             cancelText="Отмена"
             onConfirm={() =>
@@ -268,7 +292,7 @@ export const AdminsPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1240, margin: "0 auto" }}>
+    <div className="page">
       <PageHeader
         title="Администраторы"
         subtitle="Доступы к платформенной панели"
@@ -280,6 +304,7 @@ export const AdminsPage = () => {
           )
         }
       />
+      {isError ? <QueryError what="администраторов" onRetry={refetch} /> : null}
       {me && <My2fa me={me} />}
       {no2fa.length > 0 && (
         <Alert
@@ -382,7 +407,7 @@ export const AdminsPage = () => {
               <Button size="small" onClick={() => setPermDraft([])}>
                 Снять все
               </Button>
-              <span style={{ color: "#64748b", fontSize: 12 }}>
+              <span style={{ color: "var(--text-3)", fontSize: 12 }}>
                 Выбрано {permDraft.length} из {(catalog ?? []).length}
               </span>
             </Space>
@@ -433,6 +458,38 @@ const My2fa = ({ me }: { me: AdminRow }) => {
     otpauthUrl: string;
   } | null>(null);
   const [code, setCode] = useState("");
+  const [disabling, setDisabling] = useState(false);
+  // Только цифры (вставка «123 456» тоже), не больше 6.
+  const onCode = (v: string) => setCode(v.replace(/\D/g, "").slice(0, 6));
+
+  const doDisable = () => {
+    if (code.length !== 6 || disable.isPending) return;
+    disable.mutate(code, {
+      onSuccess: () => {
+        message.success("2FA отключена");
+        setCode("");
+        setDisabling(false);
+      },
+      onError: () => {
+        message.error("Код не подошёл — введите новый из приложения");
+        setCode("");
+      },
+    });
+  };
+  const doEnable = () => {
+    if (code.length !== 6 || enable.isPending) return;
+    enable.mutate(code, {
+      onSuccess: () => {
+        message.success("2FA включена");
+        setSetupData(null);
+        setCode("");
+      },
+      onError: () => {
+        message.error("Код не подошёл — введите новый из приложения");
+        setCode("");
+      },
+    });
+  };
 
   if (me.totpEnabled) {
     return (
@@ -440,28 +497,42 @@ const My2fa = ({ me }: { me: AdminRow }) => {
         <Space wrap align="center">
           <Tag color="green">2FA включена</Tag>
           <Text type="secondary">Ваш аккаунт защищён кодом.</Text>
-          <Input
-            placeholder="код для отключения"
-            style={{ width: 160 }}
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-          />
-          <Button
-            danger
-            onClick={() =>
-              disable.mutate(code, {
-                onSuccess: () => {
-                  message.success("2FA отключена");
+          {!disabling ? (
+            <Button size="small" onClick={() => setDisabling(true)}>
+              Отключить 2FA…
+            </Button>
+          ) : (
+            <>
+              <Input
+                autoFocus
+                placeholder="код из приложения"
+                aria-label="Код из приложения для отключения 2FA"
+                style={{ width: 170 }}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => onCode(e.target.value)}
+                onPressEnter={doDisable}
+              />
+              <Button
+                danger
+                disabled={code.length !== 6}
+                onClick={doDisable}
+                loading={disable.isPending}
+              >
+                Отключить
+              </Button>
+              <Button
+                type="text"
+                onClick={() => {
+                  setDisabling(false);
                   setCode("");
-                },
-                onError: () => message.error("Неверный код"),
-              })
-            }
-            loading={disable.isPending}
-          >
-            Отключить 2FA
-          </Button>
+                }}
+              >
+                Отмена
+              </Button>
+            </>
+          )}
         </Space>
       </Card>
     );
@@ -504,7 +575,7 @@ const My2fa = ({ me }: { me: AdminRow }) => {
         >
           <div style={{ textAlign: "center" }}>
             <QRCode value={setupData.otpauthUrl} size={172} />
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 4 }}>
               Сканируйте в приложении
             </div>
           </div>
@@ -524,25 +595,20 @@ const My2fa = ({ me }: { me: AdminRow }) => {
             </Paragraph>
             <Space>
               <Input
+                autoFocus
                 placeholder="123456"
+                aria-label="Код из приложения"
                 style={{ width: 160 }}
-                maxLength={6}
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => onCode(e.target.value)}
+                onPressEnter={doEnable}
               />
               <Button
                 type="primary"
-                onClick={() =>
-                  enable.mutate(code, {
-                    onSuccess: () => {
-                      message.success("2FA включена");
-                      setSetupData(null);
-                      setCode("");
-                    },
-                    onError: () => message.error("Неверный код"),
-                  })
-                }
+                disabled={code.length !== 6}
+                onClick={doEnable}
                 loading={enable.isPending}
               >
                 Подтвердить

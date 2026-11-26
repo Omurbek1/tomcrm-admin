@@ -27,10 +27,22 @@ const EXTRA_ACTIONS: Record<string, string> = {
   "config.calls_switch": "Звонки: общий выключатель",
   "config.instagram": "Настройки Instagram",
   "config.subscription_periods": "Сроки подписки",
+  "tenant.payment_cancel": "Оплата отменена",
 };
+
+/** Действие без перевода — честный общий ярлык; сырой ключ — в подсказке. */
+export const isKnownAction = (a: string): boolean =>
+  a in AUDIT_ACTION_LABEL || a in EXTRA_ACTIONS;
 
 export const actionLabel = (a: string): string =>
   AUDIT_ACTION_LABEL[a] ?? EXTRA_ACTIONS[a] ?? "Другое действие";
+
+const METHOD: Record<string, string> = {
+  cash: "наличные",
+  transfer: "перевод",
+  card: "карта",
+  free: "бесплатно",
+};
 
 const STATUS: Record<string, string> = {
   trial: "триал",
@@ -59,6 +71,11 @@ const NOTIF_STATUS: Record<string, string> = {
 };
 
 const FIELD: Record<string, string> = {
+  readOnlyDays: "только чтение, дн.",
+  trialGraceDays: "отсрочка после триала, дн.",
+  method: "способ",
+  tariff: "тариф",
+  disabled: "выключено",
   name: "название",
   price: "цена",
   yearlyPrice: "цена за год",
@@ -162,6 +179,10 @@ export const auditDetails = (
   if (has("purgeDays"))
     parts.push(`Данные удалятся через ${num(take("purgeDays"))} дн.`);
   if (has("count")) parts.push(`Компаний: ${num(take("count"))}`);
+  if (has("method")) {
+    const m = String(take("method"));
+    parts.push(`Способ: ${METHOD[m] ?? m}`);
+  }
 
   // Вход под владельцем
   if (has("ownerName")) parts.push(`Владелец: ${String(take("ownerName"))}`);

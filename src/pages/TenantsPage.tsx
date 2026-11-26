@@ -27,9 +27,10 @@ import {
   useTenants,
 } from "../hooks";
 import type { TenantFilter, TenantRow } from "../types";
-import { formatBytes, REMINDER_TYPES } from "../types";
+import { formatBytes, REMINDER_TYPES, STATUS_LABEL } from "../types";
 import { PlatformRecordingsBadge } from "./PlatformRecordingsBadge";
 import { can } from "../api/client";
+import { QueryError } from "../components/QueryError";
 import { PageHeader } from "../components/viz";
 import { CreateTenantModal } from "./CreateTenantModal";
 import { MobileCards, MRow, useIsMobile, useListHeight } from "../components/MobileCards";
@@ -79,14 +80,14 @@ const stateOf = (
   const overdue = -diff;
   if (overdue <= 3) {
     const graceEnd = new Date(pu.getTime() + 3 * 86_400_000);
-    return { color: "gold", label: "Grace", sub: `доступ до ${fmtShort(graceEnd)}` };
+    return { color: "gold", label: "Льготный период", sub: `доступ до ${fmtShort(graceEnd)}` };
   }
   return { color: "red", label: "Просрочена", sub: `${overdue} дн.` };
 };
 
 const CSV_COLUMNS: Array<{ key: keyof TenantRow; label: string }> = [
   { key: "name", label: "Компания" },
-  { key: "slug", label: "Slug" },
+  { key: "slug", label: "Адрес" },
   { key: "status", label: "Статус" },
   { key: "tariffName", label: "Тариф" },
   { key: "industryName", label: "Отрасль" },
@@ -107,10 +108,26 @@ const csvCell = (v: unknown): string => {
   return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
+const DATE_KEYS = new Set<keyof TenantRow>([
+  "paidUntil",
+  "trialEndsAt",
+  "lastActivityAt",
+  "createdAt",
+]);
+/** В файл — то же, что на экране: «Активна», «26.11.2026», а не коды и ISO. */
+const csvValue = (r: TenantRow, k: keyof TenantRow): unknown => {
+  const v = r[k];
+  if (v === null || v === undefined || v === "") return "";
+  if (k === "status") return STATUS_LABEL[r.status] ?? r.status;
+  if (DATE_KEYS.has(k)) return new Date(String(v)).toLocaleDateString("ru-RU");
+  if (k === "mrr") return Math.round(Number(v) || 0);
+  return v;
+};
+
 const exportCsv = (rows: TenantRow[]): void => {
   const head = CSV_COLUMNS.map((c) => c.label).join(";");
   const body = rows
-    .map((r) => CSV_COLUMNS.map((c) => csvCell(r[c.key])).join(";"))
+    .map((r) => CSV_COLUMNS.map((c) => csvCell(csvValue(r, c.key))).join(";"))
     .join("\n");
   const blob = new Blob(["﻿" + head + "\n" + body], {
     type: "text/csv;charset=utf-8;",
@@ -180,6 +197,8 @@ export const TenantsPage = () => {
   const [tariffId, setTariffId] = useState(init.tariffId);
   const [sort, setSort] = useState(init.sort);
   const [includeDeleted, setIncludeDeleted] = useState(init.includeDeleted);
+  // Поиск/отрасль/тариф сужают список — тогда «Все» не подсвечиваем.
+  const narrowed = !!(search || industryId || tariffId);
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -195,7 +214,14 @@ export const TenantsPage = () => {
   const isMobile = useIsMobile();
   const [listRef, listHeight] = useListHeight();
   const { data: overview } = useOverview();
-  const { data: tenants, isLoading } = useTenants({
+  const {
+    data: tenants,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+    isPlaceholderData,
+  } = useTenants({
     search,
     status,
     filter,
@@ -212,7 +238,7 @@ export const TenantsPage = () => {
 
   const runBulkExtend = () => {
     bulkExtend.mutate(
-      { ids: selected, periodMonths: bulkExtendMonths },
+      { ids: bulkIds, periodMonths: bulkExtendMonths },
       {
         onSuccess: (r) => {
           message.success(
@@ -257,18 +283,25 @@ export const TenantsPage = () => {
   // того, как успевали открыть карточку.
   const pendingSlug = useRef(new URLSearchParams(window.location.search).get("id"));
   useEffect(() => {
-    if (!pendingSlug.current || !tenants) return;
+    if (!pendingSlug.current || !tenants || isFetching || isPlaceholderData)
+      return;
     const found = tenants.find(
       (t) => t.slug === pendingSlug.current || t.id === pendingSlug.current,
     );
+    const wanted = pendingSlug.current;
     pendingSlug.current = null;
     if (found) setOpenId(found.id);
-  }, [tenants]);
+    // Не нашли в списке (удалена/скрыта фильтром) — открываем по id и
+    // говорим, если и так не вышло: раньше переход молча ничего не делал.
+    else if (/^[0-9a-f-]{36}$/i.test(wanted)) setOpenId(wanted);
+    else message.warning("Компания не найдена в списке — проверьте фильтры или «Показать удалённые»");
+  }, [tenants, isFetching, isPlaceholderData, message]);
   useEffect(() => {
     if (pendingSlug.current) return;
     const url = new URL(window.location.href);
     const slug = tenants?.find((t) => t.id === openId)?.slug;
-    if (openId && slug) url.searchParams.set("id", slug);
+    // Нет в списке (удалена/скрыта фильтром) — держим id, чтобы F5/ссылка работали.
+    if (openId) url.searchParams.set("id", slug ?? openId);
     else url.searchParams.delete("id");
     window.history.replaceState(null, "", url.toString());
   }, [openId, tenants]);
@@ -277,11 +310,15 @@ export const TenantsPage = () => {
     () => (tenants ?? []).filter((t) => selected.includes(t.id)),
     [tenants, selected],
   );
+  // Массовые действия — ТОЛЬКО по видимым сейчас выбранным: сменили фильтр —
+  // скрытые компании не затронем (раньше «Затронет 3», а уходило 10).
+  const bulkIds = useMemo(() => selectedRows.map((t) => t.id), [selectedRows]);
+  const hiddenSelected = selected.length - bulkIds.length;
 
   const runBulkTariff = () => {
     if (!bulkTariffId) return;
     bulkTariff.mutate(
-      { ids: selected, tariffId: bulkTariffId },
+      { ids: bulkIds, tariffId: bulkTariffId },
       {
         onSuccess: (r) => {
           message.success(`Тариф изменён у ${r.updated} компаний`);
@@ -301,7 +338,7 @@ export const TenantsPage = () => {
   const runBulkNotify = () => {
     if (!bulkType) return;
     bulkNotify.mutate(
-      { ids: selected, type: bulkType },
+      { ids: bulkIds, type: bulkType },
       {
         onSuccess: (r) => {
           message.success(
@@ -341,7 +378,7 @@ export const TenantsPage = () => {
               </Tag>
             )}
           </div>
-          <div style={{ fontSize: 12, color: "#94a3b8" }}>
+          <div style={{ fontSize: 12, color: "var(--text-3)" }}>
             /{r.slug}
             {r.industryName ? ` · ${r.industryName}` : ""}
           </div>
@@ -358,7 +395,7 @@ export const TenantsPage = () => {
           <div>
             <Tag color={s.color}>{s.label}</Tag>
             {s.sub && (
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>{s.sub}</div>
+              <div style={{ fontSize: 12, color: "var(--text-3)" }}>{s.sub}</div>
             )}
           </div>
         );
@@ -380,7 +417,7 @@ export const TenantsPage = () => {
         r.status === "active" && Number(v) > 0 ? (
           <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(v)}</span>
         ) : (
-          <span style={{ color: "#94a3b8" }}>—</span>
+          <span style={{ color: "var(--text-3)" }}>—</span>
         ),
     },
     {
@@ -389,12 +426,12 @@ export const TenantsPage = () => {
       width: 150,
       render: (_v, r) => {
         const d = daysAgo(r.lastActivityAt);
-        if (d == null) return <span style={{ color: "#94a3b8" }}>нет входов</span>;
+        if (d == null) return <span style={{ color: "var(--text-3)" }}>нет входов</span>;
         const stale = d > 14;
         return (
-          <span style={{ color: stale ? "#ef4444" : undefined }}>
+          <span style={{ color: stale ? "var(--danger)" : undefined }}>
             {fmtShort(r.lastActivityAt)}
-            <div style={{ fontSize: 12, color: stale ? "#ef4444" : "#94a3b8" }}>
+            <div style={{ fontSize: 12, color: stale ? "var(--danger)" : "var(--text-3)" }}>
               {d === 0 ? "сегодня" : `${d} дн. назад`}
             </div>
           </span>
@@ -410,7 +447,7 @@ export const TenantsPage = () => {
           <div>
             <div>{r.ownerName ?? "—"}</div>
             {r.ownerPhone && (
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>
+              <div style={{ fontSize: 12, color: "var(--text-3)" }}>
                 {r.ownerPhone}
               </div>
             )}
@@ -455,7 +492,7 @@ export const TenantsPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1280, margin: "0 auto" }}>
+    <div className="page">
       <PageHeader
         title="Компании"
         subtitle="Все компании платформы"
@@ -486,8 +523,8 @@ export const TenantsPage = () => {
           <button
             key={key || "all"}
             type="button"
-            className={`chip${filter === key && !status ? " is-on" : ""}`}
-            aria-pressed={filter === key && !status}
+            className={`chip${filter === key && !status && (key || !narrowed) ? " is-on" : ""}`}
+            aria-pressed={filter === key && !status && (!!key || !narrowed)}
             onClick={() => {
               setStatus("");
               setFilter(key);
@@ -519,7 +556,7 @@ export const TenantsPage = () => {
           }}
         >
           <Input
-            prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
+            prefix={<SearchOutlined style={{ color: "var(--text-3)" }} />}
             placeholder="Название, адрес или телефон"
             allowClear
             value={searchInput}
@@ -537,7 +574,7 @@ export const TenantsPage = () => {
               { value: "", label: "Все статусы" },
               { value: "trial", label: "Триал" },
               { value: "active", label: "Активные" },
-              { value: "blocked", label: "Заблокированные" },
+              { value: "blocked", label: "Замороженные" },
               { value: "deleted", label: "Удалённые" },
             ]}
           />
@@ -595,9 +632,13 @@ export const TenantsPage = () => {
           </Button>
         </div>
 
+        {isError ? <QueryError what="компании" onRetry={refetch} /> : null}
         {selected.length > 0 && (
           <Space style={{ marginBottom: 12 }} wrap>
-            <Tag color="blue">Выбрано: {selected.length}</Tag>
+            <Tag color="blue">Выбрано: {bulkIds.length}</Tag>
+            {hiddenSelected > 0 ? (
+              <Tag>ещё {hiddenSelected} скрыты фильтром — их не затронет</Tag>
+            ) : null}
             <Button
               size="small"
               disabled={!can("tenants.tariff")}
@@ -632,7 +673,7 @@ export const TenantsPage = () => {
           <MobileCards<TenantRow>
             rows={tenants ?? []}
             rowKey={(r) => r.id}
-            loading={isLoading}
+            loading={isLoading || (isFetching && isPlaceholderData)}
             emptyText="Компаний не найдено"
             onOpen={(r) => setOpenId(r.id)}
             render={(r) => {
@@ -690,7 +731,7 @@ export const TenantsPage = () => {
           <div ref={listRef}>
           <Table<TenantRow>
           rowKey="id"
-          loading={isLoading}
+          loading={isLoading || (isFetching && isPlaceholderData)}
           dataSource={tenants ?? []}
           columns={columns}
           // Виртуальная прокрутка: рисуются только видимые строки, поэтому
@@ -714,7 +755,7 @@ export const TenantsPage = () => {
 
       <Modal
         open={bulkTariffOpen}
-        title={`Сменить тариф: ${selected.length}`}
+        title={`Сменить тариф: ${bulkIds.length}`}
         onCancel={() => setBulkTariffOpen(false)}
         onOk={runBulkTariff}
         okText="Сменить тариф"
@@ -737,7 +778,7 @@ export const TenantsPage = () => {
 
       <Modal
         open={bulkExtendOpen}
-        title={`Продлить подписку ${selected.length} ${companiesWord(selected.length)}`}
+        title={`Продлить подписку ${bulkIds.length} ${companiesWord(bulkIds.length)}`}
         onCancel={() => setBulkExtendOpen(false)}
         onOk={runBulkExtend}
         okText={`Продлить на ${bulkExtendMonths} мес.`}
@@ -763,7 +804,7 @@ export const TenantsPage = () => {
 
       <Modal
         open={bulkNotifyOpen}
-        title={`Отправить уведомление ${selected.length} ${companiesWord(selected.length)}`}
+        title={`Отправить уведомление ${bulkIds.length} ${companiesWord(bulkIds.length)}`}
         onCancel={() => setBulkNotifyOpen(false)}
         onOk={runBulkNotify}
         okText="Отправить"
@@ -782,7 +823,17 @@ export const TenantsPage = () => {
         <AffectedList rows={selectedRows} />
       </Modal>
 
-      <TenantDrawer tenantId={openId} onClose={() => setOpenId(null)} />
+      {/* key: черновики/вкладка/страница истории не переезжают в другую компанию. */}
+      <TenantDrawer
+        key={openId ?? "none"}
+        tenantId={openId}
+        onClose={() => {
+          setOpenId(null);
+          const url = new URL(window.location.href);
+          url.searchParams.delete("tab");
+          window.history.replaceState(null, "", url.toString());
+        }}
+      />
       <CreateTenantModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );

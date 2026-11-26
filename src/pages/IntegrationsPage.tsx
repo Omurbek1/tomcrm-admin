@@ -11,7 +11,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { can } from "../api/client";
 import { PageHeader } from "../components/viz";
@@ -73,7 +73,7 @@ const CopyRow = ({
         {extra}
       </Space.Compact>
       {hint ? (
-        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 4 }}>
           {hint}
         </div>
       ) : null}
@@ -129,11 +129,18 @@ export const IntegrationsPage = () => {
     });
   };
 
-  const generate = () =>
-    save.mutateAsync({ regenerateVerifyToken: true }).then(
-      () => message.success("Verify token готов — скопируйте его в Meta App"),
-      (e) => message.error(errText(e, "Не удалось сгенерировать")),
-    );
+  // Своя крутилка у «Новый токен» — не крутим заодно «Сохранить».
+  const [generating, setGenerating] = useState(false);
+  const generate = () => {
+    setGenerating(true);
+    return save
+      .mutateAsync({ regenerateVerifyToken: true })
+      .then(
+        () => message.success("Verify token готов — скопируйте его в Meta App"),
+        (e) => message.error(errText(e, "Не удалось сгенерировать")),
+      )
+      .finally(() => setGenerating(false));
+  };
 
   // Первый токен — сразу; замена рабочего — с предупреждением.
   const regenerate = () =>
@@ -150,7 +157,7 @@ export const IntegrationsPage = () => {
       : void generate();
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
+    <div className="page is-narrow">
       <PageHeader
         title="Интеграции"
         subtitle="Ключи внешних сервисов — общие для всех компаний"
@@ -160,7 +167,7 @@ export const IntegrationsPage = () => {
         <Alert
           type="error"
           showIcon
-          message="Не удалось загрузить настройки"
+          title="Не удалось загрузить настройки"
           action={
             <Button size="small" onClick={() => void refetch()}>
               Повторить
@@ -182,7 +189,7 @@ export const IntegrationsPage = () => {
             )
           }
         >
-          <p style={{ color: "#64748b", marginTop: 0 }}>
+          <p style={{ color: "var(--text-3)", marginTop: 0 }}>
             Одно приложение Meta на всю платформу: через него компании
             подключают свои аккаунты в «Интеграциях» CRM. Подключено аккаунтов:{" "}
             <b>{cfg.accounts.total}</b>
@@ -208,8 +215,8 @@ export const IntegrationsPage = () => {
             extra={
               <Button
                 icon={<ReloadOutlined />}
-                disabled={!editable}
-                loading={save.isPending}
+                disabled={!editable || (save.isPending && !generating)}
+                loading={generating}
                 onClick={regenerate}
               >
                 {cfg.verifyToken ? "Новый" : "Сгенерировать"}
@@ -286,7 +293,12 @@ export const IntegrationsPage = () => {
             >
               <Input placeholder={`${cfg.apiVersion} (по умолчанию)`} />
             </Form.Item>
-            <Button type="primary" htmlType="submit" loading={save.isPending}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={save.isPending && !generating}
+              disabled={generating}
+            >
               Сохранить
             </Button>
           </Form>

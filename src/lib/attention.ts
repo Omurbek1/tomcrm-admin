@@ -38,6 +38,9 @@ export const useAttention = () => {
   const o = d?.overview;
   return {
     overview: { data: o, isLoading: q.isLoading },
+    /** Сводка не загрузилась — нули ниже НЕ значат «дел нет». */
+    isError: q.isError && !d,
+    refetch: q.refetch,
     overdue: o?.overdue ?? 0,
     trialsExpiringSoon: o?.trialsExpiringSoon ?? 0,
     trialsExpired: o?.trialsExpired ?? 0,

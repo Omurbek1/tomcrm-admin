@@ -1,13 +1,14 @@
-import { Button, Card, Select, Space, Tag } from "antd";
+import { Button, Card, Select, Space, Tag, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 
 import { useAudit, useTenants } from "../hooks";
+import { QueryError } from "../components/QueryError";
+import { TenantLink } from "../components/TenantLink";
 import { PageHeader } from "../components/viz";
-import { openTenant } from "../lib/nav";
 import type { AuditRow } from "../types";
 import { AUDIT_FILTERS } from "../types";
-import { actionLabel, auditDetails } from "../lib/auditText";
+import { actionLabel, auditDetails, isKnownAction } from "../lib/auditText";
 import { ResponsiveTable } from "../components/MobileCards";
 
 /** Действия, после которых стоит присмотреться: доступ, удаление, деньги. */
@@ -25,7 +26,7 @@ export const AuditPage = () => {
   const [filterIdx, setFilterIdx] = useState<number>(0);
   const [limit, setLimit] = useState<number>(25);
   const { data: tenants } = useTenants({ includeDeleted: true });
-  const { data: audit, isLoading } = useAudit(tenantId, {
+  const { data: audit, isLoading, isError, isFetching, refetch } = useAudit(tenantId, {
     actions: AUDIT_FILTERS[filterIdx].actions,
     limit,
   });
@@ -54,7 +55,9 @@ export const AuditPage = () => {
       dataIndex: "action",
       width: 200,
       render: (a: string) => (
-        <Tag color={SENSITIVE.has(a) ? "red" : undefined}>{actionLabel(a)}</Tag>
+        <Tooltip title={isKnownAction(a) ? undefined : `Код действия: ${a}`}>
+          <Tag color={SENSITIVE.has(a) ? "red" : undefined}>{actionLabel(a)}</Tag>
+        </Tooltip>
       ),
     },
     {
@@ -69,7 +72,7 @@ export const AuditPage = () => {
       width: 200,
       render: (id: string | null) =>
         id ? (
-          <a onClick={() => openTenant(id)}>{nameById.get(id) ?? "Компания"}</a>
+          <TenantLink id={id} name={nameById.get(id) ?? "Компания"} />
         ) : (
           "—"
         ),
@@ -86,7 +89,7 @@ export const AuditPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+    <div className="page">
       <PageHeader
         title="Журнал"
         subtitle="Кто и что менял: оплаты, тарифы, доступ, админы — и автоматические действия системы"
@@ -118,6 +121,7 @@ export const AuditPage = () => {
           </Space>
         }
       />
+      {isError ? <QueryError what="журнал" onRetry={refetch} /> : null}
       <Card>
         <ResponsiveTable<AuditRow>
           rowKey="id"
@@ -130,7 +134,9 @@ export const AuditPage = () => {
         />
         {audit?.hasMore && (
           <div style={{ textAlign: "center", marginTop: 12 }}>
-            <Button onClick={() => setLimit((l) => l + 25)}>Показать ещё</Button>
+            <Button loading={isFetching} onClick={() => setLimit((l) => l + 25)}>
+              Показать ещё
+            </Button>
           </div>
         )}
       </Card>

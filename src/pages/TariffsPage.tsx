@@ -10,15 +10,19 @@ import {
   Modal,
   Space,
   Segmented,
+  Select,
   Switch,
   Tabs,
   Tag,
+  Tooltip,
   Tree,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useState } from "react";
 
 import { can } from "../api/client";
+import { QueryError } from "../components/QueryError";
+import { confirmDiscard } from "../lib/confirmDiscard";
 import { PageHeader } from "../components/viz";
 import { navigate } from "../lib/nav";
 import {
@@ -98,7 +102,7 @@ const CallsSwitchCard = () => {
         </span>
         <span style={{ color: "var(--text-3)", fontSize: 13 }}>
           {d.envDisabled
-            ? "Выключены настройкой сервера (WA_CALLS_DISABLED) — из админки не включить."
+            ? "Выключены в настройках сервера — из админки не включить, обратитесь к разработчику."
             : "Аварийный выключатель: на случай сбоя или жалоб. Линии каждой компании — в её карточке → «Тариф и модули»."}
         </span>
       </Space>
@@ -107,8 +111,8 @@ const CallsSwitchCard = () => {
 };
 
 export const TariffsPage = () => {
-  const { message } = App.useApp();
-  const { data: tariffs, isLoading } = useTariffs();
+  const { message, modal } = App.useApp();
+  const { data: tariffs, isLoading, isError, refetch } = useTariffs();
   const editTariff = useEditTariff();
   const createTariff = useCreateTariff();
   // Единый источник — группы/разделы/аддоны с бэка; хардкод только фолбэк.
@@ -126,7 +130,7 @@ export const TariffsPage = () => {
       title: s.alwaysOn
         ? `${s.label} · всегда`
         : s.flag
-          ? `${s.label} · платная опция (в тарифе бесплатно, если включить)`
+          ? `${s.label} · платный пакет — отметьте, чтобы включить в тариф`
           : s.label,
       disabled: s.alwaysOn,
     })),
@@ -136,10 +140,21 @@ export const TariffsPage = () => {
   const [grace, setGrace] = useState<number>(3);
   const [readOnlyDays, setReadOnlyDays] = useState<number>(0);
   const [trialGraceDays, setTrialGraceDays] = useState<number>(0);
+  // Схема выше перерисовывается по вводу — без метки не понять, что не сохранено.
+  const dunningDirty =
+    !!config &&
+    (grace !== config.graceDays ||
+      readOnlyDays !== config.readOnlyDays ||
+      trialGraceDays !== config.trialGraceDays);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Tariff | null>(null); // null = создание
   // Включённые разделы (листья дерева). Раздел вкл, если не выключен явно.
   const [moduleChecked, setModuleChecked] = useState<string[]>([]);
+  // Снимок формы и модулей на момент открытия: модули живут вне формы, а поля,
+  // заполненные кодом, не «touched» — сравниваем значения, а не флаг.
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const tariffState = () =>
+    JSON.stringify({ f: form.getFieldsValue(true), m: [...moduleChecked].sort() });
   // Код при создании заполняется из названия, пока его не правили руками.
   const [codeTouched, setCodeTouched] = useState(false);
   const [form] = Form.useForm();
@@ -297,7 +312,10 @@ export const TariffsPage = () => {
       dataIndex: "name",
       render: (v: string, r) => (
         <span>
-          <b>{v}</b> <Tag>{r.code}</Tag>
+          <b>{v}</b>{" "}
+          <Tooltip title="Код тарифа (для API и сайта)">
+            <Tag>{r.code}</Tag>
+          </Tooltip>
           {!r.isPublic && <Tag color="default">скрыт</Tag>}
           {r.archived && <Tag color="orange">архив</Tag>}
         </span>
@@ -310,7 +328,7 @@ export const TariffsPage = () => {
       render: (v: string, r) =>
         Number(v) > 0
           ? `${Number(v).toLocaleString("ru-RU")} ${r.currency === "KGS" ? "сом" : r.currency}/${r.period === "year" ? "год" : "мес"}`
-          : "—",
+          : "Бесплатно",
     },
     {
       title: "Компаний",
@@ -327,7 +345,7 @@ export const TariffsPage = () => {
             {n.toLocaleString("ru-RU")}
           </Button>
         ) : (
-          <span style={{ color: "#94a3b8" }}>0</span>
+          <span style={{ color: "var(--text-3)" }}>0</span>
         );
       },
     },
@@ -354,13 +372,14 @@ export const TariffsPage = () => {
   const saving = editTariff.isPending || createTariff.isPending;
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+    <div className="page">
       <PageHeader
         title="Тарифы"
         subtitle="Цены и лимиты планов, что происходит при неоплате"
       />
+      {isError ? <QueryError what="тарифы" onRetry={refetch} /> : null}
       <Card
-        title="Тарифы"
+        title="Планы"
         style={{ marginBottom: 16 }}
         extra={
           <Dropdown.Button
@@ -381,7 +400,7 @@ export const TariffsPage = () => {
           </Dropdown.Button>
         }
       >
-        <div style={{ color: "#64748b", fontSize: 13, marginBottom: 10 }}>
+        <div style={{ color: "var(--text-3)", fontSize: 13, marginBottom: 10 }}>
           Цены, модули и лимиты меняются сразу, без выкладки; лендинг берёт их
           отсюда.
         </div>
@@ -416,11 +435,11 @@ export const TariffsPage = () => {
           </span>
           <span className="dunning-step is-end">блокировка до оплаты</span>
         </div>
-        <div style={{ color: "#64748b", fontSize: 13, marginBottom: 12 }}>
+        <div style={{ color: "var(--text-3)", fontSize: 13, marginBottom: 12 }}>
           После триала: ещё {trialGraceDays} дн. до экрана оплаты. Действует
           для всех компаний сразу.
         </div>
-        <Space direction="vertical" size="small" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="small" style={{ width: "100%" }}>
           <Space wrap align="center">
             <span style={{ fontWeight: 600, minWidth: 260 }}>
               Льготный период после «оплачено до»
@@ -433,7 +452,7 @@ export const TariffsPage = () => {
               style={{ width: 90 }}
               suffix="дн."
             />
-            <span style={{ color: "#64748b", fontSize: 13 }}>
+            <span style={{ color: "var(--text-3)", fontSize: 13 }}>
               Полный доступ + баннер «оплата просрочена».
             </span>
           </Space>
@@ -449,7 +468,7 @@ export const TariffsPage = () => {
               style={{ width: 90 }}
               suffix="дн."
             />
-            <span style={{ color: "#64748b", fontSize: 13 }}>
+            <span style={{ color: "var(--text-3)", fontSize: 13 }}>
               0 — сразу блокировка. Данные видны, изменения и отправка закрыты.
             </span>
           </Space>
@@ -465,14 +484,15 @@ export const TariffsPage = () => {
               style={{ width: 90 }}
               suffix="дн."
             />
-            <span style={{ color: "#64748b", fontSize: 13 }}>
+            <span style={{ color: "var(--text-3)", fontSize: 13 }}>
               0 — экран оплаты сразу по истечении триала.
             </span>
           </Space>
           <Space wrap align="center">
+            {dunningDirty ? <Tag color="orange">Не сохранено</Tag> : null}
             <Button
               type="primary"
-              disabled={!can("tariffs.edit")}
+              disabled={!can("tariffs.edit") || !dunningDirty}
               onClick={() =>
                 setConfig.mutate(
                   { graceDays: grace, readOnlyDays, trialGraceDays },
@@ -486,7 +506,7 @@ export const TariffsPage = () => {
             >
               Сохранить
             </Button>
-            <span style={{ color: "#64748b", fontSize: 13 }}>
+            <span style={{ color: "var(--text-3)", fontSize: 13 }}>
               После блокировки компания видит экран оплаты (вход сохраняется);
               WhatsApp-сессии живут, входящие копятся, отправка/AI/автоматизации
               остановлены. Оплата снимает блокировку автоматически.
@@ -499,7 +519,14 @@ export const TariffsPage = () => {
       <Modal
         open={open}
         title={editing ? `Тариф: ${editing.name}` : "Новый тариф"}
-        onCancel={() => setOpen(false)}
+        onCancel={() =>
+          confirmDiscard(
+            modal,
+            snapshot !== null && tariffState() !== snapshot,
+            () => setOpen(false),
+          )
+        }
+        afterOpenChange={(o) => setSnapshot(o ? tariffState() : null)}
         onOk={() => form.submit()}
         okText={editing ? "Сохранить" : "Создать"}
         cancelText="Отмена"
@@ -573,8 +600,13 @@ export const TariffsPage = () => {
                           parser={(v) => Number(String(v ?? "").replace(/\D/g, ""))}
                         />
                       </Form.Item>
-                      <Form.Item name="currency" label="Валюта" style={{ flex: "0 1 100px" }}>
-                        <Input />
+                      <Form.Item name="currency" label="Валюта" style={{ flex: "0 1 120px" }}>
+                        <Select
+                          options={[
+                            { value: "KGS", label: "сом (KGS)" },
+                            { value: "USD", label: "доллар (USD)" },
+                          ]}
+                        />
                       </Form.Item>
                       <Form.Item name="period" label="За" style={{ flex: "0 1 140px" }}>
                         <Segmented

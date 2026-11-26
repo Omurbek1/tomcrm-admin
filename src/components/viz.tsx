@@ -72,6 +72,20 @@ export const StatTile = ({
   const body = (
     <div
       onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? !!active : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      className={onClick ? "stat-tile is-clickable" : "stat-tile"}
       style={{
         ...CARD,
         height: "100%",
@@ -103,7 +117,7 @@ export const StatTile = ({
         )}
       </div>
       {hint && (
-        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 4 }}>
           {hint}
         </div>
       )}
@@ -138,7 +152,7 @@ export const ChartCard = ({
       <div>
         <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
         {subtitle && (
-          <div style={{ fontSize: 12, color: "#94a3b8" }}>{subtitle}</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)" }}>{subtitle}</div>
         )}
       </div>
       {extra}

@@ -46,7 +46,7 @@ export const DeleteTenantModal = ({
       { id: tenantId, reason, confirmSlug },
       {
         onSuccess: () => {
-          message.success("Компания удалена (soft). Восстановима 90 дней.");
+          message.success("Компания удалена. Её можно восстановить в течение 90 дней.");
           reset();
           onClose();
         },

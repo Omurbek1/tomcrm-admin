@@ -6,9 +6,10 @@ import { useMemo } from "react";
 
 import { api } from "../api/client";
 import { ResponsiveTable } from "../components/MobileCards";
+import { QueryError } from "../components/QueryError";
+import { TenantLink } from "../components/TenantLink";
 import { PageHeader } from "../components/viz";
 import { useTenants } from "../hooks";
-import { openTenant } from "../lib/nav";
 
 const { Text } = Typography;
 
@@ -89,7 +90,7 @@ export const SystemLoadPage = () => {
         id === "unknown" ? (
           <Text type="secondary">без компании (служебные)</Text>
         ) : (
-          <a onClick={() => openTenant(id)}>{nameById.get(id) ?? "Компания"}</a>
+          <TenantLink id={id} name={nameById.get(id) ?? "Компания"} />
         ),
     },
     {
@@ -171,6 +172,15 @@ export const SystemLoadPage = () => {
           </Button>
         }
       />
+      {heavy.isError || ticks.isError ? (
+        <QueryError
+          what="замеры нагрузки"
+          onRetry={() => {
+            void heavy.refetch();
+            void ticks.refetch();
+          }}
+        />
+      ) : null}
 
       <Card
         size="small"
@@ -217,8 +227,16 @@ export const SystemLoadPage = () => {
           columns={heavyCols}
           pagination={false}
           scroll={{ x: "max-content" }}
-          locale={{ emptyText: "Медленных запросов нет — база не перегружена" }}
-          mobileEmptyText="Медленных запросов нет — база не перегружена"
+          locale={{
+            emptyText: heavy.isError
+              ? "Нет данных — замеры не загрузились"
+              : "Медленных запросов нет — база не перегружена",
+          }}
+          mobileEmptyText={
+            heavy.isError
+              ? "Нет данных — замеры не загрузились"
+              : "Медленных запросов нет — база не перегружена"
+          }
         />
       </Card>
 

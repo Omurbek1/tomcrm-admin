@@ -15,14 +15,15 @@ import {
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PlusOutlined } from "@ant-design/icons";
 
 import { can } from "../api/client";
 import { openAddSubscription } from "../components/AddSubscriptionModal";
+import { QueryError } from "../components/QueryError";
+import { TenantLink } from "../components/TenantLink";
 import { PageHeader, StatTile } from "../components/viz";
-import { openTenant } from "../lib/nav";
 import { SERIES } from "../lib/chartTheme";
 import {
   useBillingHealth,
@@ -74,17 +75,6 @@ const MANUAL_METHOD: Record<string, string> = {
   free: "бесплатно",
 };
 
-/** Название компании — ссылкой в её карточку. */
-const TenantLink = ({ id, name }: { id: string; name: string | null }) => (
-  <Button
-    type="link"
-    size="small"
-    style={{ padding: 0, height: "auto" }}
-    onClick={() => openTenant(id)}
-  >
-    {name || "Без названия"}
-  </Button>
-);
 
 const plural = (n: number, one: string, few: string, many: string) => {
   const d = n % 10;
@@ -98,7 +88,7 @@ const plural = (n: number, one: string, few: string, many: string) => {
 
 export const BillingPage = () => {
   const { message } = App.useApp();
-  const { data: invoices, isLoading } = useBillingInvoices();
+  const { data: invoices, isLoading, isError, refetch } = useBillingInvoices();
   const { data: overages } = useLimitOverages();
   const { data: health } = useBillingHealth();
   const { data: unverified } = useUnverifiedEvents();
@@ -107,11 +97,49 @@ export const BillingPage = () => {
   const markPaid = useMarkInvoicePaid();
 
   // Фильтры (клиентские — список небольшой, приходит целиком).
+  // Фильтры приходят и из адреса: «Обзор» открывает сразу нужные счета
+  // (?status=pending&provider=finik) или раздел (?focus=overages).
   const [statusF, setStatusF] = useState<"all" | BillingInvoiceRow["status"]>(
-    "all",
+    () =>
+      (new URLSearchParams(window.location.search).get("status") as
+        | BillingInvoiceRow["status"]
+        | null) ?? "all",
   );
-  const [providerF, setProviderF] = useState<"all" | "finik" | "manual">("all");
+  const [providerF, setProviderF] = useState<"all" | "finik" | "manual">(
+    () =>
+      (new URLSearchParams(window.location.search).get("provider") as
+        | "finik"
+        | "manual"
+        | null) ?? "all",
+  );
+  const toggleStatus = (s: BillingInvoiceRow["status"]) =>
+    setStatusF((cur) => (cur === s ? "all" : s));
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (statusF === "all") url.searchParams.delete("status");
+    else url.searchParams.set("status", statusF);
+    if (providerF === "all") url.searchParams.delete("provider");
+    else url.searchParams.set("provider", providerF);
+    window.history.replaceState(null, "", url.toString());
+  }, [statusF, providerF]);
+  // ?focus= из «Обзора» — прокрутить к нужному блоку, когда он появится.
+  const focus = new URLSearchParams(window.location.search).get("focus");
+  const focusReady =
+    focus === "overages" ? !!overages?.length
+    : focus === "unverified" ? !!unverified?.length
+    : focus === "health" ? !!health
+    : false;
+  useEffect(() => {
+    if (!focus || !focusReady) return;
+    document
+      .getElementById(`billing-${focus}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Прокрутили один раз — убираем из адреса, F5 не дёргает страницу снова.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("focus");
+    window.history.replaceState(null, "", url.toString());
+  }, [focus, focusReady]);
   const [payingId, setPayingId] = useState<string | null>(null);
 
   const editable = can("billing.edit");
@@ -195,7 +223,7 @@ export const BillingPage = () => {
   };
 
   const columns: ColumnsType<BillingInvoiceRow> = [
-    { title: "Дата", dataIndex: "createdAt", key: "createdAt", render: date, width: 130 },
+    // Компания — первой: на телефоне первая колонка становится заголовком карточки.
     {
       title: "Компания",
       width: 240,
@@ -204,6 +232,7 @@ export const BillingPage = () => {
       render: (v: string | null, r) => <TenantLink id={r.tenantId} name={v} />,
       ellipsis: true,
     },
+    { title: "Дата", dataIndex: "createdAt", key: "createdAt", render: date, width: 130 },
     {
       title: "Назначение",
       key: "kind",
@@ -263,8 +292,8 @@ export const BillingPage = () => {
           <Space size={4}>
             <Tag color={m.color}>{m.label}</Tag>
             {v === "pending" && r.provider === "finik" && (
-              <Tooltip title="Оплата в Finik могла пройти, но вебхук ещё не зачислил. Проверьте и проведите вручную.">
-                <Tag color="warning">ждёт вебхук</Tag>
+              <Tooltip title="Оплата в Finik могла пройти, но Finik ещё не прислал подтверждение. Проверьте и проведите вручную.">
+                <Tag color="warning">ждёт подтверждения Finik</Tag>
               </Tooltip>
             )}
           </Space>
@@ -314,10 +343,10 @@ export const BillingPage = () => {
   ];
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+    <div className="page">
       <PageHeader
         title="Биллинг"
-        subtitle="Счета, оплаты и приём вебхуков Finik"
+        subtitle="Счета, ручные и онлайн-оплаты, проверка оплат Finik"
         extra={
           editable && (
             <Button
@@ -335,25 +364,26 @@ export const BillingPage = () => {
         (health.invalidSignatureLastHour > 0 ||
           health.stuckPending.length > 0) && (
           <Alert
+            id="billing-health"
             type="error"
             showIcon
             style={{ marginBottom: 16 }}
-            title="Проблема с приёмом вебхуков Finik"
+            title="Finik присылает оплаты, которые не удаётся принять"
             description={
               <>
                 {health.invalidSignatureLastHour > 0 && (
                   <div>
                     Отклонено по подписи за час:{" "}
                     <b>{health.invalidSignatureLastHour}</b> из{" "}
-                    {health.webhookLastHour}. Проверьте{" "}
-                    <code>FINIK_WEBHOOK_PUBLIC_PEM</code> (публичный ключ
-                    FINIK).
+                    {health.webhookLastHour}. Похоже, ключ проверки Finik
+                    не задан или устарел — передайте разработчику
+                    (FINIK_WEBHOOK_PUBLIC_PEM).
                   </div>
                 )}
                 {health.stuckPending.length > 0 && (
                   <div>
-                    Счетов с пришедшим вебхуком, но всё ещё «Ожидает» (&gt;30
-                    мин): <b>{health.stuckPending.length}</b>. Проведите их
+                    Счетов, по которым Finik ответил, но они всё ещё «Ожидают»
+                    (дольше 30 мин): <b>{health.stuckPending.length}</b>. Проведите их
                     вручную кнопкой «Провести».
                   </div>
                 )}
@@ -368,7 +398,8 @@ export const BillingPage = () => {
           size="small"
           type="inner"
           title={`Превышения оплаченных лимитов (${overages.length})`}
-          style={{ marginBottom: 16, borderColor: "#ff4d4f" }}
+          id="billing-overages"
+          style={{ marginBottom: 16, borderColor: "var(--danger)" }}
         >
           <Text type="secondary" style={{ fontSize: 12 }}>
             Используется больше, чем оплачено. Компании уведомлены; по номерам
@@ -431,7 +462,8 @@ export const BillingPage = () => {
           size="small"
           type="inner"
           title={`Платежи без проверки подписи — подтвердить вручную (${unverified.length})`}
-          style={{ marginBottom: 16, borderColor: "#faad14" }}
+          id="billing-unverified"
+          style={{ marginBottom: 16, borderColor: "var(--warning)" }}
         >
           <Text type="secondary" style={{ fontSize: 12 }}>
             Ключ Finik ещё не задан, поэтому подпись не проверяется. Сверьте
@@ -466,7 +498,7 @@ export const BillingPage = () => {
                 ellipsis: true,
               },
               {
-                title: "Сумма (вебхук / счёт)",
+                title: "Сумма (от Finik / в счёте)",
                 key: "amount",
                 width: 190,
                 render: (_: unknown, r) => {
@@ -475,7 +507,7 @@ export const BillingPage = () => {
                   const mismatch =
                     wa != null && ia != null && Number(wa) !== Number(ia);
                   return (
-                    <span style={{ color: mismatch ? "#cf1322" : undefined }}>
+                    <span style={{ color: mismatch ? "var(--danger-text)" : undefined }}>
                       {wa != null ? money(wa) : "—"} /{" "}
                       {ia != null ? money(ia) : "—"}
                       {mismatch && " ⚠"}
@@ -558,7 +590,7 @@ export const BillingPage = () => {
             value={counts.pending}
             hint="счёт выставлен, денег нет"
             accent={SERIES.orange}
-            onClick={() => setStatusF("pending")}
+            onClick={() => toggleStatus("pending")}
             active={statusF === "pending"}
           />
         </Col>
@@ -566,9 +598,9 @@ export const BillingPage = () => {
           <StatTile
             label="Ошибки оплаты"
             value={counts.failed}
-            hint="нажмите — показать"
+            hint={statusF === "failed" ? "нажмите — показать все" : "нажмите — показать"}
             accent={SERIES.red}
-            onClick={() => setStatusF("failed")}
+            onClick={() => toggleStatus("failed")}
             active={statusF === "failed"}
           />
         </Col>
@@ -581,7 +613,7 @@ export const BillingPage = () => {
           showIcon
           style={{ marginBottom: 16 }}
           title={`${pendingFinik.length} ${plural(pendingFinik.length, "счёт", "счёта", "счетов")} Finik ${pendingFinik.length === 1 ? "ожидает" : "ожидают"} проведения`}
-          description="Оплата могла пройти, но вебхук ещё не зачислил её (например, не задан публичный ключ Finik). Проверьте оплату и нажмите «Провести» в строке счёта."
+          description="Оплата могла пройти, но Finik ещё не прислал подтверждение (например, не задан ключ проверки Finik). Проверьте оплату и нажмите «Провести» в строке счёта."
           action={
             statusF !== "pending" || providerF !== "finik" ? (
               <Button
@@ -623,6 +655,7 @@ export const BillingPage = () => {
         />
       </Space>
 
+      {isError ? <QueryError what="счета" onRetry={refetch} /> : null}
       <ResponsiveTable<BillingInvoiceRow>
         rowKey="id"
         size="small"

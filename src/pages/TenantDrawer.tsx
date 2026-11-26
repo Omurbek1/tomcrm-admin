@@ -85,6 +85,13 @@ const METHOD_LABEL: Record<string, string> = {
   card: "Карта",
   free: "Бесплатно",
 };
+const NOTIF_STATUS_LABEL: Record<string, string> = {
+  sent: "Отправлено",
+  failed: "Ошибка",
+  skipped: "Пропущено",
+  pending: "В очереди",
+  duplicate: "Повтор",
+};
 const KIND_LABEL: Record<string, string> = {
   addon: "Докупка",
   order: "Заказ",
@@ -251,12 +258,14 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     <span>
       {s.alwaysOn ? `${s.label} · всегда` : s.label}
       {overrideKeys.has(s.key) && (
-        <Tag
-          color="gold"
-          style={{ marginLeft: 6, fontSize: 10, lineHeight: "16px", padding: "0 4px" }}
-        >
-          override
-        </Tag>
+        <Tooltip title="Отличается от тарифа — включено или выключено вручную для этой компании">
+          <Tag
+            color="gold"
+            style={{ marginLeft: 6, fontSize: 12, lineHeight: "18px", padding: "0 6px" }}
+          >
+            изменено
+          </Tag>
+        </Tooltip>
       )}
     </span>
   );
@@ -287,7 +296,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
         title: (
           <span>
             {g.label}{" "}
-            <Text type="secondary" style={{ fontSize: 11 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
               · {enabled} из {g.sections.length}
             </Text>
           </span>
@@ -321,6 +330,8 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   // Включённые разделы (листья). null = не редактировали (показываем эффективные).
   const [moduleChecked, setModuleChecked] = useState<string[] | null>(null);
   const [contactForm] = Form.useForm();
+  const contactPhone = Form.useWatch("contactPhone", contactForm);
+  const contactEmail = Form.useWatch("contactEmail", contactForm);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const restoreTenant = useRestoreTenant();
   const [priceDraft, setPriceDraft] = useState<string>("");
@@ -413,21 +424,33 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
   const priceDirty = priceDraft !== "" && draftPrice !== savedOverride;
   const modulesDirty = moduleChecked !== null;
   const addonsDirty = addonDraft !== null;
+  // Контакты тоже черновик: правку не теряем молча при закрытии карточки.
+  const contactsDirty =
+    !!t &&
+    contactPhone !== undefined &&
+    ((contactPhone ?? "") !== (t.contactPhone ?? "") ||
+      (contactEmail ?? "") !== (t.contactEmail ?? ""));
   const dirtyLabels = [
     priceDirty && "цена",
     modulesDirty && "модули",
-    addonsDirty && "аддоны",
+    addonsDirty && "опции",
+    contactsDirty && "контакты",
   ].filter(Boolean) as string[];
   const dirtyCount = dirtyLabels.length;
   const saveAll = () => {
     if (priceDirty) savePrice(draftPrice);
     if (modulesDirty) saveModules();
     if (addonsDirty) saveAddons();
+    if (contactsDirty) contactForm.submit();
   };
   const cancelAll = () => {
     setPriceDraft("");
     setModuleChecked(null);
     setAddonDraft(null);
+    contactForm.setFieldsValue({
+      contactPhone: t?.contactPhone ?? "",
+      contactEmail: t?.contactEmail ?? "",
+    });
   };
   // п.21: закрытие (Esc / клик по подложке / крестик) при грязном — с подтверждением.
   const requestClose = () => {
@@ -459,6 +482,20 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     return `${v.toLocaleString("ru-RU").replace(/\s/g, " ")} сом`;
   };
 
+  // Сообщение уходит клиенту — всегда спрашиваем и показываем получателя.
+  const confirmReminder = (type: string, label: string) => {
+    if (!t) return;
+    modal.confirm({
+      title: "Отправить уведомление?",
+      content: `«${label}» получателю: ${
+        t.contactPhone || t.contactEmail || "контакт не указан"
+      }`,
+      okText: "Отправить",
+      cancelText: "Отмена",
+      onOk: () => doSendReminder(type),
+    });
+  };
+
   const doSendReminder = (type: string) => {
     if (!t) return;
     sendReminder.mutate(
@@ -475,12 +512,15 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     );
   };
 
-  const applyStatus = (status: string) => {
+  const applyStatus = (status: string, onDone?: () => void) => {
     if (!t) return;
     setStatus.mutate(
       { id: t.id, status },
       {
-        onSuccess: () => message.success("Статус обновлён"),
+        onSuccess: () => {
+          message.success("Статус обновлён");
+          onDone?.();
+        },
         onError: () => message.error("Не удалось сменить статус"),
       },
     );
@@ -604,25 +644,41 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     const curCount = allSectionKeys.filter(
       (k) => data?.modules?.[k] !== false,
     ).length;
-    if (willDisable.length || overrideCount > 0) {
-      modal.confirm({
-        title: "Сменить тариф?",
-        content: `Модулей станет ${newCount} вместо ${curCount}${
-          willDisable.length
-            ? `, отключатся: ${willDisable.map(labelOf).join(", ")}`
-            : ""
-        }.${
-          overrideCount > 0
-            ? " У компании есть индивидуальные правки модулей — проверьте их после смены."
-            : ""
-        }`,
-        okText: "Сменить",
-        cancelText: "Отмена",
-        onOk: apply,
-      });
-    } else {
-      apply();
-    }
+    // Тариф меняется сразу (не черновик) и влияет на цену — спрашиваем всегда
+    // и показываем, что изменится: цену, модули, индивидуальные правки.
+    const next = tariffs?.find((tf) => tf.id === tariffId);
+    const priceOf = (p?: string | number | null) =>
+      p == null ? "—" : fmtMoney(p);
+    const curPrice = t.priceOverride ?? tariff?.price;
+    modal.confirm({
+      title: `Сменить тариф на «${next?.name ?? "новый"}»?`,
+      content: (
+        <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+          <li>
+            Цена в месяц: {priceOf(curPrice)} → <b>{priceOf(next?.price)}</b>
+            {t.priceOverride != null && t.priceOverride !== ""
+              ? " (сейчас индивидуальная — останется, проверьте её)"
+              : ""}
+          </li>
+          <li>
+            Модулей: {curCount} → <b>{newCount}</b>
+            {willDisable.length
+              ? `, отключатся: ${willDisable.map(labelOf).join(", ")}`
+              : ""}
+          </li>
+          {overrideCount > 0 ? (
+            <li>
+              У компании есть индивидуальные правки модулей — проверьте их
+              после смены.
+            </li>
+          ) : null}
+          <li>Применится сразу, без кнопки «Сохранить».</li>
+        </ul>
+      ),
+      okText: "Сменить тариф",
+      cancelText: "Отмена",
+      onOk: apply,
+    });
   };
 
   const saveContacts = (v: { contactPhone?: string; contactEmail?: string }) => {
@@ -678,10 +734,13 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
     setConfirmSlug("");
     setDanger(kind);
   };
+  // Ввод адреса — уже подтверждение: второй вопрос не задаём, окно ждёт
+  // ответа сервера (крутилка на кнопке) и закрывается только при успехе.
   const runDanger = () => {
     if (!t) return;
-    changeStatus(danger === "delete" ? "deleted" : "blocked");
-    setDanger(null);
+    applyStatus(danger === "delete" ? "deleted" : "blocked", () =>
+      setDanger(null),
+    );
   };
 
   return (
@@ -825,7 +884,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 items: REMINDER_TYPES.map((rt) => ({
                   key: rt.value,
                   label: rt.label,
-                  onClick: () => doSendReminder(rt.value),
+                  onClick: () => confirmReminder(rt.value, rt.label),
                 })),
               }}
             >
@@ -1038,6 +1097,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 <Button
                   htmlType="submit"
                   loading={setContacts.isPending}
+                  disabled={!contactsDirty}
                   size="small"
                 >
                   Сохранить контакты
@@ -1201,10 +1261,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                             style={{
                               width: `${pct}%`,
                               background: over
-                                ? "#d03b3b"
+                                ? "var(--danger)"
                                 : pct >= 80
-                                  ? "#c98500"
-                                  : "#2a78d6",
+                                  ? "var(--warning)"
+                                  : "var(--accent)",
                             }}
                           />
                         </span>
@@ -1224,7 +1284,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
 
             <div>
               <Text strong>Опции (докуплено)</Text>
-              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+              <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 6 }}>
                 Добавляются к лимитам тарифа: доп. сотрудник — +1 место,
                 WABA или доп. WhatsApp — +1 номер, AI-менеджер включает модуль AI.
                 «до дата» — опция оплачена заранее до этого дня, потом снимается сама.
@@ -1243,7 +1303,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                       <div style={{ fontSize: 12 }}>
                         {a.label}
                         {data.addonsPaidUntil?.[a.key] ? (
-                          <span style={{ color: "#64748b" }}>
+                          <span style={{ color: "var(--text-3)" }}>
                             {" "}· до {new Date(data.addonsPaidUntil[a.key]).toLocaleDateString("ru-RU")}
                           </span>
                         ) : null}
@@ -1310,8 +1370,9 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
             <Text type="secondary">След. списание: {fmtDate(t.nextChargeAt)}</Text>
           </Space>
 
-          {/* Триал — только если активен */}
-          {t.status !== "active" && t.status !== "deleted" && (
+          {/* Триал — только у компаний в триале (у замороженной продление
+              триала ничего не даёт и путает). */}
+          {t.status === "trial" && (
             <>
               <Divider titlePlacement="start">Триал</Divider>
               <Space orientation="vertical" style={{ marginBottom: 8 }}>
@@ -1573,7 +1634,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                   </Space>
                 )}
               </Space>
-              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+              <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 6 }}>
                 Итоговый набор разделов = тариф + индивидуальные правки. Отличия
                 от тарифа помечены.
               </div>
@@ -1657,16 +1718,7 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
               items: REMINDER_TYPES.map((rt) => ({
                 key: rt.value,
                 label: rt.label,
-                onClick: () =>
-                  modal.confirm({
-                    title: "Отправить уведомление?",
-                    content: `«${rt.label}» получателю: ${
-                      t.contactPhone || t.contactEmail || "контакт не указан"
-                    }`,
-                    okText: "Отправить",
-                    cancelText: "Отмена",
-                    onOk: () => doSendReminder(rt.value),
-                  }),
+                onClick: () => confirmReminder(rt.value, rt.label),
               })),
             }}
           >
@@ -1690,9 +1742,10 @@ export const TenantDrawer = ({ tenantId, onClose }: Props) => {
                 >
                   <span>
                     <Tag color={NOTIF_STATUS_COLOR[n.status] ?? "default"}>
-                      {n.status}
+                      {NOTIF_STATUS_LABEL[n.status] ?? n.status}
                     </Tag>
-                    {n.type}
+                    {REMINDER_TYPES.find((rt) => rt.value === n.type)?.label ??
+                      n.type}
                   </span>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {new Date(n.createdAt).toLocaleString("ru-RU")}

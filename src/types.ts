@@ -392,14 +392,14 @@ export interface PermissionDef {
 export const STATUS_LABEL: Record<TenantStatus, string> = {
   trial: "Триал",
   active: "Активна",
-  blocked: "Заблокирована",
+  blocked: "Заморожена",
   deleted: "Удалена",
 };
 
 export const STATUS_COLOR: Record<TenantStatus, string> = {
   trial: "blue",
   active: "green",
-  blocked: "red",
+  blocked: "default",
   deleted: "default",
 };
 

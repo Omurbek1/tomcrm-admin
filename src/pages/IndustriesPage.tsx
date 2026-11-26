@@ -4,6 +4,7 @@ import {
   Button,
   Input,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Switch,
@@ -29,6 +30,8 @@ import {
   useUpdateIndustry,
 } from "../hooks";
 import { can } from "../api/client";
+import { QueryError } from "../components/QueryError";
+import { confirmDiscard } from "../lib/confirmDiscard";
 import { PageHeader } from "../components/viz";
 import { MODULE_GROUPS_FALLBACK } from "../types";
 import type {
@@ -84,7 +87,7 @@ const emptyForm: IndustryInput = {
 
 export function IndustriesPage() {
   const { message } = AntApp.useApp();
-  const { data: industries = [], isLoading } = useIndustries();
+  const { data: industries = [], isLoading, isError, refetch } = useIndustries();
   const reorder = useReorderIndustries();
   const del = useDeleteIndustry();
   const update = useUpdateIndustry();
@@ -115,14 +118,17 @@ export function IndustriesPage() {
         const msg =
           (e as { response?: { data?: { message?: string } } })?.response?.data
             ?.message ?? "Не удалось удалить";
-        // 409 = есть компании → переведена в архив, показываем как info.
-        message.info(msg);
+        // 409 = есть компании → переведена в архив (это не ошибка);
+        // всё остальное (сеть, 500) — настоящая ошибка.
+        const code = (e as { response?: { status?: number } })?.response?.status;
+        if (code === 409) message.info(msg);
+        else message.error(msg);
       },
     });
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
+    <div className="page is-narrow">
       <PageHeader
         title="Отрасли"
         subtitle="Справочник отраслей компаний"
@@ -136,11 +142,12 @@ export function IndustriesPage() {
               setModalOpen(true);
             }}
           >
-            Создать
+            Создать отрасль
           </Button>
         }
       />
 
+      {isError ? <QueryError what="отрасли" onRetry={refetch} /> : null}
       <ResponsiveTable<Industry>
         rowKey="id"
         loading={isLoading}
@@ -157,6 +164,7 @@ export function IndustriesPage() {
                   size="small"
                   type="text"
                   icon={<ArrowUpOutlined />}
+                  aria-label="Выше"
                   disabled={!editable || idx === 0}
                   onClick={() => move(idx, -1)}
                 />
@@ -164,6 +172,7 @@ export function IndustriesPage() {
                   size="small"
                   type="text"
                   icon={<ArrowDownOutlined />}
+                  aria-label="Ниже"
                   disabled={!editable || idx === industries.length - 1}
                   onClick={() => move(idx, 1)}
                 />
@@ -176,13 +185,13 @@ export function IndustriesPage() {
             render: (v: string, r) => (
               <Space>
                 <span>{v}</span>
-                {r.isDefault && <Tag color="blue">дефолт</Tag>}
+                {r.isDefault && <Tag color="blue">по умолчанию</Tag>}
                 {!r.isActive && <Tag color="default">архив</Tag>}
               </Space>
             ),
           },
           {
-            title: "slug",
+            title: "Адрес (латиница)",
             dataIndex: "slug",
             render: (v: string) => <Text code>{v}</Text>,
           },
@@ -205,6 +214,7 @@ export function IndustriesPage() {
               <Switch
                 checked={v}
                 disabled={!editable}
+                aria-label={`Активна: ${r.nameRu}`}
                 onChange={(checked) => toggleActive(r, checked)}
               />
             ),
@@ -218,27 +228,43 @@ export function IndustriesPage() {
                   <Button
                     size="small"
                     icon={<EditOutlined />}
+                    aria-label={`Редактировать «${r.nameRu}»`}
+                    disabled={!editable}
                     onClick={() => {
                       setEditing(r);
                       setModalOpen(true);
                     }}
                   />
                 </Tooltip>
-                <Tooltip
-                  title={
+                <Popconfirm
+                  title={`Удалить отрасль «${r.nameRu}»?`}
+                  description={
                     r.tenantsCount > 0
-                      ? "Есть компании — уйдёт в архив"
-                      : "Удалить"
+                      ? `У неё ${r.tenantsCount} компаний — отрасль уйдёт в архив, компании не пострадают.`
+                      : "Новые компании не смогут её выбрать."
                   }
+                  okText={r.tenantsCount > 0 ? "В архив" : "Удалить"}
+                  okButtonProps={{ danger: true }}
+                  cancelText="Отмена"
+                  disabled={!editable}
+                  onConfirm={() => remove(r)}
                 >
-                  <Button
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    disabled={!editable}
-                    onClick={() => remove(r)}
-                  />
-                </Tooltip>
+                  <Tooltip
+                    title={
+                      r.tenantsCount > 0
+                        ? "Есть компании — уйдёт в архив"
+                        : "Удалить"
+                    }
+                  >
+                    <Button
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      aria-label={`Удалить «${r.nameRu}»`}
+                      disabled={!editable}
+                    />
+                  </Tooltip>
+                </Popconfirm>
               </Space>
             ),
           },
@@ -262,7 +288,7 @@ function IndustryModal({
   industry: Industry | null;
   onClose: () => void;
 }) {
-  const { message } = AntApp.useApp();
+  const { message, modal } = AntApp.useApp();
   const create = useCreateIndustry();
   const update = useUpdateIndustry();
   const { data: catalog } = useModuleCatalog();
@@ -271,6 +297,10 @@ function IndustryModal({
   const [form, setForm] = useState<IndustryInput>(
     industry ? { ...industry } : emptyForm,
   );
+  // Снимок при открытии — сравниваем, чтобы не терять правки при закрытии.
+  const [initialJson] = useState(() => JSON.stringify(form));
+  const requestClose = () =>
+    confirmDiscard(modal, JSON.stringify(form) !== initialJson, onClose);
   // slug редактировали вручную? — тогда не перезатираем автогеном.
   const [slugTouched, setSlugTouched] = useState(!!industry);
 
@@ -362,7 +392,8 @@ function IndustryModal({
     <Modal
       open
       title={industry ? "Редактирование отрасли" : "Новая отрасль"}
-      onCancel={onClose}
+      onCancel={requestClose}
+      cancelText="Отмена"
       onOk={submit}
       okText="Сохранить"
       confirmLoading={create.isPending || update.isPending}
@@ -409,7 +440,7 @@ function IndustryModal({
               placeholder="retail"
             />
           </Field>
-          <Field label="Иконка (имя)">
+          <Field label="Иконка (название из набора)">
             <Input
               value={form.icon ?? ""}
               onChange={(e) => set("icon", e.target.value)}
@@ -439,13 +470,13 @@ function IndustryModal({
           </div>
         </div>
 
-        <Space>
+        <label className="switch-row">
           <Switch
             checked={form.warehouseEnabled}
             onChange={(v) => set("warehouseEnabled", v)}
           />
           <span>Использовать склад</span>
-        </Space>
+        </label>
 
               </div>
             ),
@@ -456,7 +487,7 @@ function IndustryModal({
             children: (
         <div>
           <Text strong>Стадии воронки</Text>
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 6 }}>
             По порядку. Последняя = проигрыш, предпоследняя = победа.
           </div>
           <div style={{ display: "grid", gap: 6 }}>
@@ -466,7 +497,7 @@ function IndustryModal({
                   value={s}
                   onChange={(e) => setStage(i, e.target.value)}
                   placeholder={`Стадия ${i + 1}`}
-                  prefix={<span style={{ color: "#94a3b8", width: 18 }}>{i + 1}</span>}
+                  prefix={<span style={{ color: "var(--text-3)", width: 18 }}>{i + 1}</span>}
                   suffix={
                     i === stages.length - 1 ? (
                       <Tag color="red" style={{ margin: 0 }}>проигрыш</Tag>
@@ -513,8 +544,8 @@ function IndustryModal({
             label: `Модули · ${(form.modules ?? []).length}`,
             children: (
         <div>
-          <Text strong>Модули отрасли (пресет)</Text>
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6 }}>
+          <Text strong>Модули отрасли (набор по умолчанию)</Text>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 6 }}>
             Те же разделы CRM, что в карточке компании. Всегда-включённые нельзя снять.
           </div>
           <Tree
@@ -539,7 +570,7 @@ function IndustryModal({
         <div>
           <Text strong>Каталог товаров по умолчанию</Text>
           <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
-            Компания получает эти значения при регистрации и при применении пресета.
+            Компания получает эти значения при регистрации и при применении набора отрасли.
           </Text>
           <div style={{ display: "grid", gap: 8, marginTop: 6 }}>
             <div>
@@ -563,48 +594,48 @@ function IndustryModal({
                 }
               />
             </div>
-            <Space>
+            <label className="switch-row">
               <Switch
                 checked={!!form.productCatalog?.requireCategory}
                 onChange={(v) => setCatalog({ requireCategory: v })}
               />
               <span>Категория обязательна</span>
-            </Space>
-            <Space>
+            </label>
+            <label className="switch-row">
               <Switch
                 checked={!!form.productCatalog?.showScaleCode}
                 onChange={(v) => setCatalog({ showScaleCode: v })}
               />
               <span>Показывать «Код на весах»</span>
-            </Space>
-            <Space>
+            </label>
+            <label className="switch-row">
               <Switch
                 checked={form.productCatalog?.useBarcodes !== false}
                 onChange={(v) => setCatalog({ useBarcodes: v })}
               />
               <span>Штрихкоды и сканер</span>
-            </Space>
-            <Space>
+            </label>
+            <label className="switch-row">
               <Switch
                 checked={!!form.productCatalog?.onlyServices}
                 onChange={(v) => setCatalog({ onlyServices: v })}
               />
               <span>Только услуги (без закупки и склада)</span>
-            </Space>
-            <Space>
+            </label>
+            <label className="switch-row">
               <Switch
                 checked={form.productCatalog?.trackCost !== false}
                 onChange={(v) => setCatalog({ trackCost: v })}
               />
               <span>Закупочная цена</span>
-            </Space>
-            <Space>
+            </label>
+            <label className="switch-row">
               <Switch
                 checked={form.productCatalog?.useWarehouse !== false}
                 onChange={(v) => setCatalog({ useWarehouse: v })}
               />
               <span>Склад и поступления</span>
-            </Space>
+            </label>
           </div>
         </div>
             ),
@@ -623,11 +654,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+    <label style={{ display: "block" }}>
+      <div style={{ fontSize: 13, color: "var(--text-3)", marginBottom: 4 }}>
         {label}
       </div>
       {children}
-    </div>
+    </label>
   );
 }
